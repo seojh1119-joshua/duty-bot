@@ -1,0 +1,15 @@
+# config.yaml
+kakao:
+  rest_api_key: "여기에_내_REST_API_키_붙여넣기"  # 카카오 개발자센터에서 발급
+  # 알림톡 사용 시 (대행사/직접 계약 시)
+  # alimtalk:
+  #   sender_key: "SENDER_KEY"
+  #   template_code: "TEMPLATE_CODE_001"
+  
+scheduler:
+  check_time: "09:00"      # 매일 오전 9시에 내일 근무자 조회
+  timezone: "Asia/Seoul"
+
+data:
+  schedule_file: "data/duty_schedule.xlsx"
+  mapping_file: "data/staff_mapping.csv"

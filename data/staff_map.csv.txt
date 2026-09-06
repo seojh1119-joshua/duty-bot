@@ -1,0 +1,9 @@
+map_df = pd.read_csv(MAPPING, dtype=str).fillna("")
+# 컬럼: 이름, 카카오키(보낸사람키), 알림여부, 친구UUID
+sender_key_map = dict(zip(map_df["이름"], map_df["카카오키"]))      # 보낸사람 토큰 키
+uuid_map       = dict(zip(map_df["이름"], map_df["친구UUID"]))       # 받는사람 UUID
+ok_map         = dict(zip(map_df["이름"], map_df["알림여부"]))
+
+# 루프 안에서
+sender_key = sender_key_map.get(name, "신혜원")  # 기본값 관리자
+uuid = uuid_map.get(name)

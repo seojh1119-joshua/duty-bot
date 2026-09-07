@@ -15,11 +15,11 @@ try:
 except ImportError:
     kr_holidays = {}
 
-# 기본 저장 폴더 생성
+# DATA 및 data 폴더 기본 보장 생성
+os.makedirs("DATA", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
-DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
-PERSISTENCE_STATE_PATH = os.path.join("data", "edited_duty_schedule.json")
+PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -32,11 +32,10 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (모바일 가로 7열 자동 비율 조절 레이아웃)
+# CSS 스타일링 (모바일 및 화면 비율 자동 조절 7열 그리드)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 여백 및 패딩 최적화 */
     .main .block-container {
         padding-top: 1rem;
         padding-bottom: 2rem;
@@ -44,7 +43,7 @@ responsive_css = """
         padding-right: 0.2rem;
     }
     
-    /* 모바일 및 모든 기기에서 가로 7열 비율 자동 조절 유지 */
+    /* 화면 너비에 맞춰 가로 7열 비율 자동 조절 */
     .calendar-grid {
         display: grid;
         grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -61,7 +60,7 @@ responsive_css = """
         border-radius: 4px;
     }
 
-    /* 달력 내부 직접 클릭형 셀 버튼 (비율 자동 조절 및 아이콘 제거) */
+    /* 직접 클릭형 달력 날짜 셀 버튼 */
     .stButton > button {
         width: 100% !important;
         min-height: 80px !important;
@@ -86,7 +85,7 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 상단 강조 카드 */
+    /* 오늘 근무자 강조 카드 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
@@ -101,15 +100,28 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 수정 상태 저장/로드 (Persistence)
+# DATA 폴더 내 엑셀 파일 탐색 함수
+# ---------------------------------------------------------
+def get_initial_excel_file():
+    """DATA 또는 data 폴더 안의 엑셀 파일 탐색"""
+    candidates = (
+        glob.glob(os.path.join("DATA", "*.xlsx"))
+        + glob.glob(os.path.join("data", "*.xlsx"))
+        + glob.glob("*.xlsx")
+    )
+    # 임시 파일(~$...) 제외
+    valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
+    return valid_files[0] if valid_files else None
+
+
+# ---------------------------------------------------------
+# 저장 및 로드 기능 (Persistence)
 # ---------------------------------------------------------
 def save_app_state(df, sheet_name, memos):
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime(
-                "%Y-%m-%d"
-            )
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
         state_data = {
             "selected_sheet": sheet_name,
@@ -143,10 +155,9 @@ def load_app_state():
 
 
 # ---------------------------------------------------------
-# 스마트 엑셀 로더 (숙직근무자 시트 최우선 참고 & 파일 접근성 보장)
+# 스마트 엑셀 파서 ('숙직근무자' 시트 최우선 인식)
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
-    # 바이너리 바이트 스트림 변환 처리
     if isinstance(file_input, bytes):
         file_obj = io.BytesIO(file_input)
     elif hasattr(file_input, "read"):
@@ -159,7 +170,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     excel_file = pd.ExcelFile(file_obj)
     sheet_names = excel_file.sheet_names
 
-    # 1. '숙직근무자' 시트 최우선 자동 선택
+    # 1. '숙직근무자' 시트 최우선 자동 탐색
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
         priority_sheets = [
@@ -167,14 +178,12 @@ def load_excel_smart(file_input, selected_sheet=None):
             for s in sheet_names
             if any(k in s for k in ["숙직근무자", "숙직", "의료과", "야근"])
         ]
-        target_sheet = (
-            priority_sheets[0] if priority_sheets else sheet_names[0]
-        )
+        target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
 
     file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
-    # 2. 헤더 행 자동 식별
+    # 2. 헤더(표 제목) 시작 위치 탐색
     header_idx = 0
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
@@ -281,12 +290,8 @@ def load_excel_smart(file_input, selected_sheet=None):
         None,
     )
 
-    df["근무자1"] = (
-        df[p1_col].astype(str).str.strip() if p1_col else "미지정"
-    )
-    df["근무자2"] = (
-        df[p2_col].astype(str).str.strip() if p2_col else "미지정"
-    )
+    df["근무자1"] = df[p1_col].astype(str).str.strip() if p1_col else "미지정"
+    df["근무자2"] = df[p2_col].astype(str).str.strip() if p2_col else "미지정"
     df["대직1"] = df[sub1_col].astype(str).str.strip() if sub1_col else None
     df["대직2"] = df[sub2_col].astype(str).str.strip() if sub2_col else None
 
@@ -315,13 +320,12 @@ def load_excel_smart(file_input, selected_sheet=None):
 
 
 # ---------------------------------------------------------
-# 세션 상태 관리
+# 초기 세션 설정 및 데이터 로드
 # ---------------------------------------------------------
+initial_file = get_initial_excel_file()
+
 if "file_path" not in st.session_state:
-    data_files = glob.glob(os.path.join("data", "*.xlsx"))
-    st.session_state.file_path = (
-        data_files[0] if data_files else DEFAULT_FILE_PATH
-    )
+    st.session_state.file_path = initial_file
 
 if "df" not in st.session_state:
     saved_df, saved_sheet, saved_memos = load_app_state()
@@ -330,29 +334,24 @@ if "df" not in st.session_state:
         st.session_state.df = saved_df
         st.session_state.selected_sheet = saved_sheet
         st.session_state.memos = saved_memos
-        if os.path.exists(st.session_state.file_path):
-            _, _, sheet_names, raw_df = load_excel_smart(
-                st.session_state.file_path
-            )
+        if initial_file and os.path.exists(initial_file):
+            _, _, sheet_names, raw_df = load_excel_smart(initial_file)
             st.session_state.sheet_names = sheet_names
             st.session_state.raw_df = raw_df
         else:
             st.session_state.sheet_names = [saved_sheet]
             st.session_state.raw_df = pd.DataFrame()
-    elif os.path.exists(st.session_state.file_path):
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(
-            st.session_state.file_path
-        )
+    elif initial_file and os.path.exists(initial_file):
+        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(initial_file)
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
         st.session_state.memos = {}
     else:
+        # DATA 폴더 내 엑셀 파일이 없을 경우 샘플 데이터 자동 생성
         today_date = datetime.date.today()
-        dates = pd.date_range(
-            start=today_date.replace(day=1), periods=60, freq="D"
-        )
+        dates = pd.date_range(start=today_date.replace(day=1), periods=60, freq="D")
         sample_df = pd.DataFrame({
             "날짜": dates,
             "근무구분_원본": ["평일", "금요일", "토요일", "일요일", "평일"] * 12,
@@ -373,7 +372,7 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 달력 카드 직접 클릭 시 팝업되는 수정 대화상자
+# 직접 클릭 수정 대화상자 (@st.dialog)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -392,7 +391,7 @@ def edit_worker_dialog(date_str, duty_info):
 
         st.divider()
         edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력 셀에 즉시 표시)",
+            "📌 날짜별 메모 (달력 셀에 반영됨)",
             value=current_memo,
             height=80,
         )
@@ -430,21 +429,23 @@ def edit_worker_dialog(date_str, duty_info):
 
 
 # ---------------------------------------------------------
-# 사이드바 (파일 업로드 접근성 완벽 보장)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 설정")
 
+    if initial_file:
+        st.info(f"📄 기본 파일: `{os.path.basename(initial_file)}`")
+    else:
+        st.warning("⚠️ DATA 폴더에 엑셀 파일이 없어 샘플 모드로 동작합니다.")
+
     uploaded_file = st.file_uploader(
-        "새 엑셀 파일 업로드 (데이터 교체)", type=["xlsx"]
+        "새 엑셀 파일 업로드 (DATA 데이터 교체)", type=["xlsx"]
     )
 
-    # 새 파일 업로드 시 파일 읽기 권한/포인터 오류 방지 파싱
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(
-            file_bytes
-        )
+        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
 
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
@@ -456,9 +457,7 @@ with st.sidebar:
             os.remove(PERSISTENCE_STATE_PATH)
         save_app_state(parsed_df, used_sheet, {})
 
-        st.success(
-            f"✅ '{used_sheet}' 시트를 성공적으로 로드하여 갱신했습니다!"
-        )
+        st.success(f"✅ '{used_sheet}' 시트를 성공적으로 읽어왔습니다!")
         st.rerun()
 
     if "sheet_names" in st.session_state:
@@ -496,10 +495,9 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (오늘 근무자 연동 & 클릭 수정)
 # ---------------------------------------------------------
 with tab1:
-    # 1. 오늘 날짜 연동 및 실시간 갱신 상단 배너
     today_df = df[df["날짜"].dt.date == today]
     today_str = today.strftime("%Y년 %m월 %d일")
 
@@ -534,7 +532,6 @@ with tab1:
     else:
         st.info(f"💡 오늘({today_str}) 지정된 숙직 근무 정보가 없습니다.")
 
-    # 조회 월 선택
     available_months = sorted(df["년월"].dropna().unique())
     current_ym = today.strftime("%Y-%m")
     default_idx = (
@@ -550,9 +547,7 @@ with tab1:
         key="calendar_month_select",
     )
 
-    st.caption(
-        "💡 **달력의 날짜 셀을 직접 클릭하면** 근무자 변경 및 메모 입력 팝업이 표시됩니다."
-    )
+    st.caption("💡 **달력 날짜 셀을 직접 클릭하면** 정보 수정 팝업 창이 열립니다.")
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -579,7 +574,6 @@ with tab1:
                 "p2_real": str(row["실제근무2"]),
             }
 
-        # 요일 헤더
         headers = ["일", "월", "화", "수", "목", "금", "토"]
         colors = ["🔴", "⚪", "⚪", "⚪", "⚪", "⚪", "🔵"]
         header_html = "<div class='calendar-grid'>"
@@ -588,7 +582,6 @@ with tab1:
         header_html += "</div>"
         st.markdown(header_html, unsafe_allow_html=True)
 
-        # 모바일 비율 가로 7열 자동 조절 버튼 그리드
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -622,7 +615,7 @@ with tab1:
                                 edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
-# TAB 2: 데이터 점검
+# TAB 2: 시트 데이터 점검
 # ---------------------------------------------------------
 with tab_sheet:
     st.subheader(
@@ -631,7 +624,7 @@ with tab_sheet:
     st.dataframe(df, use_container_width=True)
 
 # ---------------------------------------------------------
-# TAB 3: 근무표 전체 수정
+# TAB 3: 전체 근무표 수정
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")

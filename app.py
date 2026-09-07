@@ -24,43 +24,55 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링
+# CSS 스타일링 (달력 카드 디자인 및 가독성 개선)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
     .main .block-container {
-        padding-top: 1.5rem;
+        padding-top: 1.2rem;
         padding-bottom: 2rem;
-        padding-left: 0.8rem;
-        padding-right: 0.8rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    .duty-card {
+        border: 1px solid #E0E0E0;
+        border-radius: 8px;
+        padding: 6px;
+        margin-bottom: 8px;
+        min-height: 110px;
+        background-color: #FFFFFF;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     .duty-card-header {
-        border-radius: 8px 8px 0 0;
-        padding: 6px 8px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         font-weight: bold;
         font-size: 13px;
-        border-bottom: 1px solid rgba(0,0,0,0.08);
+        padding: 2px 4px;
+        border-radius: 4px;
+        margin-bottom: 4px;
+    }
+    .duty-worker-info {
+        font-size: 12px;
+        color: #1E293B;
+        line-height: 1.4;
+        margin-bottom: 4px;
     }
     .duty-card-memo {
-        margin: 3px 0;
-        padding: 3px 6px;
-        background-color: #FFFDE7;
-        border-left: 3px solid #FBC02D;
+        margin-top: 4px;
+        padding: 3px 5px;
+        background-color: #FEF3C7;
+        border-left: 3px solid #F59E0B;
         font-size: 11px;
-        color: #555555;
+        color: #92400E;
         border-radius: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        word-break: break-all;
     }
     .stButton > button {
         width: 100% !important;
-        font-size: 11px !important;
-        padding: 2px 4px !important;
-        min-height: 26px !important;
-        height: auto !important;
-        margin-bottom: 2px !important;
+        font-size: 10px !important;
+        padding: 1px 2px !important;
+        min-height: 22px !important;
+        height: 22px !important;
+        margin-top: 2px !important;
     }
 </style>
 """
@@ -69,18 +81,18 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
 
 # ---------------------------------------------------------
-# 근무구분 텍스트(문자) 기반 요일 판별 및 근무시간 매핑
+# 근무구분_원본 텍스트(문자) 기반 요일 판별 및 근무시간 매핑
 # ---------------------------------------------------------
 def parse_duty_type_from_text(duty_str):
     """
-    근무구분 셀에 적힌 문자열을 정확히 감지하여 분류합니다.
+    근무구분_원본 셀에 적힌 문자열을 정확히 읽어 범주화합니다.
     """
     if pd.isnull(duty_str):
         return "평일"
     
     val = str(duty_str).strip()
     
-    # 문자로 요일 파악 (우선순위 고려)
+    # 텍스트 검출
     if "금" in val:
         return "금요일"
     elif "토" in val:
@@ -91,7 +103,7 @@ def parse_duty_type_from_text(duty_str):
         return "평일"
 
 def get_duty_hours_by_category(category):
-    """구분별 규정 근무시간 설정"""
+    """구분별 근무시간 매핑"""
     if category == "평일":
         return 7.0
     elif category == "금요일":
@@ -124,7 +136,7 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
-    # 헤더 행 탐색
+    # 헤더 행 위치 자동 감지
     header_idx = None
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
@@ -151,7 +163,7 @@ def load_excel_smart(file_source, selected_sheet=None):
         clean_cols.append(c_str)
     df.columns = clean_cols
 
-    # 날짜 열 감지
+    # 날짜 열 탐색 및 변환
     date_col = next(
         (col for col in df.columns if any(k in col.lower() for k in ["날짜", "일자", "근무일", "date", "일자/요일"])),
         df.columns[0]
@@ -160,7 +172,7 @@ def load_excel_smart(file_source, selected_sheet=None):
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     df = df.dropna(subset=["날짜"]).copy()
 
-    # ★ 핵심 보완: 근무구분 열을 유연하고 정확하게 검색
+    # ★ 근무구분 열을 검색하여 근무구분_원본 열 생성
     duty_type_col = next(
         (c for c in df.columns if any(k in c for k in ["근무구분", "구분", "근무유형", "요일구분", "요일"])), 
         None
@@ -170,7 +182,7 @@ def load_excel_smart(file_source, selected_sheet=None):
     else:
         df["근무구분_원본"] = "평일"
 
-    # 근무자 및 대직자 열 검색
+    # 근무자 및 대직자 열 탐색
     cols = list(df.columns)
     p1_col = next((c for c in cols if any(k in c for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1", "성명", "이름"]) and "대직" not in c), None)
     p2_col = next((c for c in cols if any(k in c for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]) and "대직" not in c), None)
@@ -182,12 +194,12 @@ def load_excel_smart(file_source, selected_sheet=None):
     df["대직1"] = df[sub1_col] if sub1_col else None
     df["대직2"] = df[sub2_col] if sub2_col else None
 
-    # 요일 구분 파싱 및 시간 산출
+    # 파싱 결과 반영
     df["상세구분"] = df["근무구분_원본"].apply(parse_duty_type_from_text)
     df["근무시간"] = df["상세구분"].apply(get_duty_hours_by_category)
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 대직자 적용한 실제근무자 열 생성
+    # 대직 적용 실제근무자 반영
     df["실제근무1"] = (
         df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
         .combine_first(df["근무자1"]).fillna("미지정")
@@ -201,7 +213,7 @@ def load_excel_smart(file_source, selected_sheet=None):
 
 
 def save_to_excel_file(df, sheet_name):
-    """수정된 데이터를 엑셀 파일에 저장"""
+    """수정사항 엑셀 저장"""
     save_path = st.session_state.get("file_path", DEFAULT_FILE_PATH)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
@@ -265,20 +277,27 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 대직자 수정 모달 팝업
+# 근무자 수정 및 메모 입력 팝업 모달
 # ---------------------------------------------------------
-@st.dialog("✏️ 근무자 수정 및 저장")
+@st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
-    st.write(f"📅 **{date_str} 근무자 직접 수정**")
+    st.write(f"📅 **{date_str} 상세 정보 입력**")
+
+    current_memo = st.session_state.memos.get(date_str, "")
 
     with st.form(key=f"dialog_form_{date_str}"):
-        edit_p1 = st.text_input("원래 근무자1", value=duty_info["p1_orig"])
-        edit_sub1 = st.text_input("대직자1 (없으면 빈칸)", value=duty_info["sub1"])
-        st.divider()
-        edit_p2 = st.text_input("원래 근무자2", value=duty_info["p2_orig"])
-        edit_sub2 = st.text_input("대직자2 (없으면 빈칸)", value=duty_info["sub2"])
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            edit_p1 = st.text_input("근무자1", value=duty_info["p1_orig"])
+            edit_sub1 = st.text_input("대직자1", value=duty_info["sub1"])
+        with col_f2:
+            edit_p2 = st.text_input("근무자2", value=duty_info["p2_orig"])
+            edit_sub2 = st.text_input("대직자2", value=duty_info["sub2"])
 
-        submitted = st.form_submit_button("💾 원본 파일에 저장", use_container_width=True)
+        st.divider()
+        edit_memo = st.text_area("📌 날짜별 메모 (달력에 바로 표시됨)", value=current_memo, height=80)
+
+        submitted = st.form_submit_button("💾 저장하기", use_container_width=True)
 
         if submitted:
             row_idx = duty_info["idx"]
@@ -290,8 +309,11 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.df.at[row_idx, "실제근무1"] = edit_sub1.strip() if edit_sub1.strip() else edit_p1.strip()
             st.session_state.df.at[row_idx, "실제근무2"] = edit_sub2.strip() if edit_sub2.strip() else edit_p2.strip()
 
+            # 메모 세션 업데이트
+            st.session_state.memos[date_str] = edit_memo.strip()
+
             save_to_excel_file(st.session_state.df, st.session_state.selected_sheet)
-            st.success("✅ 파일 저장이 완료되었습니다!")
+            st.success("✅ 저장되었습니다!")
             st.rerun()
 
 
@@ -312,7 +334,7 @@ with st.sidebar:
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-        st.success("✅ 파일 업로드 완료!")
+        st.success("✅ 업로드 완료!")
         st.rerun()
 
     if "sheet_names" in st.session_state:
@@ -343,7 +365,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (날짜, 근무자, 메모 직접 시각화)
 # ---------------------------------------------------------
 with tab1:
     st.subheader("📅 근무 달력")
@@ -389,18 +411,30 @@ with tab1:
                         is_today = (curr_date == today)
                         is_holiday = kr_holidays.get(curr_date) is not None or i == 0
 
-                        bg = "#FFF3E0" if is_today else ("#FFEBEE" if is_holiday else ("#E3F2FD" if i == 6 else "#F9F9F9"))
-                        st.markdown(f"<div class='duty-card-header' style='background-color:{bg};'>{day}일</div>", unsafe_allow_html=True)
+                        bg_header = "#FFD54F" if is_today else ("#FFCDD2" if is_holiday else ("#BBDEFB" if i == 6 else "#E0E0E0"))
+                        
+                        # 카드 및 날짜 헤더
+                        card_html = f"<div class='duty-card'>"
+                        card_html += f"<div class='duty-card-header' style='background-color:{bg_header};'>{day}일</div>"
 
+                        # 근무자 이름 및 대직 표시
                         if duty_info:
-                            p1_display = duty_info['p1_real'] + ("(대)" if duty_info['sub1'] else "")
-                            p2_display = duty_info['p2_real'] + ("(대)" if duty_info['sub2'] else "")
-                            if st.button(f"{p1_display} / {p2_display}", key=f"btn_{date_str}"):
-                                edit_worker_dialog(date_str, duty_info)
+                            p1_txt = duty_info['p1_real'] + ("(대)" if duty_info['sub1'] else "")
+                            p2_txt = duty_info['p2_real'] + ("(대)" if duty_info['sub2'] else "")
+                            card_html += f"<div class='duty-worker-info'>👤 {p1_txt}<br>👤 {p2_txt}</div>"
 
+                        # 메모 내용 화면 표시
                         day_memo = st.session_state.memos.get(date_str, "")
                         if day_memo:
-                            st.markdown(f'<div class="duty-card-memo">📌 {day_memo}</div>', unsafe_allow_html=True)
+                            card_html += f"<div class='duty-card-memo'>📌 {day_memo}</div>"
+
+                        card_html += "</div>"
+                        st.markdown(card_html, unsafe_allow_html=True)
+
+                        # 수정 버튼
+                        if duty_info:
+                            if st.button("✏️ 수정", key=f"btn_{date_str}"):
+                                edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
 # TAB 2: 데이터 점검
@@ -420,12 +454,11 @@ with tab2:
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
         
-        # ★ 수정된 근무구분 문자열에 맞춰 상세구분/시간 재계산
+        # 근무구분_원본 재파싱
         edited_df["상세구분"] = edited_df["근무구분_원본"].apply(parse_duty_type_from_text)
         edited_df["근무시간"] = edited_df["상세구분"].apply(get_duty_hours_by_category)
         edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
 
-        # 대직자 변경에 맞게 실제근무자 재산출
         edited_df["실제근무1"] = (
             edited_df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
             .combine_first(edited_df["근무자1"]).fillna("미지정")
@@ -441,16 +474,16 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 월별 근무 통계 (★ 실시간 세션 데이터 사용하도록 수정 완료)
+# TAB 4: 월별 근무 통계 ('근무구분_원본' 열 기반 집계)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
-    st.caption("📌 **'근무구분' 열 텍스트 반영**: 평일(7h), 금요일(15h), 토요일(휴일)(15h), 일요일(휴일)(7h) / 휴일근무 = 토요일 + 일요일")
+    st.caption("📌 **'근무구분_원본' 열 기준 분석**: 평일(7h), 금요일(15h), 토요일(휴일)(15h), 일요일(휴일)(7h) | 휴일근무 = 토요일 + 일요일")
 
-    # 세션에 저장된 최신 df 데이터 활용
+    # 세션 내 최신 데이터프레임 가져오기
     duty_stat_df = st.session_state.df.copy()
 
-    # 실시간 데이터 기준 다시 파싱
+    # '근무구분_원본' 열 문자열 매핑 적용
     duty_stat_df["상세구분"] = duty_stat_df["근무구분_원본"].apply(parse_duty_type_from_text)
 
     available_stat_months = ["전체 기간"] + sorted(duty_stat_df["년월"].dropna().unique(), reverse=True)
@@ -468,14 +501,14 @@ with tab3:
 
     filtered_df = duty_stat_df.copy() if selected_stat_month == "전체 기간" else duty_stat_df[duty_stat_df["년월"] == selected_stat_month].copy()
 
-    # 근무자1, 근무자2 병합하여 집계 대상 생성
+    # 실제 근무자 병합
     w1 = filtered_df[["실제근무1", "상세구분"]].rename(columns={"실제근무1": "근무자"})
     w2 = filtered_df[["실제근무2", "상세구분"]].rename(columns={"실제근무2": "근무자"})
     
     combined = pd.concat([w1, w2], ignore_index=True)
     combined["근무자"] = combined["근무자"].astype(str).str.strip()
     
-    # 예외 처리: 미지정, 빈값 제외
+    # 예외 문자 제거
     combined = combined[
         combined["근무자"].notnull() & 
         (~combined["근무자"].isin(["미지정", "nan", "None", "", "NaN"]))
@@ -488,13 +521,13 @@ with tab3:
         for worker in unique_workers:
             w_df = combined[combined["근무자"] == worker]
             
-            # 문자 검색 기반 요일별 횟수 카운트
+            # 요일별 근무 횟수 카운트
             cnt_weekday = (w_df["상세구분"] == "평일").sum()
             cnt_friday = (w_df["상세구분"] == "금요일").sum()
             cnt_saturday = (w_df["상세구분"] == "토요일(휴일)").sum()
             cnt_sunday = (w_df["상세구분"] == "일요일(휴일)").sum()
             
-            # 합계 수식 계산
+            # 수식 계산
             holiday_work_cnt = cnt_saturday + cnt_sunday
             total_work_cnt = cnt_weekday + cnt_friday + cnt_saturday + cnt_sunday
             total_work_hours = (cnt_weekday * 7.0) + (cnt_friday * 15.0) + (cnt_saturday * 15.0) + (cnt_sunday * 7.0)
@@ -522,7 +555,7 @@ with tab3:
 
         st.markdown("---")
 
-        st.markdown(f"#### 📊 [{selected_stat_month}] 근무자별 요일 횟수 및 근무시간 집계 결과")
+        st.markdown(f"#### 📊 [{selected_stat_month}] 근무구분_원본 기반 근무자별 요일 횟수 및 시간")
         
         c1, c2 = st.columns([1.5, 1])
         with c1:

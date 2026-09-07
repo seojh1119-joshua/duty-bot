@@ -1,537 +1,189 @@
-import os
-import glob
-import calendar
 import datetime
-import io
-import base64
+import calendar
 import re
-import pandas as pd
-import streamlit as st
-import streamlit.components.v1 as components
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-# ---------------------------------------------------------
-# 페이지 기본 설정
-# ---------------------------------------------------------
-st.set_page_config(
-    page_title="숙직 근무표 대시보드",
-    page_icon="📅",
-    layout="wide",
-    initial_sidebar_state="expanded"  # 컬럼 선택을 위해 사이드바 기본 열림
-)
-
-DATA_DIR = "./data"
-
-# ---------------------------------------------------------
-# 대한민국 주요 법정 공휴일 계산기
-# ---------------------------------------------------------
-def get_kr_holidays(year):
-    fixed_holidays = {
-        (1, 1): "신정",
-        (3, 1): "삼일절",
-        (5, 5): "어린이날",
-        (6, 6): "현충일",
-        (8, 15): "광복절",
-        (10, 3): "개천절",
-        (10, 9): "한글날",
-        (12, 25): "성탄절",
-    }
+def update_dashboard(file_path, target_sheet_name):
+    # 엑셀 워크북 로드
+    wb = openpyxl.load_workbook(file_path)
     
-    holidays_dict = {}
-    for (m, d), name in fixed_holidays.items():
+    if target_sheet_name not in wb.sheetnames:
+        print(f"오류: '{target_sheet_name}' 시트를 찾을 수 없습니다.")
+        return
+
+    target_ws = wb[target_sheet_name]
+
+    # "대시보드" 시트 생성 또는 가져오기 (가장 앞에 위치)
+    if "대시보드" in wb.sheetnames:
+        dash_ws = wb["대시보드"]
+        # 기존 내용 및 셀 병합 초기화
+        dash_ws.delete_rows(1, dash_ws.max_row + 1)
+        for range_ in list(dash_ws.merged_cells.ranges):
+            dash_ws.unmerge_cells(str(range_))
+    else:
+        dash_ws = wb.create_sheet(title="대시보드", index=0)
+
+    # 기본 디자인 스타일 정의
+    font_title = Font(name="맑은 고딕", size=16, bold=True)
+    font_header = Font(name="맑은 고딕", size=11, bold=True)
+    font_date_bold = Font(name="맑은 고딕", size=10, bold=True)
+    font_work = Font(name="맑은 고딕", size=9)
+    font_gray = Font(name="맑은 고딕", size=9, color="A0A0A0")
+    
+    fill_title = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
+    fill_header = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
+    fill_date = PatternFill(start_color="FAFAFA", end_color="FAFAFA", fill_type="solid")
+    fill_work = PatternFill(start_color="EBF5FF", end_color="EBF5FF", fill_type="solid")
+
+    thin_border_side = Side(style='thin', color='CCCCCC')
+    thin_border = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
+
+    align_center = Alignment(horizontal='center', vertical='center')
+    align_top_left = Alignment(horizontal='left', vertical='top')
+    align_work = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    # 1. 대시보드 제목 생성 (B2:H2 병합)
+    dash_ws.merge_cells("B2:H2")
+    title_cell = dash_ws["B2"]
+    title_cell.value = f"{target_sheet_name} 근무 대시보드"
+    title_cell.font = font_title
+    title_cell.fill = fill_title
+    title_cell.alignment = align_center
+
+    # 2. 요일 헤더 생성 (B4:H4)
+    headers = ["일", "월", "화", "수", "목", "금", "토"]
+    for idx, header in enumerate(headers, start=2):
+        cell = dash_ws.cell(row=4, column=idx)
+        cell.value = header
+        cell.font = font_header
+        cell.fill = fill_header
+        cell.alignment = align_center
+        cell.border = thin_border
+        
+        # 주말 색상 포인트
+        if idx == 2:
+            cell.font = Font(name="맑은 고딕", size=11, bold=True, color="C00000") # 일요일 Red
+        elif idx == 8:
+            cell.font = Font(name="맑은 고딕", size=11, bold=True, color="0000C0") # 토요일 Blue
+
+    # 3. 대상 시트 이름에서 연도/월 분석
+    now = datetime.datetime.now()
+    year_val = now.year
+    month_val = now.month
+
+    # 예: "2026-03" 또는 "3월" 파싱
+    if "-" in target_sheet_name:
+        parts = target_sheet_name.split("-")
         try:
-            holidays_dict[datetime.date(year, m, d)] = name
+            year_val = int(parts[0])
+            month_val = int(parts[1])
         except ValueError:
             pass
-            
-    return holidays_dict
+    elif "월" in target_sheet_name:
+        numbers = re.findall(r'\d+', target_sheet_name)
+        if numbers:
+            month_val = int(numbers[0])
 
+    # 4. 대상 시트의 근무 데이터 읽기 (A열: 날짜, B열: 근무1, C열: 근무2)
+    work_data = {}
+    for row in target_ws.iter_rows(min_row=2, values_only=True):
+        if not row or row[0] is None:
+            continue
+        
+        day_num = None
+        date_val = row[0]
 
-# ---------------------------------------------------------
-# 이름 정제 함수 (숫자/코드 형태 제거 및 이름 추출)
-# ---------------------------------------------------------
-def clean_name(val):
-    if pd.isna(val) or val is None:
-        return ""
-    val_str = str(val).strip()
-    if val_str.endswith(".0"):
-        val_str = val_str[:-2]
-    if val_str in ["nan", "None", "0", "", "null"]:
-        return ""
-    return val_str
+        # 날짜 형식 파싱 (숫자, datetime 객체, 문자열 대응)
+        if isinstance(date_val, (int, float)):
+            day_num = int(date_val)
+        elif isinstance(date_val, (datetime.datetime, datetime.date)):
+            day_num = date_val.day
+        elif isinstance(date_val, str) and date_val.strip().isdigit():
+            day_num = int(date_val.strip())
 
+        if day_num:
+            w1 = str(row[1]) if len(row) > 1 and row[1] is not None else ""
+            w2 = str(row[2]) if len(row) > 2 and row[2] is not None else ""
+            work_data[day_num] = (w1, w2)
 
-# 데이터가 사람이름인지 사번/코드 형태인지 판별하는 함수
-def is_likely_code(series):
-    clean_series = series.dropna().astype(str).str.strip()
-    if len(clean_series) == 0:
-        return False
-    # 숫자만으로 이루어진 비율 체크
-    numeric_ratio = clean_series.str.replace(r'\.0$', '', regex=True).str.isnumeric().mean()
-    return numeric_ratio > 0.6
+    # 5. 해당 월의 달력 구조 계산
+    # monthrange는 (첫번째 요일(0:월~6:일), 해당 월 총 일수) 반환
+    first_weekday, total_days = calendar.monthrange(year_val, month_val)
+    # 일요일 시작 기준으로 전환 (0:일~6:토)
+    first_day_col = (first_weekday + 1) % 7 + 1 
 
+    # 6. 달력 그리드 생성 및 데이터 작성 (최대 6주)
+    day_counter = 1
+    for i in range(6): # 주차
+        for j in range(1, 8): # 1:일 ~ 7:토
+            cur_row = 5 + (i * 2) # 날짜 행 (5, 7, 9...)
+            cur_col = j + 1       # B열(2) ~ H열(8)
 
-# ---------------------------------------------------------
-# 모바일 7열 5행 달력 CSS
-# ---------------------------------------------------------
-responsive_css = """
-<style>
-    .main .block-container {
-        padding-top: 0.8rem !important;
-        padding-bottom: 1.5rem !important;
-        padding-left: 0.3rem !important;
-        padding-right: 0.3rem !important;
-    }
-    .calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 3px;
-        width: 100%;
-    }
-    .calendar-header {
-        text-align: center;
-        font-weight: bold;
-        font-size: 13px;
-        padding: 4px 0;
-        background-color: #f0f2f6;
-        border-radius: 4px;
-    }
-    .duty-card {
-        background-color: #FFFFFF;
-        border: 1px solid #E0E0E0;
-        border-radius: 6px;
-        padding: 4px;
-        min-height: 72px;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    .duty-card-today {
-        background-color: #FFF8E1 !important;
-        border: 2px solid #FF9800 !important;
-    }
-    .duty-card-holiday {
-        background-color: #FFF0F0;
-        border: 1px solid #FFCDD2;
-    }
-    .day-num {
-        font-weight: bold;
-        font-size: 12px;
-        color: #333333;
-    }
-    .day-num-red { color: #D32F2F !important; }
-    .day-num-sat { color: #1976D2 !important; }
-    .holiday-label {
-        font-size: 9px;
-        color: #D32F2F;
-        font-weight: bold;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .worker-info {
-        font-size: 11px;
-        color: #222222;
-        line-height: 1.25;
-        margin-top: 2px;
-    }
-    @media (max-width: 768px) {
-        .calendar-grid { gap: 2px; }
-        .calendar-header { font-size: 10px; padding: 2px 0; }
-        .duty-card { min-height: 58px !important; padding: 2px !important; border-radius: 4px; }
-        .day-num { font-size: 10px !important; }
-        .holiday-label { font-size: 8px !important; }
-        .worker-info { font-size: 9px !important; line-height: 1.1 !important; }
-    }
-</style>
-"""
-st.markdown(responsive_css, unsafe_allow_html=True)
+            date_cell = dash_ws.cell(row=cur_row, column=cur_col)
+            work_cell = dash_ws.cell(row=cur_row + 1, column=cur_col)
 
+            # 셀 테두리 설정
+            date_cell.border = thin_border
+            work_cell.border = thin_border
 
-# ---------------------------------------------------------
-# data/ 폴더 자동 로더
-# ---------------------------------------------------------
-def get_data_folder_excel():
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR, exist_ok=True)
-        return None, None
+            # 달력 날짜 배치 조건
+            if (i == 0 and j >= first_day_col) or (i > 0 and day_counter <= total_days):
+                # 날짜 표시
+                date_cell.value = f"{day_counter}일"
+                date_cell.font = font_date_bold
+                date_cell.fill = fill_date
+                date_cell.alignment = align_top_left
 
-    excel_files = glob.glob(os.path.join(DATA_DIR, "*.xlsx")) + glob.glob(os.path.join(DATA_DIR, "*.xls"))
-    if not excel_files:
-        return None, None
+                # 일요일/토요일 색상 적용
+                if j == 1:
+                    date_cell.font = Font(name="맑은 고딕", size=10, bold=True, color="C00000")
+                elif j == 7:
+                    date_cell.font = Font(name="맑은 고딕", size=10, bold=True, color="0000C0")
 
-    latest_file = max(excel_files, key=os.path.getmtime)
-    with open(latest_file, "rb") as f:
-        file_bytes = f.read()
-    return file_bytes, os.path.basename(latest_file)
+                # 근무1, 근무2 매핑 및 표시
+                if day_counter in work_data:
+                    w1, w2 = work_data[day_counter]
+                    if w1 or w2:
+                        work_cell.value = f"근무1: {w1}\n근무2: {w2}"
+                        work_cell.font = font_work
+                        work_cell.fill = fill_work
+                        work_cell.alignment = align_work
+                    else:
+                        work_cell.value = "-"
+                        work_cell.font = font_gray
+                        work_cell.alignment = align_center
+                else:
+                    work_cell.value = "-"
+                    work_cell.font = font_gray
+                    work_cell.alignment = align_center
 
+                day_counter += 1
 
-# ---------------------------------------------------------
-# 스마트 파서 (숫자/코드 열 자동 필터링 적용)
-# ---------------------------------------------------------
-def parse_excel_smart(file_bytes, selected_sheet=None, override_cols=None):
-    file_obj = io.BytesIO(file_bytes)
-    excel_file = pd.ExcelFile(file_obj)
-    sheet_names = excel_file.sheet_names
-
-    target_sheet = selected_sheet
-    if not target_sheet or target_sheet not in sheet_names:
-        duty_sheets = [s for s in sheet_names if any(k in s for k in ["숙직", "근무", "당직", "일정"])]
-        target_sheet = duty_sheets[0] if duty_sheets else sheet_names[0]
-
-    df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
-
-    # 헤더 행 탐색
-    header_idx = 0
-    for idx in range(min(25, len(df_raw))):
-        row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
-        row_str = " ".join(row_values)
-        if any(k in row_str for k in ["날짜", "일자", "근무일", "Date", "근무자", "성명", "이름", "담당", "주근", "야근"]):
-            header_idx = idx
+        if day_counter > total_days:
             break
 
-    df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
+    # 7. 열 너비 및 행 높이 조절
+    for col in ["B", "C", "D", "E", "F", "G", "H"]:
+        dash_ws.column_dimensions[col].width = 18
 
-    # 컬럼명 정제
-    clean_cols = []
-    for i, col in enumerate(df.columns):
-        c_str = str(col).replace("\n", "").replace("\r", "").strip() if not str(col).startswith("Unnamed") else f"열_{i}"
-        clean_cols.append(c_str)
-    df.columns = clean_cols
+    dash_ws.row_dimensions[2].height = 35 # 제목
+    dash_ws.row_dimensions[4].height = 25 # 요일
 
-    # 날짜 컬럼 자동 매핑
-    date_col = next((c for c in df.columns if any(k in c.lower() for k in ["날짜", "일자", "근무일", "date"])), df.columns[0])
-    df.rename(columns={date_col: "날짜"}, inplace=True)
-    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
-    df = df.dropna(subset=["날짜"]).copy()
+    for i in range(6):
+        dash_ws.row_dimensions[5 + (i * 2)].height = 20 # 날짜 행
+        dash_ws.row_dimensions[6 + (i * 2)].height = 45 # 근무 데이터 행
 
-    all_cols = [c for c in df.columns if c != "날짜"]
+    # 변경사항 저장
+    wb.save(file_path)
+    print(f"[{target_sheet_name}] 시트 기준 대시보드가 성공적으로 신규/갱신되었습니다.")
 
-    # 사용자가 수동 지정한 컬럼이 있으면 우선 적용
-    p1_col = override_cols.get("p1") if override_cols else None
-    p2_col = override_cols.get("p2") if override_cols else None
-    sub1_col = override_cols.get("sub1") if override_cols else None
-    sub2_col = override_cols.get("sub2") if override_cols else None
-
-    # 자동 탐색 로직 (코드/숫자 열 자동 제외)
-    if not p1_col:
-        candidate_cols = []
-        name_keywords = ["성명", "이름", "근무자", "숙직", "당직", "담당", "주근", "야근", "직원"]
-        
-        for c in all_cols:
-            # 1. 키워드 일치 및 숫자 코드가 아닌 컬럼 우선
-            if any(k in c for k in name_keywords) and "대직" not in c and "사번" not in c and "코드" not in c:
-                if not is_likely_code(df[c]):
-                    candidate_cols.append(c)
-
-        # 키워드로 못 찾은 경우 숫자 코드가 아닌 일반 텍스트 열 선택
-        if not candidate_cols:
-            candidate_cols = [c for c in all_cols if not is_likely_code(df[c]) and "대직" not in c]
-
-        p1_col = candidate_cols[0] if len(candidate_cols) > 0 else (all_cols[0] if all_cols else None)
-        p2_col = candidate_cols[1] if len(candidate_cols) > 1 else None
-
-    # 대직자 컬럼 자동 탐색
-    if not sub1_col:
-        sub_candidates = [c for c in all_cols if "대직" in c]
-        sub1_col = sub_candidates[0] if len(sub_candidates) > 0 else None
-        sub2_col = sub_candidates[1] if len(sub_candidates) > 1 else None
-
-    df["근무자1"] = df[p1_col].apply(clean_name) if p1_col and p1_col in df.columns else ""
-    df["근무자2"] = df[p2_col].apply(clean_name) if p2_col and p2_col in df.columns else ""
-    df["대직1"] = df[sub1_col].apply(clean_name) if sub1_col and sub1_col in df.columns else ""
-    df["대직2"] = df[sub2_col].apply(clean_name) if sub2_col and sub2_col in df.columns else ""
-
-    df["년월"] = df["날짜"].dt.strftime("%Y-%m")
-
-    # 대직 반영 실제 근무자
-    df["실제근무1"] = df.apply(lambda r: r["대직1"] if r["대직1"] != "" else r["근무자1"], axis=1)
-    df["실제근무2"] = df.apply(lambda r: r["대직2"] if r["대직2"] != "" else r["근무자2"], axis=1)
-
-    df["실제근무1"] = df["실제근무1"].replace("", "미지정")
-    df["실제근무2"] = df["실제근무2"].replace("", "미지정")
-
-    return df, target_sheet, sheet_names, all_cols, {"p1": p1_col, "p2": p2_col, "sub1": sub1_col, "sub2": sub2_col}
-
-
-def get_sample_df():
-    today = datetime.date.today()
-    start_date = today.replace(day=1)
-    dates = pd.date_range(start=start_date, periods=35, freq="D")
-    df = pd.DataFrame({
-        "날짜": dates,
-        "근무자1": ["김숙직"] * 35,
-        "근무자2": ["이당직"] * 35,
-        "대직1": ["박대직" if i % 5 == 0 else "" for i in range(35)],
-        "대직2": [""] * 35,
-    })
-    df["년월"] = df["날짜"].dt.strftime("%Y-%m")
-    df["실제근무1"] = df.apply(lambda r: r["대직1"] if r["대직1"] != "" else r["근무자1"], axis=1)
-    df["실제근무2"] = df.apply(lambda r: r["대직2"] if r["대직2"] != "" else r["근무자2"], axis=1)
-    return df, ["근무자1", "근무자2", "대직1", "대직2"]
-
-
-# ---------------------------------------------------------
-# 세션 상태 및 data/ 폴더 자동 동기화
-# ---------------------------------------------------------
-if "excel_bytes" not in st.session_state or st.session_state.excel_bytes is None:
-    file_bytes, file_name = get_data_folder_excel()
-    if file_bytes:
-        st.session_state.excel_bytes = file_bytes
-        st.session_state.source_info = f"📂 `data/{file_name}` 자동 로드됨"
-    else:
-        st.session_state.excel_bytes = None
-        st.session_state.source_info = "⚠️ `data/` 폴더에 엑셀 파일이 없어 샘플 표시 중"
-
-if "selected_sheet" not in st.session_state:
-    st.session_state.selected_sheet = None
-
-if "override_cols" not in st.session_state:
-    st.session_state.override_cols = {}
-
-# 데이터 파싱 처리
-if st.session_state.excel_bytes:
-    try:
-        df, used_sheet, sheet_list, raw_cols, auto_detected_cols = parse_excel_smart(
-            st.session_state.excel_bytes, 
-            st.session_state.selected_sheet,
-            st.session_state.override_cols
-        )
-        st.session_state.df = df
-        st.session_state.sheet_names = sheet_list
-        st.session_state.selected_sheet = used_sheet
-        st.session_state.raw_cols = raw_cols
-        st.session_state.auto_detected_cols = auto_detected_cols
-    except Exception as e:
-        st.error(f"엑셀 로딩 오류: {e}")
-        st.session_state.df, st.session_state.raw_cols = get_sample_df()
-        st.session_state.auto_detected_cols = {}
-else:
-    st.session_state.df, st.session_state.raw_cols = get_sample_df()
-    st.session_state.sheet_names = ["샘플"]
-    st.session_state.auto_detected_cols = {}
-
-# ---------------------------------------------------------
-# 사이드바: 컬럼 수동 지정 옵션 (핵심 기능)
-# ---------------------------------------------------------
-with st.sidebar:
-    st.header("📂 데이터 관리")
-    st.caption(st.session_state.get("source_info", ""))
-
-    uploaded_file = st.file_uploader("새 엑셀 파일 업로드", type=["xlsx", "xls"])
-    if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
-        st.session_state.excel_bytes = bytes_data
-        st.session_state.selected_sheet = None
-        st.session_state.override_cols = {}
-        st.session_state.source_info = f"📤 업로드됨: {uploaded_file.name}"
-
-        os.makedirs(DATA_DIR, exist_ok=True)
-        save_path = os.path.join(DATA_DIR, uploaded_file.name)
-        with open(save_path, "wb") as f:
-            f.write(bytes_data)
-
-        b64 = base64.b64encode(bytes_data).decode('utf-8')
-        components.html(f"<script>localStorage.setItem('duty_excel_b64', '{b64}');</script>", height=0)
-        st.rerun()
-
-    if st.session_state.excel_bytes and len(st.session_state.sheet_names) > 1:
-        st.subheader("📌 시트 변경")
-        new_sheet = st.selectbox(
-            "시트 선택", 
-            st.session_state.sheet_names, 
-            index=st.session_state.sheet_names.index(st.session_state.selected_sheet) if st.session_state.selected_sheet in st.session_state.sheet_names else 0
-        )
-        if new_sheet != st.session_state.selected_sheet:
-            st.session_state.selected_sheet = new_sheet
-            st.session_state.override_cols = {}
-            st.rerun()
-
-    # 🎯 코드가 대신 나올 때 사용자가 직접 이름 열을 지정할 수 있는 수동 선택 메뉴
-    if "raw_cols" in st.session_state and st.session_state.raw_cols:
-        st.markdown("---")
-        st.subheader("🎯 근무자 이름 열 매핑")
-        st.caption("달력에 이름 대신 코드가 나올 경우, 실제 **사람 이름**이 들어있는 열을 선택하세요.")
-
-        cols_options = ["(자동 선택)"] + st.session_state.raw_cols
-        
-        curr_p1 = st.session_state.override_cols.get("p1") or st.session_state.auto_detected_cols.get("p1")
-        curr_p2 = st.session_state.override_cols.get("p2") or st.session_state.auto_detected_cols.get("p2")
-
-        p1_idx = cols_options.index(curr_p1) if curr_p1 in cols_options else 0
-        p2_idx = cols_options.index(curr_p2) if curr_p2 in cols_options else 0
-
-        selected_p1 = st.selectbox("👤 근무자 1 (이름 열)", cols_options, index=p1_idx)
-        selected_p2 = st.selectbox("👤 근무자 2 (이름 열)", cols_options, index=p2_idx)
-
-        new_p1 = None if selected_p1 == "(자동 선택)" else selected_p1
-        new_p2 = None if selected_p2 == "(자동 선택)" else selected_p2
-
-        if (new_p1 != st.session_state.override_cols.get("p1")) or (new_p2 != st.session_state.override_cols.get("p2")):
-            st.session_state.override_cols["p1"] = new_p1
-            st.session_state.override_cols["p2"] = new_p2
-            st.rerun()
-
-# ---------------------------------------------------------
-# 메인 화면
-# ---------------------------------------------------------
-st.title("📋 숙직 근무표 대시보드")
-
-df = st.session_state.df
-today = datetime.date.today()
-
-tab1, tab2, tab3 = st.tabs(["📅 달력 메인 화면", "🔍 데이터 상세 및 수정", "📊 근무 통계"])
-
-# ---------------------------------------------------------
-# TAB 1: 7열 5행 모바일 대응 달력 (일요일 시작)
-# ---------------------------------------------------------
-with tab1:
-    available_months = sorted(df["년월"].dropna().unique())
-    current_ym = today.strftime("%Y-%m")
-    default_idx = available_months.index(current_ym) if current_ym in available_months else 0
-
-    c1, c2 = st.columns([1.5, 1])
-    with c1:
-        st.subheader(f"📌 오늘 ({today.strftime('%Y-%m-%d')}) 실제 근무")
-        today_df = df[df["날짜"].dt.date == today]
-        if not today_df.empty:
-            p1 = today_df.iloc[0]["실제근무1"]
-            p2 = today_df.iloc[0]["실제근무2"]
-            st.markdown(f"#### 👤 **근무1:** `{p1}`  |  👤 **근무2:** `{p2}`")
-        else:
-            st.write("오늘 일자의 근무 정보가 없습니다.")
-
-    with c2:
-        selected_month = st.selectbox("🗓️ 조회 월 선택", available_months, index=default_idx)
-
-    year, month = map(int, selected_month.split("-"))
-
-    kr_holidays = get_kr_holidays(year)
-
-    st.markdown("---")
-    st.markdown(f"### 🗓️ {year}년 {month}월 숙직 달력")
-
-    cal_obj = calendar.Calendar(firstweekday=6)
-    cal = cal_obj.monthdayscalendar(year, month)
-
-    month_df = df[df["년월"] == selected_month].copy()
-
-    duty_map = {}
-    for _, row in month_df.iterrows():
-        d_day = row["날짜"].day
-        duty_map[d_day] = {
-            "p1": str(row["실제근무1"]),
-            "p2": str(row["실제근무2"]),
-            "date_obj": row["날짜"].date()
-        }
-
-    # 7열 헤더 (일~토 순서)
-    days_header = ["일", "월", "화", "수", "목", "금", "토"]
-    header_html = "<div class='calendar-grid'>"
-    for idx, day_name in enumerate(days_header):
-        color_style = "color:#D32F2F;" if idx == 0 else ("color:#1976D2;" if idx == 6 else "color:#333;")
-        header_html += f"<div class='calendar-header' style='{color_style}'>{day_name}</div>"
-    header_html += "</div>"
-    st.markdown(header_html, unsafe_allow_html=True)
-
-    grid_html = "<div class='calendar-grid' style='margin-top: 4px;'>"
-
-    for week in cal:
-        for i, day in enumerate(week):
-            if day == 0:
-                grid_html += "<div class='duty-card' style='background:transparent; border:none;'></div>"
-            else:
-                date_obj = datetime.date(year, month, day)
-                duty_info = duty_map.get(day)
-                is_today = (date_obj == today)
-
-                holiday_name = kr_holidays.get(date_obj)
-                is_sunday = (i == 0)
-                is_saturday = (i == 6)
-                is_holiday = bool(holiday_name) or is_sunday
-
-                card_class = "duty-card"
-                if is_today:
-                    card_class += " duty-card-today"
-                elif is_holiday:
-                    card_class += " duty-card-holiday"
-
-                day_num_class = "day-num"
-                if is_holiday:
-                    day_num_class += " day-num-red"
-                elif is_saturday:
-                    day_num_class += " day-num-sat"
-
-                p1_name = duty_info['p1'] if duty_info else '-'
-                p2_name = duty_info['p2'] if duty_info else '-'
-                if len(p1_name) > 3: p1_name = p1_name[:3] + ".."
-                if len(p2_name) > 3: p2_name = p2_name[:3] + ".."
-
-                holiday_tag = f"<div class='holiday-label'>{holiday_name[:4]}</div>" if holiday_name else ""
-
-                grid_html += f"""
-                <div class="{card_class}">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="{day_num_class}">{day}</span>
-                        {holiday_tag}
-                    </div>
-                    <div class="worker-info">
-                        1:{p1_name}<br>
-                        2:{p2_name}
-                    </div>
-                </div>
-                """
-
-    grid_html += "</div>"
-    st.markdown(grid_html, unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.markdown("#### 📋 이달의 상세 근무 목록")
-    st.dataframe(month_df, use_container_width=True)
-
-# ---------------------------------------------------------
-# TAB 2: 데이터 수정
-# ---------------------------------------------------------
-with tab2:
-    st.subheader("✏️ 근무표 직접 수정 및 저장")
-    st.caption("수정 후 아래 [저장] 버튼을 누르면 `data/` 폴더 내에 엑셀 파일로 저장됩니다.")
-
-    edited_df = st.data_editor(st.session_state.df, num_rows="dynamic", key="editor")
-
-    if st.button("💾 수정사항 저장"):
-        edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
-        edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
-        
-        edited_df["근무자1"] = edited_df["근무자1"].apply(clean_name)
-        edited_df["근무자2"] = edited_df["근무자2"].apply(clean_name)
-        edited_df["대직1"] = edited_df["대직1"].apply(clean_name)
-        edited_df["대직2"] = edited_df["대직2"].apply(clean_name)
-
-        edited_df["실제근무1"] = edited_df.apply(lambda r: r["대직1"] if r["대직1"] != "" else r["근무자1"], axis=1)
-        edited_df["실제근무2"] = edited_df.apply(lambda r: r["대직2"] if r["대직2"] != "" else r["근무자2"], axis=1)
-
-        st.session_state.df = edited_df
-
-        os.makedirs(DATA_DIR, exist_ok=True)
-        save_path = os.path.join(DATA_DIR, "updated_duty_schedule.xlsx")
-        with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
-            edited_df.to_excel(writer, index=False)
-
-        st.success("🎉 수정된 데이터가 성공적으로 저장되었습니다!")
-        st.rerun()
-
-# ---------------------------------------------------------
-# TAB 3: 근무 통계
-# ---------------------------------------------------------
-with tab3:
-    st.subheader("📊 근무자별 집계")
-    w1 = df[["실제근무1"]].rename(columns={"실제근무1": "근무자"})
-    w2 = df[["실제근무2"]].rename(columns={"실제근무2": "근무자"})
-    all_workers = pd.concat([w1, w2])
-    all_workers = all_workers[~all_workers["근무자"].isin(["미지정", "nan", "None", "", "-"])]
-
-    if not all_workers.empty:
-        counts = all_workers["근무자"].value_counts()
-        st.bar_chart(counts)
-    else:
-        st.info("통계를 표시할 근무자 데이터가 없습니다.")
+# ==========================================
+# 실행 예시
+# ==========================================
+if __name__ == "__main__":
+    # 엑셀 파일 경로와 대시보드로 만들 대상 시트 이름 지정
+    excel_file = "근무표.xlsx"
+    target_sheet = "2026-03"  # 또는 "3월"
+    
+    update_dashboard(excel_file, target_sheet)

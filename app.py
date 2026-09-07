@@ -38,12 +38,14 @@ responsive_css = """
         .duty-card {
             min-height: 75px !important;
             padding: 4px !important;
+            overflow: hidden;
         }
         .duty-card-title {
             font-size: 11px !important;
         }
         .duty-card-text {
             font-size: 10px !important;
+            word-break: break-all;
         }
         /* Tab 글씨 크기 조정 */
         button[data-baseweb="tab"] {
@@ -61,6 +63,9 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 # ---------------------------------------------------------
 def load_excel_smart(file_bytes, selected_sheet=None):
     file_obj = io.BytesIO(file_bytes)
+    
+    # 1차 파싱: 시트 목록 확인
+    file_obj.seek(0)
     excel_file = pd.ExcelFile(file_obj)
     sheet_names = excel_file.sheet_names
 
@@ -69,6 +74,8 @@ def load_excel_smart(file_bytes, selected_sheet=None):
         duty_sheets = [s for s in sheet_names if "숙직" in s or "근무" in s]
         target_sheet = duty_sheets[0] if duty_sheets else sheet_names[0]
 
+    # 2차 파싱: 헤더 위치 탐색
+    file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
     header_idx = None
@@ -84,6 +91,8 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     if header_idx is None:
         header_idx = 0
 
+    # 3차 파싱: 실제 헤더를 지정하여 로드
+    file_obj.seek(0)
     df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
 
     # 컬럼 정제
@@ -122,40 +131,30 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     cols = list(df.columns)
     p1_col = next(
         (
-            c
-            for c in cols
-            if any(
-                k in c
-                for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1"]
-            )
+            c for c in cols
+            if any(k in c for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1"])
             and "대직" not in c
         ),
         None,
     )
     p2_col = next(
         (
-            c
-            for c in cols
-            if any(
-                k in c
-                for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]
-            )
+            c for c in cols
+            if any(k in c for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"])
             and "대직" not in c
         ),
         None,
     )
     sub1_col = next(
         (
-            c
-            for c in cols
+            c for c in cols
             if any(k in c for k in ["대직1", "대직자1", "대직 1", "대직자"])
         ),
         None,
     )
     sub2_col = next(
         (
-            c
-            for c in cols
+            c for c in cols
             if any(k in c for k in ["대직2", "대직자2", "대직 2"])
         ),
         None,
@@ -183,8 +182,7 @@ def load_excel_smart(file_bytes, selected_sheet=None):
 
     type_col = next(
         (
-            c
-            for c in cols
+            c for c in cols
             if any(k in c for k in ["구분", "근무구분", "요일", "비고"])
         ),
         None,
@@ -271,9 +269,10 @@ with st.sidebar:
 
     # 새 파일이 업로드된 경우 세션 저장소 갱신
     if uploaded_file is not None:
-        st.session_state.excel_bytes = uploaded_file.getvalue()
-        # 파일이 새로 들어오면 시트 세션 초기화
-        st.session_state.selected_sheet = None
+        file_bytes = uploaded_file.getvalue()
+        if file_bytes != st.session_state.excel_bytes:
+            st.session_state.excel_bytes = file_bytes
+            st.session_state.selected_sheet = None
 
     # 저장된 파일 바이너리가 있는 경우 세션에서 지속 로드
     if st.session_state.excel_bytes is not None:
@@ -284,7 +283,7 @@ with st.sidebar:
             sheets = excel_obj.sheet_names
             st.session_state.sheet_names = sheets
 
-            if not st.session_state.selected_sheet:
+            if not st.session_state.selected_sheet or st.session_state.selected_sheet not in sheets:
                 duty_sheets = [s for s in sheets if "숙직" in s or "근무" in s]
                 st.session_state.selected_sheet = (
                     duty_sheets[0] if duty_sheets else sheets[0]
@@ -300,13 +299,22 @@ with st.sidebar:
             # 시트 변경 시 파싱 실행
             if selected_s != st.session_state.selected_sheet:
                 st.session_state.selected_sheet = selected_s
+                parsed_df, used_sheet, _, raw_df = load_excel_smart(
+                    st.session_state.excel_bytes, st.session_state.selected_sheet
+                )
+                st.session_state.df = parsed_df
+                st.session_state.raw_df = raw_df
+                st.rerun()
 
-            parsed_df, used_sheet, _, raw_df = load_excel_smart(
-                st.session_state.excel_bytes, st.session_state.selected_sheet
-            )
-            st.session_state.df = parsed_df
-            st.session_state.raw_df = raw_df
-            st.caption(f"🟢 현재 데이터: **[{used_sheet}]** 시트")
+            # 최초 1회 파싱 보장
+            if st.session_state.raw_df.empty:
+                parsed_df, used_sheet, _, raw_df = load_excel_smart(
+                    st.session_state.excel_bytes, st.session_state.selected_sheet
+                )
+                st.session_state.df = parsed_df
+                st.session_state.raw_df = raw_df
+
+            st.caption(f"🟢 현재 데이터: **[{st.session_state.selected_sheet}]** 시트")
 
         except Exception as e:
             st.error(f"❌ 파일 데이터 로드 실패: {e}")
@@ -356,108 +364,112 @@ with tab1:
             else 0
         )
 
-        selected_month = st.selectbox(
-            "조회 월 선택", available_months, index=default_idx
-        )
+        if available_months:
+            selected_month = st.selectbox(
+                "조회 월 선택", available_months, index=default_idx
+            )
+        else:
+            selected_month = current_ym
 
     st.markdown("---")
 
     # 월간 달력
     st.subheader(f"🗓️ {selected_month} 숙직 근무 달력")
 
-    year, month = map(int, selected_month.split("-"))
-    cal = calendar.monthcalendar(year, month)
+    if selected_month in available_months:
+        year, month = map(int, selected_month.split("-"))
+        cal = calendar.monthcalendar(year, month)
 
-    month_df = df[df["년월"] == selected_month].copy()
-    duty_map = {}
-    for _, row in month_df.iterrows():
-        d_day = row["날짜"].day
-        duty_map[d_day] = {
-            "p1": row["실제근무1"],
-            "p2": row["실제근무2"],
-            "type": row["근무구분"],
-            "date_obj": row["날짜"].date(),
-        }
+        month_df = df[df["년월"] == selected_month].copy()
+        duty_map = {}
+        for _, row in month_df.iterrows():
+            d_day = row["날짜"].day
+            duty_map[d_day] = {
+                "p1": row["실제근무1"],
+                "p2": row["실제근무2"],
+                "type": row["근무구분"],
+                "date_obj": row["날짜"].date(),
+            }
 
-    days_header = ["월", "화", "수", "목", "금", "토", "일"]
-    cols = st.columns(7)
-    for idx, day_name in enumerate(days_header):
-        header_color = "🔴" if idx == 6 else ("🔵" if idx == 5 else "⚪")
-        cols[idx].markdown(
-            f"**{header_color} {day_name}**", unsafe_allow_html=True
+        days_header = ["월", "화", "수", "목", "금", "토", "일"]
+        cols = st.columns(7)
+        for idx, day_name in enumerate(days_header):
+            header_color = "🔴" if idx == 6 else ("🔵" if idx == 5 else "⚪")
+            cols[idx].markdown(
+                f"**{header_color} {day_name}**", unsafe_allow_html=True
+            )
+
+        for week in cal:
+            week_cols = st.columns(7)
+            for i, day in enumerate(week):
+                with week_cols[i]:
+                    if day != 0:
+                        duty_info = duty_map.get(day)
+                        is_today = (
+                            duty_info and duty_info["date_obj"] == today
+                        )
+                        bg_color = "#FFF3E0" if is_today else "#F9F9F9"
+                        border_color = "#FF9800" if is_today else "#E0E0E0"
+
+                        p1_text = duty_info["p1"] if duty_info else "-"
+                        p2_text = duty_info["p2"] if duty_info else "-"
+
+                        card_html = f"""
+                        <div class="duty-card" style="
+                            background-color: {bg_color};
+                            border: 2px solid {border_color};
+                            border-radius: 8px;
+                            padding: 8px;
+                            margin-bottom: 8px;
+                            min-height: 90px;
+                        ">
+                            <div class="duty-card-title" style="font-weight: bold; font-size: 13px; color: {'#D32F2F' if i == 6 else ('#1976D2' if i == 5 else '#333')};">
+                                {day}일 {'(오늘)' if is_today else ''}
+                            </div>
+                            <div class="duty-card-text" style="font-size: 11px; margin-top: 4px; color: #333; line-height: 1.3;">
+                                <b>1:</b> {p1_text}<br>
+                                <b>2:</b> {p2_text}
+                            </div>
+                        </div>
+                        """
+                        st.markdown(card_html, unsafe_allow_html=True)
+                    else:
+                        st.markdown(
+                            "<div style='min-height: 90px;'></div>",
+                            unsafe_allow_html=True,
+                        )
+
+        st.markdown("---")
+
+        # 상세 목록
+        st.markdown("#### 📋 상세 근무 목록")
+        display_cols = [
+            c
+            for c in [
+                "날짜",
+                "근무구분",
+                "근무자1",
+                "근무자2",
+                "대직1",
+                "대직2",
+                "실제근무1",
+                "실제근무2",
+            ]
+            if c in month_df.columns
+        ]
+
+        st.dataframe(
+            month_df[display_cols].style.highlight_between(
+                left=pd.Timestamp(today),
+                right=pd.Timestamp(today),
+                subset=["날짜"],
+                color="#FFE0B2",
+            ),
+            use_container_width=True,
         )
 
-    for week in cal:
-        week_cols = st.columns(7)
-        for i, day in enumerate(week):
-            with week_cols[i]:
-                if day != 0:
-                    duty_info = duty_map.get(day)
-                    is_today = (
-                        duty_info and duty_info["date_obj"] == today
-                    )
-                    bg_color = "#FFF3E0" if is_today else "#F9F9F9"
-                    border_color = "#FF9800" if is_today else "#E0E0E0"
-
-                    p1_text = duty_info["p1"] if duty_info else "-"
-                    p2_text = duty_info["p2"] if duty_info else "-"
-
-                    card_html = f"""
-                    <div class="duty-card" style="
-                        background-color: {bg_color};
-                        border: 2px solid {border_color};
-                        border-radius: 8px;
-                        padding: 8px;
-                        margin-bottom: 8px;
-                        min-height: 90px;
-                    ">
-                        <div class="duty-card-title" style="font-weight: bold; font-size: 13px; color: {'#D32F2F' if i == 6 else ('#1976D2' if i == 5 else '#333')};">
-                            {day}일 {'(오늘)' if is_today else ''}
-                        </div>
-                        <div class="duty-card-text" style="font-size: 11px; margin-top: 4px; color: #333; line-height: 1.3;">
-                            <b>1:</b> {p1_text}<br>
-                            <b>2:</b> {p2_text}
-                        </div>
-                    </div>
-                    """
-                    st.markdown(card_html, unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        "<div style='min-height: 90px;'></div>",
-                        unsafe_allow_html=True,
-                    )
-
-    st.markdown("---")
-
-    # 상세 목록
-    st.markdown("#### 📋 상세 근무 목록")
-    display_cols = [
-        c
-        for c in [
-            "날짜",
-            "근무구분",
-            "근무자1",
-            "근무자2",
-            "대직1",
-            "대직2",
-            "실제근무1",
-            "실제근무2",
-        ]
-        if c in month_df.columns
-    ]
-
-    st.dataframe(
-        month_df[display_cols].style.highlight_between(
-            left=pd.Timestamp(today),
-            right=pd.Timestamp(today),
-            subset=["날짜"],
-            color="#FFE0B2",
-        ),
-        use_container_width=True,
-    )
-
 # ---------------------------------------------------------
-# TAB 2: 시트 데이터 점검 (신규 추가 대시보드)
+# TAB 2: 시트 데이터 점검
 # ---------------------------------------------------------
 with tab_sheet:
     current_s = st.session_state.selected_sheet or "기본"
@@ -475,7 +487,7 @@ with tab_sheet:
     m4.metric(
         "대직 발생 수",
         f"{df['대직1'].notnull().sum() + df['대직2'].notnull().sum()}건"
-        if "대직1" in df.columns
+        if "대직1" in df.columns and "대직2" in df.columns
         else "0건",
     )
 
@@ -512,6 +524,7 @@ with tab2:
 
     if st.button("💾 변경사항 저장 및 반영"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
+        edited_df = edited_df.dropna(subset=["날짜"]).copy()
         edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
         edited_df["실제근무1"] = (
             edited_df["대직1"]
@@ -520,6 +533,7 @@ with tab2:
             .str.strip()
             .replace(["", "nan", "None"], None)
             .combine_first(edited_df["근무자1"])
+            .fillna("미지정")
         )
         edited_df["실제근무2"] = (
             edited_df["대직2"]
@@ -528,6 +542,7 @@ with tab2:
             .str.strip()
             .replace(["", "nan", "None"], None)
             .combine_first(edited_df["근무자2"])
+            .fillna("미지정")
         )
         st.session_state.df = edited_df
         st.success("변경사항이 성공적으로 저장되었습니다!")

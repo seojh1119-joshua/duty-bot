@@ -1,6 +1,7 @@
 import calendar
 import datetime
 import io
+import json
 import os
 import glob
 import pandas as pd
@@ -24,7 +25,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (달력 카드 디자인 및 가독성 개선)
+# CSS 스타일링
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -79,9 +80,50 @@ responsive_css = """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
+PERSISTENCE_STATE_PATH = os.path.join("data", "edited_duty_schedule.json")
+
 
 # ---------------------------------------------------------
-# 엑셀 스마트 로더 (숙직근무자 시트 우선)
+# 앱 데이터 지속성(Persistence) 관리 함수
+# ---------------------------------------------------------
+def save_app_state(df, sheet_name, memos):
+    """수정된 근무표 및 메모 데이터를 로컬 JSON 파일로 영구 저장"""
+    try:
+        os.makedirs("data", exist_ok=True)
+        save_df = df.copy()
+        if "날짜" in save_df.columns:
+            save_df["날짜"] = save_df["날짜"].dt.strftime("%Y-%m-%d")
+        
+        state_data = {
+            "selected_sheet": sheet_name,
+            "memos": memos,
+            "df_dict": save_df.to_dict(orient="records")
+        }
+        with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(state_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        st.error(f"상태 저장 중 오류가 발생했습니다: {e}")
+
+
+def load_app_state():
+    """저장된 변경 상태 데이터 불러오기"""
+    if os.path.exists(PERSISTENCE_STATE_PATH):
+        try:
+            with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
+                state_data = json.load(f)
+            
+            df = pd.DataFrame(state_data["df_dict"])
+            if "날짜" in df.columns:
+                df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+            
+            return df, state_data.get("selected_sheet", "숙직근무자"), state_data.get("memos", {})
+        except Exception:
+            return None, None, None
+    return None, None, None
+
+
+# ---------------------------------------------------------
+# 엑셀 스마트 로더
 # ---------------------------------------------------------
 def load_excel_smart(file_source, selected_sheet=None):
     if isinstance(file_source, bytes):
@@ -170,16 +212,8 @@ def load_excel_smart(file_source, selected_sheet=None):
     return df, target_sheet, sheet_names, df_raw
 
 
-def save_to_excel_file(df, sheet_name):
-    """
-    원본 엑셀 파일 보호를 위해 저장 기능을 작동하지 않도록 설정합니다.
-    수정 사항은 Streamlit Session State 메모리에만 유지됩니다.
-    """
-    pass
-
-
 # ---------------------------------------------------------
-# 세션 상태 초기화 및 데이터 로드 (최초 1회 또는 업로드 시만 로드)
+# 세션 및 저장된 데이터 상태 로드
 # ---------------------------------------------------------
 if "file_path" not in st.session_state:
     if os.path.exists("data"):
@@ -188,18 +222,31 @@ if "file_path" not in st.session_state:
     else:
         st.session_state.file_path = DEFAULT_FILE_PATH
 
-if "memos" not in st.session_state:
-    st.session_state.memos = {}
-
-# 앱 메모리(df)가 없는 경우에만 초기 데이터 로드
 if "df" not in st.session_state:
-    if os.path.exists(st.session_state.file_path):
+    # 1. 기존 수정 이력(영구 저장 데이터) 존재 시 먼저 불러오기
+    saved_df, saved_sheet, saved_memos = load_app_state()
+    
+    if saved_df is not None:
+        st.session_state.df = saved_df
+        st.session_state.selected_sheet = saved_sheet
+        st.session_state.memos = saved_memos
+        if os.path.exists(st.session_state.file_path):
+            _, _, sheet_names, raw_df = load_excel_smart(st.session_state.file_path)
+            st.session_state.sheet_names = sheet_names
+            st.session_state.raw_df = raw_df
+        else:
+            st.session_state.sheet_names = [saved_sheet]
+            st.session_state.raw_df = pd.DataFrame()
+    elif os.path.exists(st.session_state.file_path):
+        # 2. 저장 데이터가 없을 때 원본 엑셀 최초 로드
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(st.session_state.file_path)
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
+        st.session_state.memos = {}
     else:
+        # 3. 샘플 데이터 생성
         today = datetime.date.today()
         dates = pd.date_range(start=today.replace(day=1), periods=60, freq="D")
         sample_df = pd.DataFrame({
@@ -218,6 +265,7 @@ if "df" not in st.session_state:
         st.session_state.sheet_names = ["숙직근무자"]
         st.session_state.selected_sheet = "숙직근무자"
         st.session_state.raw_df = pd.DataFrame()
+        st.session_state.memos = {}
 
 
 # ---------------------------------------------------------
@@ -241,12 +289,11 @@ def edit_worker_dialog(date_str, duty_info):
         st.divider()
         edit_memo = st.text_area("📌 날짜별 메모 (달력에 바로 표시됨)", value=current_memo, height=80)
 
-        submitted = st.form_submit_button("💾 앱 내 반영하기", use_container_width=True)
+        submitted = st.form_submit_button("💾 반영하기 (자동 저장)", use_container_width=True)
 
         if submitted:
             row_idx = duty_info["idx"]
             
-            # 앱 데이터 세션 상태(st.session_state.df) 직접 갱신
             st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
             st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
             st.session_state.df.at[row_idx, "대직1"] = edit_sub1.strip() if edit_sub1.strip() else None
@@ -257,30 +304,36 @@ def edit_worker_dialog(date_str, duty_info):
 
             st.session_state.memos[date_str] = edit_memo.strip()
 
-            st.success("✅ 앱 데이터에 변경사항이 적용되었습니다. (원본 파일은 유지됩니다)")
+            # 새로고침에도 보존되도록 로컬 영구 저장
+            save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
+            st.success("✅ 변경사항이 성공적으로 저장되었습니다! (새로고침 시 유지됨)")
             st.rerun()
 
 
 # ---------------------------------------------------------
-# 사이드바 (파일 업로드 시에만 데이터 교체)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 설정")
-    uploaded_file = st.file_uploader("새 엑셀 파일 업로드 (데이터 교체)", type=["xlsx"])
+    uploaded_file = st.file_uploader("새 엑셀 파일 업로드 (데이터 초기화 및 교체)", type=["xlsx"])
 
-    # 파일이 새로 업로드되었을 때만 st.session_state.df 갱신
+    # 새 파일 업로드 시에만 수정 이력 삭제 후 데이터 전면 초기화
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
         
-        # 업로드한 파일 데이터로 메모리 세션 초기화
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-        st.session_state.memos = {}  # 메모 초기화
+        st.session_state.memos = {}
         
-        st.success("✅ 업로드한 파일 데이터로 전환되었습니다!")
+        # 기존 저장 이력 제거 후 새로 업로드된 데이터로 영구 저장
+        if os.path.exists(PERSISTENCE_STATE_PATH):
+            os.remove(PERSISTENCE_STATE_PATH)
+        save_app_state(parsed_df, used_sheet, {})
+
+        st.success("✅ 새로 업로드한 파일 데이터로 초기화되어 설정되었습니다!")
         st.rerun()
 
     if "sheet_names" in st.session_state:
@@ -293,6 +346,7 @@ with st.sidebar:
             parsed_df, used_sheet, _, raw_df = load_excel_smart(st.session_state.file_path, selected_s)
             st.session_state.df = parsed_df
             st.session_state.raw_df = raw_df
+            save_app_state(parsed_df, used_sheet, st.session_state.memos)
             st.rerun()
 
 df = st.session_state.df
@@ -392,7 +446,7 @@ with tab2:
     st.subheader("✏️ 전체 근무표 수정")
     edited_df = st.data_editor(st.session_state.df, num_rows="dynamic", key="data_editor")
 
-    if st.button("💾 변경사항 앱에 적용"):
+    if st.button("💾 변경사항 적용 및 영구 저장"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
         
@@ -409,7 +463,8 @@ with tab2:
         )
 
         st.session_state.df = edited_df
-        st.success("✅ 근무표 수정이 앱 화면에 반영되었습니다. (원본 엑셀 파일은 변경되지 않습니다)")
+        save_app_state(edited_df, st.session_state.selected_sheet, st.session_state.memos)
+        st.success("✅ 성공적으로 저장되었습니다. (새로고침을 해도 유지됩니다)")
         st.rerun()
 
 # ---------------------------------------------------------

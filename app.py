@@ -172,14 +172,14 @@ def load_excel_smart(file_source, selected_sheet=None):
 
 def save_to_excel_file(df, sheet_name):
     """
-    엑셀 파일 보존을 위해 파일 저장 기능을 비활성화합니다.
-    데이터 변경 사항은 세션 내 메모리(Session State)에서만 유지됩니다.
+    원본 엑셀 파일 보호를 위해 저장 기능을 작동하지 않도록 설정합니다.
+    수정 사항은 Streamlit Session State 메모리에만 유지됩니다.
     """
     pass
 
 
 # ---------------------------------------------------------
-# 세션 상태 초기화 및 데이터 로드
+# 세션 상태 초기화 및 데이터 로드 (최초 1회 또는 업로드 시만 로드)
 # ---------------------------------------------------------
 if "file_path" not in st.session_state:
     if os.path.exists("data"):
@@ -191,6 +191,7 @@ if "file_path" not in st.session_state:
 if "memos" not in st.session_state:
     st.session_state.memos = {}
 
+# 앱 메모리(df)가 없는 경우에만 초기 데이터 로드
 if "df" not in st.session_state:
     if os.path.exists(st.session_state.file_path):
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(st.session_state.file_path)
@@ -240,10 +241,12 @@ def edit_worker_dialog(date_str, duty_info):
         st.divider()
         edit_memo = st.text_area("📌 날짜별 메모 (달력에 바로 표시됨)", value=current_memo, height=80)
 
-        submitted = st.form_submit_button("💾 반영하기", use_container_width=True)
+        submitted = st.form_submit_button("💾 앱 내 반영하기", use_container_width=True)
 
         if submitted:
             row_idx = duty_info["idx"]
+            
+            # 앱 데이터 세션 상태(st.session_state.df) 직접 갱신
             st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
             st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
             st.session_state.df.at[row_idx, "대직1"] = edit_sub1.strip() if edit_sub1.strip() else None
@@ -254,26 +257,30 @@ def edit_worker_dialog(date_str, duty_info):
 
             st.session_state.memos[date_str] = edit_memo.strip()
 
-            save_to_excel_file(st.session_state.df, st.session_state.selected_sheet)
-            st.success("✅ 화면에 반영되었습니다! (원본 엑셀 파일은 유지됩니다)")
+            st.success("✅ 앱 데이터에 변경사항이 적용되었습니다. (원본 파일은 유지됩니다)")
             st.rerun()
 
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바 (파일 업로드 시에만 데이터 교체)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 설정")
-    uploaded_file = st.file_uploader("새 엑셀 파일 업로드", type=["xlsx"])
+    uploaded_file = st.file_uploader("새 엑셀 파일 업로드 (데이터 교체)", type=["xlsx"])
 
+    # 파일이 새로 업로드되었을 때만 st.session_state.df 갱신
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
+        
+        # 업로드한 파일 데이터로 메모리 세션 초기화
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-        st.success("✅ 업로드 완료!")
+        st.session_state.memos = {}  # 메모 초기화
+        
+        st.success("✅ 업로드한 파일 데이터로 전환되었습니다!")
         st.rerun()
 
     if "sheet_names" in st.session_state:
@@ -385,7 +392,7 @@ with tab2:
     st.subheader("✏️ 전체 근무표 수정")
     edited_df = st.data_editor(st.session_state.df, num_rows="dynamic", key="data_editor")
 
-    if st.button("💾 화면 변경사항 적용"):
+    if st.button("💾 변경사항 앱에 적용"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
         
@@ -402,12 +409,11 @@ with tab2:
         )
 
         st.session_state.df = edited_df
-        save_to_excel_file(edited_df, st.session_state.selected_sheet)
-        st.success("✅ 성공적으로 적용되었습니다. (원본 엑셀 파일은 변경되지 않습니다)")
+        st.success("✅ 근무표 수정이 앱 화면에 반영되었습니다. (원본 엑셀 파일은 변경되지 않습니다)")
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 월별 근무 통계 (범위 제한 차트 및 근무시간 산출표)
+# TAB 4: 월별 근무 통계
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -446,7 +452,7 @@ with tab3:
     ]
 
     if not combined.empty:
-        # 피벗 테이블 생성: 근무자별 근무구분 문자열 개수 카운트
+        # 피벗 테이블 생성
         stats_df = pd.crosstab(index=combined["근무자"], columns=combined["근무구분"], margins=False)
         
         # 1. 휴일근무 횟수 계산 (토요일 + 일요일 근무 횟수)

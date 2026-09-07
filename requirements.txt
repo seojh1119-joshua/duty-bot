@@ -7,3 +7,7 @@ apscheduler
 pyyaml
 requests
 pytz
+streamlit
+pandas
+openpyxl
+holidays

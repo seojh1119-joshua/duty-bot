@@ -24,44 +24,31 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 반응형 CSS
+# 반응형 CSS 및 스타일
 # ---------------------------------------------------------
 responsive_css = """
 <style>
     .main .block-container {
         padding-top: 1.5rem;
         padding-bottom: 2rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
     }
     
-    .duty-card {
+    .duty-card-header {
         border-radius: 8px 8px 0 0;
         padding: 6px 8px;
-        min-height: 85px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    .duty-card-title {
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         font-weight: bold;
         font-size: 13px;
         border-bottom: 1px solid rgba(0,0,0,0.08);
-        padding-bottom: 3px;
-        margin-bottom: 4px;
-    }
-    .duty-card-text {
-        font-size: 11px;
-        color: #2c3e50;
-        line-height: 1.4;
     }
     .duty-card-memo {
-        margin-top: 4px;
-        padding: 2px 4px;
+        margin: 3px 0;
+        padding: 3px 6px;
         background-color: #FFFDE7;
         border-left: 3px solid #FBC02D;
-        font-size: 10px;
+        font-size: 11px;
         color: #555555;
         border-radius: 2px;
         white-space: nowrap;
@@ -69,34 +56,31 @@ responsive_css = """
         text-overflow: ellipsis;
     }
 
-    /* Streamlit Popover 버튼 스타일 조정 */
+    /* Streamlit Popover 버튼 스타일 커스텀 */
     div[data-testid="stPopover"] > button {
         width: 100% !important;
-        border-top-left-radius: 0 !important;
-        border-top-right-radius: 0 !important;
-        border-bottom-left-radius: 8px !important;
-        border-bottom-right-radius: 8px !important;
         font-size: 11px !important;
-        padding: 2px 0px !important;
-        min-height: 24px !important;
-        height: 24px !important;
-        margin-top: -1px !important;
+        padding: 2px 4px !important;
+        min-height: 26px !important;
+        height: auto !important;
+        border-radius: 4px !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        margin-bottom: 2px !important;
     }
 
     @media (max-width: 768px) {
         .main .block-container {
-            padding-left: 0.25rem;
-            padding-right: 0.25rem;
+            padding-left: 0.2rem;
+            padding-right: 0.2rem;
         }
-        .duty-card {
-            min-height: 70px !important;
+        .duty-card-header {
+            font-size: 10px !important;
             padding: 4px !important;
         }
-        .duty-card-title {
-            font-size: 10px !important;
-        }
-        .duty-card-text {
+        div[data-testid="stPopover"] > button {
             font-size: 9px !important;
+            padding: 1px 2px !important;
         }
     }
 </style>
@@ -224,7 +208,7 @@ if "excel_bytes" not in st.session_state:
 if "selected_sheet" not in st.session_state:
     st.session_state.selected_sheet = None
 
-# 메모 저장소 초기화
+# 메모 저장소
 if "memos" not in st.session_state:
     st.session_state.memos = {}
 
@@ -276,9 +260,7 @@ if "df" not in st.session_state:
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 관리")
-    uploaded_file = st.file_uploader(
-        "새로운 엑셀(.xlsx) 파일 업로드", type=["xlsx"]
-    )
+    uploaded_file = st.file_uploader("새로운 엑셀(.xlsx) 파일 업로드", type=["xlsx"])
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
@@ -298,12 +280,7 @@ with st.sidebar:
         sheets = st.session_state.sheet_names
         curr_idx = sheets.index(st.session_state.selected_sheet) if st.session_state.selected_sheet in sheets else 0
         
-        selected_s = st.selectbox(
-            "📌 불러올 시트 선택",
-            sheets,
-            index=curr_idx,
-            key="sheet_selector",
-        )
+        selected_s = st.selectbox("📌 불러올 시트 선택", sheets, index=curr_idx, key="sheet_selector")
 
         if selected_s != st.session_state.selected_sheet:
             st.session_state.selected_sheet = selected_s
@@ -318,6 +295,17 @@ with st.sidebar:
 
 df = st.session_state.df
 
+# 전체 고유 근무자 목록 추출 (셀렉트박스용)
+all_workers = set()
+for col in ["근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]:
+    if col in df.columns:
+        all_workers.update(df[col].dropna().astype(str).unique())
+all_workers.discard("None")
+all_workers.discard("nan")
+all_workers.discard("미지정")
+worker_list = ["미지정"] + sorted(list(all_workers))
+
+
 # ---------------------------------------------------------
 # 메인 화면 구성 (탭)
 # ---------------------------------------------------------
@@ -326,14 +314,14 @@ st.title("📋 숙직 근무표 통합 대시보드")
 tab1, tab_sheet, tab2, tab3 = st.tabs([
     "📅 달력 메인 화면",
     "📊 시트 데이터 점검",
-    "✏️ 근무표 수정",
+    "✏️ 근무표 직접 수정",
     "📊 월별 근무 통계",
 ])
 
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (날짜별 메모 기능 적용)
+# TAB 1: 달력 메인 화면 (근무자 클릭 시 직접 수정 팝오버)
 # ---------------------------------------------------------
 with tab1:
     st.subheader("📅 오늘 기준 숙직 근무 현황")
@@ -368,6 +356,7 @@ with tab1:
     st.markdown("---")
 
     st.subheader(f"🗓️ {selected_month} 숙직 근무 달력")
+    st.caption("💡 근무자 이름이나 [📝 메모] 버튼을 눌러서 원하시는 정보를 직접 수정할 수 있습니다.")
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -376,12 +365,19 @@ with tab1:
         month_days = cal.monthdayscalendar(year, month)
 
         month_df = df[df["년월"] == selected_month].copy()
+        
+        # 날짜별 데이터 딕셔너리 구성
         duty_map = {}
-        for _, row in month_df.iterrows():
+        for idx_row, row in month_df.iterrows():
             d_day = row["날짜"].day
             duty_map[d_day] = {
-                "p1": row["실제근무1"],
-                "p2": row["실제근무2"],
+                "idx": idx_row,
+                "p1_orig": str(row["근무자1"]),
+                "p2_orig": str(row["근무자2"]),
+                "sub1": str(row["대직1"]) if pd.notnull(row["대직1"]) else "",
+                "sub2": str(row["대직2"]) if pd.notnull(row["대직2"]) else "",
+                "p1_real": str(row["실제근무1"]),
+                "p2_real": str(row["실제근무2"]),
                 "type": row["근무구분"],
                 "date_obj": row["날짜"].date(),
             }
@@ -409,10 +405,7 @@ with tab1:
                         holiday_name = kr_holidays.get(curr_date)
                         is_holiday = holiday_name is not None
 
-                        # 메모 가져오기
-                        day_memo = st.session_state.memos.get(date_str, "")
-
-                        # 카드 배경 및 테두리 색상 설정
+                        # 배경 및 스타일 색상
                         if is_today:
                             bg_color = "#FFF3E0"
                             border_color = "#FF9800"
@@ -433,49 +426,69 @@ with tab1:
                         else:
                             title_color = "#333333"
 
-                        p1_text = duty_info["p1"] if duty_info else "-"
-                        p2_text = duty_info["p2"] if duty_info else "-"
-                        
                         title_label = f"{day}일"
                         if is_today:
                             title_label += " (오늘)"
                         elif is_holiday:
                             title_label += f" ({holiday_name})"
 
-                        # 메모 노출 HTML 생성
-                        memo_html = f'<div class="duty-card-memo" title="{day_memo}">📌 {day_memo}</div>' if day_memo else ''
-
-                        card_html = f"""
-                        <div class="duty-card" style="
-                            background-color: {bg_color};
-                            border: 1.5px solid {border_color};
-                        ">
-                            <div>
-                                <div class="duty-card-title" style="color: {title_color};">
-                                    {title_label}
-                                </div>
-                                <div class="duty-card-text">
-                                    <b>근무1:</b> {p1_text}<br>
-                                    <b>근무2:</b> {p2_text}
-                                </div>
-                            </div>
-                            {memo_html}
+                        # 1. 날짜 헤더 표시
+                        header_html = f"""
+                        <div class="duty-card-header" style="background-color:{bg_color}; border:1.5px solid {border_color}; color:{title_color};">
+                            {title_label}
                         </div>
                         """
-                        st.markdown(card_html, unsafe_allow_html=True)
+                        st.markdown(header_html, unsafe_allow_html=True)
 
-                        # 팝오버 방식 메모 작성버튼 및 입력 창
-                        btn_label = "📌 메모수정" if day_memo else "📝 메모"
-                        with st.popover(btn_label, use_container_width=True):
+                        # 2. 근무자 누르면 수정할 수 있는 Popover
+                        if duty_info:
+                            p1_display = duty_info['p1_real']
+                            p2_display = duty_info['p2_real']
+                            
+                            # 대직 여부 표시
+                            if duty_info['sub1']: p1_display += " (대)"
+                            if duty_info['sub2']: p2_display += " (대)"
+
+                            with st.popover(f"👤 {p1_display} / {p2_display}", use_container_width=True):
+                                st.markdown(f"✏️ **{date_str} 근무자 수정**")
+                                with st.form(key=f"edit_worker_form_{date_str}"):
+                                    edit_p1 = st.text_input("원래 근무자1", value=duty_info["p1_orig"])
+                                    edit_sub1 = st.text_input("대직자1 (없으면 빈칸)", value=duty_info["sub1"])
+                                    st.divider()
+                                    edit_p2 = st.text_input("원래 근무자2", value=duty_info["p2_orig"])
+                                    edit_sub2 = st.text_input("대직자2 (없으면 빈칸)", value=duty_info["sub2"])
+                                    
+                                    if st.form_submit_button("💾 변경사항 저장", use_container_width=True):
+                                        row_idx = duty_info["idx"]
+                                        st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
+                                        st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
+                                        st.session_state.df.at[row_idx, "대직1"] = edit_sub1.strip() if edit_sub1.strip() else None
+                                        st.session_state.df.at[row_idx, "대직2"] = edit_sub2.strip() if edit_sub2.strip() else None
+                                        
+                                        # 실제근무 재계산
+                                        st.session_state.df.at[row_idx, "실제근무1"] = edit_sub1.strip() if edit_sub1.strip() else edit_p1.strip()
+                                        st.session_state.df.at[row_idx, "실제근무2"] = edit_sub2.strip() if edit_sub2.strip() else edit_p2.strip()
+                                        
+                                        st.success("근무자가 변경되었습니다!")
+                                        st.rerun()
+                        else:
+                            st.caption("근무 정보 없음")
+
+                        # 3. 메모 노출 및 작성 Popover
+                        day_memo = st.session_state.memos.get(date_str, "")
+                        if day_memo:
+                            st.markdown(f'<div class="duty-card-memo" title="{day_memo}">📌 {day_memo}</div>', unsafe_allow_html=True)
+
+                        btn_memo_label = "📌 메모수정" if day_memo else "📝 메모"
+                        with st.popover(btn_memo_label, use_container_width=True):
                             st.caption(f"📅 **{date_str} 메모**")
                             memo_input = st.text_area(
-                                "메모 내용을 입력하세요",
+                                "메모 내용",
                                 value=day_memo,
                                 key=f"memo_input_{date_str}",
-                                height=100,
+                                height=90,
                                 label_visibility="collapsed"
                             )
-                            
                             c_save, c_del = st.columns([1, 1])
                             with c_save:
                                 if st.button("저장", key=f"save_btn_{date_str}", use_container_width=True):
@@ -553,14 +566,14 @@ with tab_sheet:
 # TAB 3: 근무표 직접 수정
 # ---------------------------------------------------------
 with tab2:
-    st.subheader("✏️ 원본 데이터 직접 수정")
-    st.caption("💡 대직 정보 및 근무시간을 수정하면 통계에 즉시 반영됩니다.")
+    st.subheader("✏️ 원본 데이터 전체 수정 (표 형태)")
+    st.caption("💡 표 전체 데이터를 일괄 수정할 경우 여기서 수정 후 저장하세요.")
 
     edited_df = st.data_editor(
         st.session_state.df, num_rows="dynamic", key="data_editor"
     )
 
-    if st.button("💾 변경사항 저장 및 반영"):
+    if st.button("💾 전체 변경사항 저장 및 반영"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
         

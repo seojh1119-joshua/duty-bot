@@ -1,5 +1,6 @@
 import os
 import io
+import glob
 import datetime
 import calendar
 import re
@@ -187,36 +188,45 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-# 기본 파일 경로 (예: data/근무표.xlsx)
-default_file_path = os.path.join(DATA_DIR, "근무표.xlsx")
+# data/ 폴더 안의 모든 엑셀 파일 탐색 (.xlsx, .xls)
+excel_files_in_data = glob.glob(os.path.join(DATA_DIR, "*.xlsx")) + glob.glob(os.path.join(DATA_DIR, "*.xls"))
+
+# 임시 파일(~$ 시작) 제외
+excel_files_in_data = [f for f in excel_files_in_data if not os.path.basename(f).startswith("~$")]
 
 # 사이드바: 파일 및 시트 선택
 st.sidebar.header("📁 파일 및 옵션 설정")
 
-# 파일 업로더 (새 파일 업로드 시 기본 파일 대신 사용)
+# 웹 화면에서 직관적으로 새 파일을 올릴 수 있는 업로더
 uploaded_file = st.sidebar.file_uploader(
     "새로운 엑셀 파일로 갱신하려면 업로드하세요", 
-    type=["xlsx"]
+    type=["xlsx", "xls"]
 )
 
-# 파일 로드 우선순위 결정
 file_to_process = None
 source_name = ""
 
+# 파일 탐색 및 자동 매핑 우선순위 지정
 if uploaded_file is not None:
     file_to_process = uploaded_file
-    source_name = f"업로드된 파일: {uploaded_file.name}"
+    source_name = f"웹에서 업로드한 파일: {uploaded_file.name}"
     st.sidebar.success("새 엑셀 파일이 업로드되었습니다!")
-elif os.path.exists(default_file_path):
-    file_to_process = default_file_path
-    source_name = "기본 파일: data/근무표.xlsx"
-    st.sidebar.info("기본 파일(data/근무표.xlsx)을 사용 중입니다.")
-else:
-    st.error("`data/` 폴더 내에 기본 `근무표.xlsx` 파일이 없고, 업로드된 파일도 없습니다.")
-    st.info("GitHub의 `data/` 폴더에 `근무표.xlsx` 파일을 올려두거나, 사이드바에서 새 파일을 업로드해 주세요.")
 
+elif excel_files_in_data:
+    # data/ 폴더에 엑셀 파일이 하나 이상 있을 때: 가장 최근에 수정된 파일 선택
+    latest_file = max(excel_files_in_data, key=os.path.getmtime)
+    file_to_process = latest_file
+    file_basename = os.path.basename(latest_file)
+    source_name = f"data/ 폴더 감지 파일: {file_basename}"
+    st.sidebar.info(f"`data/` 폴더에서 `{file_basename}` 파일을 자동으로 로드했습니다.")
+
+else:
+    st.error("`data/` 폴더 내에 엑셀 파일이 존재하지 않고, 웹 업로드된 파일도 없습니다.")
+    st.info("GitHub의 `data/` 폴더에 임의의 엑셀 파일(.xlsx)을 넣어두시거나, 왼쪽 사이드바에서 파일을 직접 업로드해 주세요.")
+
+# 파일 로드가 정상적으로 준비된 경우
 if file_to_process is not None:
-    st.caption(f"📌 **현재 적용 대상:** {source_name}")
+    st.caption(f"📌 **현재 적용 기준:** {source_name}")
     
     try:
         # 시트 목록 읽기
@@ -239,7 +249,7 @@ if file_to_process is not None:
                 if updated_wb:
                     st.success(f"'{selected_sheet}' 시트 기준 대시보드가 정상적으로 작성되었습니다!")
 
-                    # 메모리 스트림에 파일 저장 후 다운로드 버튼 제공
+                    # 메모리 스트림에 파일 저장 후 다운로드 제공
                     output_stream = io.BytesIO()
                     updated_wb.save(output_stream)
                     output_stream.seek(0)

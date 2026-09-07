@@ -91,7 +91,6 @@ def load_excel_smart(file_bytes, selected_sheet=None):
 
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
-        # '의료과', '초과근무', '숙직', '근무' 우선 탐색
         priority_sheets = [s for s in sheet_names if any(k in s for k in ["의료과", "초과근무", "숙직", "근무"])]
         target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
 
@@ -149,7 +148,7 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     if time_col:
         df["근무시간"] = pd.to_numeric(df[time_col], errors="coerce").fillna(0)
     else:
-        df["근무시간"] = 8.0  # 기본값 8시간
+        df["근무시간"] = 8.0
 
     # 상세 근무구분 (평일(월~목) / 금요일 / 토,일요일)
     def classify_day(d):
@@ -200,7 +199,6 @@ if "excel_bytes" not in st.session_state:
 if "selected_sheet" not in st.session_state:
     st.session_state.selected_sheet = None
 
-# 초기 데이터 로드
 if st.session_state.excel_bytes is not None and "df" not in st.session_state:
     try:
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(st.session_state.excel_bytes)
@@ -211,16 +209,15 @@ if st.session_state.excel_bytes is not None and "df" not in st.session_state:
     except Exception:
         pass
 
-# 샘플 데이터 Fallback
 if "df" not in st.session_state:
     today = datetime.date.today()
-    dates = pd.date_range(start=today.replace(day=1), periods=35, freq="D")
+    dates = pd.date_range(start=today.replace(day=1), periods=60, freq="D")
     sample_df = pd.DataFrame({
         "날짜": dates,
-        "근무자1": ["홍길동", "김철수", "이영희", "박민수", "정수진"] * 7,
-        "근무자2": ["김철수", "이영희", "박민수", "정수진", "홍길동"] * 7,
-        "대직1": [None] * 35,
-        "대직2": [None] * 35,
+        "근무자1": ["홍길동", "김철수", "이영희", "박민수", "정수진"] * 12,
+        "근무자2": ["김철수", "이영희", "박민수", "정수진", "홍길동"] * 12,
+        "대직1": [None] * 60,
+        "대직2": [None] * 60,
         "근무시간": [8.0 if d.weekday() < 5 else 12.0 for d in dates],
     })
     
@@ -301,7 +298,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
     "📅 달력 메인 화면",
     "📊 시트 데이터 점검",
     "✏️ 근무표 수정",
-    "📊 근무 통계",
+    "📊 월별 근무 통계",
 ])
 
 today = datetime.date.today()
@@ -526,14 +523,38 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 근무 통계 (개별 근무시간 및 요일 세분화)
+# TAB 4: 월별 근무 통계 (월 선택 기능 추가)
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("📊 의료과 개인별 초과근무 및 근무 통계")
+    st.subheader("📊 의료과 월별 근무 및 초과근무 통계")
+
+    # 월 선택 드롭다운
+    available_months_stat = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
+    current_ym = today.strftime("%Y-%m")
+    default_stat_idx = (
+        available_months_stat.index(current_ym)
+        if current_ym in available_months_stat
+        else 0
+    )
+
+    col_m1, _ = st.columns([1, 2])
+    with col_m1:
+        selected_stat_month = st.selectbox(
+            "📅 통계 조회 월 선택",
+            available_months_stat,
+            index=default_stat_idx,
+            key="stat_month_selector"
+        )
+
+    # 선택된 월 기준 데이터 필터링
+    if selected_stat_month == "전체 기간":
+        filtered_df = df.copy()
+    else:
+        filtered_df = df[df["년월"] == selected_stat_month].copy()
 
     # 근무자1, 근무자2 데이터 통합 (개별 근무시간 포함)
-    w1 = df[["실제근무1", "상세구분", "근무시간"]].rename(columns={"실제근무1": "근무자"})
-    w2 = df[["실제근무2", "상세구분", "근무시간"]].rename(columns={"실제근무2": "근무자"})
+    w1 = filtered_df[["실제근무1", "상세구분", "근무시간"]].rename(columns={"실제근무1": "근무자"})
+    w2 = filtered_df[["실제근무2", "상세구분", "근무시간"]].rename(columns={"실제근무2": "근무자"})
     
     combined_workers = pd.concat([w1, w2], ignore_index=True)
     combined_workers = combined_workers[
@@ -542,8 +563,16 @@ with tab3:
     ]
 
     if not combined_workers.empty:
+        # 요약 메트릭
+        kpi1, kpi2, kpi3 = st.columns(3)
+        kpi1.metric("총 근무자 수", f"{combined_workers['근무자'].nunique()}명")
+        kpi2.metric("총 근무시간 합계", f"{combined_workers['근무시간'].sum():.1f} 시간")
+        kpi3.metric("총 근무 건수", f"{len(combined_workers)}건")
+
+        st.markdown("---")
+
         # 1. 개인별 개별 근무시간 통계
-        st.markdown("#### ⏱️ 1. 개인별 총 누적 근무시간 (시간)")
+        st.markdown(f"#### ⏱️ [{selected_stat_month}] 개인별 총 근무시간 (시간)")
         time_stats = combined_workers.groupby("근무자")["근무시간"].sum().reset_index()
         time_stats.columns = ["근무자", "총 근무시간(h)"]
         time_stats = time_stats.sort_values(by="총 근무시간(h)", ascending=False)
@@ -557,7 +586,7 @@ with tab3:
         st.markdown("---")
 
         # 2. 평일(월~목) / 금요일 / 토,일요일 근무 횟수 통계
-        st.markdown("#### 📅 2. 개인별 요일 세분화 근무 횟수 (평일 / 금요일 / 토·일요일)")
+        st.markdown(f"#### 📅 [{selected_stat_month}] 개인별 요일 세분화 근무 횟수 (평일 / 금요일 / 토·일요일)")
         
         count_stats = (
             combined_workers.groupby(["근무자", "상세구분"])
@@ -565,7 +594,6 @@ with tab3:
             .unstack(fill_value=0)
         )
         
-        # 컬럼 순서 고정 (평일 -> 금요일 -> 토/일요일)
         desired_order = ["평일(월~목)", "금요일", "토/일요일"]
         existing_cols = [c for c in desired_order if c in count_stats.columns]
         count_stats = count_stats[existing_cols]
@@ -579,4 +607,4 @@ with tab3:
             st.dataframe(count_stats_with_total, use_container_width=True, height=300)
 
     else:
-        st.info("통계를 산출할 근무자 데이터가 존재하지 않습니다.")
+        st.info(f"[{selected_stat_month}] 기간에 집계할 근무 데이터가 존재하지 않습니다.")

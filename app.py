@@ -80,6 +80,8 @@ DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
 # ---------------------------------------------------------
 def get_day_category(d):
     """요일별 상세 구분 지정"""
+    if pd.isnull(d):
+        return "평일"
     w = d.weekday()
     if w in [0, 1, 2, 3]:
         return "평일"
@@ -87,8 +89,9 @@ def get_day_category(d):
         return "금요일"
     elif w == 5:
         return "토요일(휴일)"
-    else:
+    elif w == 6:
         return "일요일(휴일)"
+    return "평일"
 
 def get_duty_hours(category):
     """규정 근무시간 반환 (평일: 7h, 금: 15h, 토(휴일): 15h, 일(휴일): 7h)"""
@@ -439,48 +442,51 @@ with tab3:
 
     filtered_df = df.copy() if selected_stat_month == "전체 기간" else df[df["년월"] == selected_stat_month].copy()
 
+    # 날짜 기준으로 요일 구분 재확인 및 보정
+    filtered_df["상세구분"] = filtered_df["날짜"].apply(get_day_category)
+
     # 1명/2명 근무자 데이터 결합
-    w1 = filtered_df[["실제근무1", "상세구분", "근무시간"]].rename(columns={"실제근무1": "근무자"})
-    w2 = filtered_df[["실제근무2", "상세구분", "근무시간"]].rename(columns={"실제근무2": "근무자"})
+    w1 = filtered_df[["실제근무1", "상세구분"]].rename(columns={"실제근무1": "근무자"})
+    w2 = filtered_df[["실제근무2", "상세구분"]].rename(columns={"실제근무2": "근무자"})
     
     combined = pd.concat([w1, w2], ignore_index=True)
-    combined = combined[combined["근무자"].notnull() & (~combined["근무자"].isin(["미지정", "nan", "None"]))]
+    
+    # 데이터 정제 (공백 제거 및 미지정 제거)
+    combined["근무자"] = combined["근무자"].astype(str).str.strip()
+    combined = combined[
+        combined["근무자"].notnull() & 
+        (~combined["근무자"].isin(["미지정", "nan", "None", ""]))
+    ]
 
     if not combined.empty:
-        # 요일별 근무 횟수 집계
-        pivot_count = combined.groupby(["근무자", "상세구분"]).size().unstack(fill_value=0)
+        # 명확한 카운트를 위한 직접 조건문 집계 로직 적용
+        unique_workers = sorted(combined["근무자"].unique())
         
-        # 필수 컬럼 확보
-        for col_name in ["평일", "금요일", "토요일(휴일)", "일요일(휴일)"]:
-            if col_name not in pivot_count.columns:
-                pivot_count[col_name] = 0
+        stat_rows = []
+        for worker in unique_workers:
+            w_df = combined[combined["근무자"] == worker]
+            
+            cnt_weekday = (w_df["상세구분"] == "평일").sum()
+            cnt_friday = (w_df["상세구분"] == "금요일").sum()
+            cnt_saturday = (w_df["상세구분"] == "토요일(휴일)").sum()
+            cnt_sunday = (w_df["상세구분"] == "일요일(휴일)").sum()
+            
+            holiday_work_cnt = cnt_saturday + cnt_sunday
+            total_work_cnt = cnt_weekday + cnt_friday + cnt_saturday + cnt_sunday
+            total_work_hours = (cnt_weekday * 7) + (cnt_friday * 15) + (cnt_saturday * 15) + (cnt_sunday * 7)
+            
+            stat_rows.append({
+                "근무자": worker,
+                "평일 횟수": cnt_weekday,
+                "금요일 횟수": cnt_friday,
+                "토요일(휴일) 횟수": cnt_saturday,
+                "일요일(휴일) 횟수": cnt_sunday,
+                "휴일근무횟수": holiday_work_cnt,
+                "총 근무 횟수": total_work_cnt,
+                "총 근무시간(h)": total_work_hours
+            })
 
-        # 상세 집계표 생성
-        stats_df = pd.DataFrame(index=pivot_count.index)
-        stats_df["평일 횟수"] = pivot_count["평일"]
-        stats_df["금요일 횟수"] = pivot_count["금요일"]
-        stats_df["토요일(휴일) 횟수"] = pivot_count["토요일(휴일)"]
-        stats_df["일요일(휴일) 횟수"] = pivot_count["일요일(휴일)"]
-
-        # 1) 휴일근무횟수 (토요일(휴일) + 일요일(휴일))
-        stats_df["휴일근무횟수"] = stats_df["토요일(휴일) 횟수"] + stats_df["일요일(휴일) 횟수"]
-
-        # 2) 총 근무 횟수
-        stats_df["총 근무 횟수"] = (
-            stats_df["평일 횟수"]
-            + stats_df["금요일 횟수"]
-            + stats_df["토요일(휴일) 횟수"]
-            + stats_df["일요일(휴일) 횟수"]
-        )
-
-        # 3) 규정 근무시간 계산 (평일: 7h, 금: 15h, 토(휴일): 15h, 일(휴일): 7h)
-        stats_df["총 근무시간(h)"] = (
-            stats_df["평일 횟수"] * 7
-            + stats_df["금요일 횟수"] * 15
-            + stats_df["토요일(휴일) 횟수"] * 15
-            + stats_df["일요일(휴일) 횟수"] * 7
-        )
-
+        stats_df = pd.DataFrame(stat_rows).set_index("근무자")
         stats_df = stats_df.sort_values(by="총 근무시간(h)", ascending=False)
 
         # 요약 카드

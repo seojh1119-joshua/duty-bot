@@ -36,9 +36,8 @@ responsive_css = """
     }
     
     .duty-card {
-        border-radius: 8px;
+        border-radius: 8px 8px 0 0;
         padding: 6px 8px;
-        margin-bottom: 6px;
         min-height: 85px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         display: flex;
@@ -56,6 +55,32 @@ responsive_css = """
         font-size: 11px;
         color: #2c3e50;
         line-height: 1.4;
+    }
+    .duty-card-memo {
+        margin-top: 4px;
+        padding: 2px 4px;
+        background-color: #FFFDE7;
+        border-left: 3px solid #FBC02D;
+        font-size: 10px;
+        color: #555555;
+        border-radius: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Streamlit Popover 버튼 스타일 조정 */
+    div[data-testid="stPopover"] > button {
+        width: 100% !important;
+        border-top-left-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+        border-bottom-left-radius: 8px !important;
+        border-bottom-right-radius: 8px !important;
+        font-size: 11px !important;
+        padding: 2px 0px !important;
+        min-height: 24px !important;
+        height: 24px !important;
+        margin-top: -1px !important;
     }
 
     @media (max-width: 768px) {
@@ -199,6 +224,10 @@ if "excel_bytes" not in st.session_state:
 if "selected_sheet" not in st.session_state:
     st.session_state.selected_sheet = None
 
+# 메모 저장소 초기화
+if "memos" not in st.session_state:
+    st.session_state.memos = {}
+
 if st.session_state.excel_bytes is not None and "df" not in st.session_state:
     try:
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(st.session_state.excel_bytes)
@@ -304,7 +333,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (날짜별 메모 기능 적용)
 # ---------------------------------------------------------
 with tab1:
     st.subheader("📅 오늘 기준 숙직 근무 현황")
@@ -363,12 +392,14 @@ with tab1:
             header_color = "🔴" if idx == 0 else ("🔵" if idx == 6 else "⚪")
             cols[idx].markdown(f"**{header_color} {day_name}**", unsafe_allow_html=True)
 
+        # 달력 그리드 렌더링
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
                 with week_cols[i]:
                     if day != 0:
                         curr_date = datetime.date(year, month, day)
+                        date_str = curr_date.strftime("%Y-%m-%d")
                         duty_info = duty_map.get(day)
                         
                         is_today = (curr_date == today)
@@ -378,6 +409,10 @@ with tab1:
                         holiday_name = kr_holidays.get(curr_date)
                         is_holiday = holiday_name is not None
 
+                        # 메모 가져오기
+                        day_memo = st.session_state.memos.get(date_str, "")
+
+                        # 카드 배경 및 테두리 색상 설정
                         if is_today:
                             bg_color = "#FFF3E0"
                             border_color = "#FF9800"
@@ -407,23 +442,55 @@ with tab1:
                         elif is_holiday:
                             title_label += f" ({holiday_name})"
 
+                        # 메모 노출 HTML 생성
+                        memo_html = f'<div class="duty-card-memo" title="{day_memo}">📌 {day_memo}</div>' if day_memo else ''
+
                         card_html = f"""
                         <div class="duty-card" style="
                             background-color: {bg_color};
                             border: 1.5px solid {border_color};
                         ">
-                            <div class="duty-card-title" style="color: {title_color};">
-                                {title_label}
+                            <div>
+                                <div class="duty-card-title" style="color: {title_color};">
+                                    {title_label}
+                                </div>
+                                <div class="duty-card-text">
+                                    <b>근무1:</b> {p1_text}<br>
+                                    <b>근무2:</b> {p2_text}
+                                </div>
                             </div>
-                            <div class="duty-card-text">
-                                <b>근무1:</b> {p1_text}<br>
-                                <b>근무2:</b> {p2_text}
-                            </div>
+                            {memo_html}
                         </div>
                         """
                         st.markdown(card_html, unsafe_allow_html=True)
+
+                        # 팝오버 방식 메모 작성버튼 및 입력 창
+                        btn_label = "📌 메모수정" if day_memo else "📝 메모"
+                        with st.popover(btn_label, use_container_width=True):
+                            st.caption(f"📅 **{date_str} 메모**")
+                            memo_input = st.text_area(
+                                "메모 내용을 입력하세요",
+                                value=day_memo,
+                                key=f"memo_input_{date_str}",
+                                height=100,
+                                label_visibility="collapsed"
+                            )
+                            
+                            c_save, c_del = st.columns([1, 1])
+                            with c_save:
+                                if st.button("저장", key=f"save_btn_{date_str}", use_container_width=True):
+                                    if memo_input.strip():
+                                        st.session_state.memos[date_str] = memo_input.strip()
+                                    else:
+                                        st.session_state.memos.pop(date_str, None)
+                                    st.rerun()
+                            with c_del:
+                                if st.button("삭제", key=f"del_btn_{date_str}", use_container_width=True):
+                                    st.session_state.memos.pop(date_str, None)
+                                    st.rerun()
+
                     else:
-                        st.markdown("<div style='min-height: 85px;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='min-height: 110px;'></div>", unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -523,12 +590,11 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 월별 근무 통계 (월 선택 기능 추가)
+# TAB 4: 월별 근무 통계
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 의료과 월별 근무 및 초과근무 통계")
 
-    # 월 선택 드롭다운
     available_months_stat = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
     current_ym = today.strftime("%Y-%m")
     default_stat_idx = (
@@ -546,13 +612,11 @@ with tab3:
             key="stat_month_selector"
         )
 
-    # 선택된 월 기준 데이터 필터링
     if selected_stat_month == "전체 기간":
         filtered_df = df.copy()
     else:
         filtered_df = df[df["년월"] == selected_stat_month].copy()
 
-    # 근무자1, 근무자2 데이터 통합 (개별 근무시간 포함)
     w1 = filtered_df[["실제근무1", "상세구분", "근무시간"]].rename(columns={"실제근무1": "근무자"})
     w2 = filtered_df[["실제근무2", "상세구분", "근무시간"]].rename(columns={"실제근무2": "근무자"})
     
@@ -563,7 +627,6 @@ with tab3:
     ]
 
     if not combined_workers.empty:
-        # 요약 메트릭
         kpi1, kpi2, kpi3 = st.columns(3)
         kpi1.metric("총 근무자 수", f"{combined_workers['근무자'].nunique()}명")
         kpi2.metric("총 근무시간 합계", f"{combined_workers['근무시간'].sum():.1f} 시간")
@@ -571,7 +634,6 @@ with tab3:
 
         st.markdown("---")
 
-        # 1. 개인별 개별 근무시간 통계
         st.markdown(f"#### ⏱️ [{selected_stat_month}] 개인별 총 근무시간 (시간)")
         time_stats = combined_workers.groupby("근무자")["근무시간"].sum().reset_index()
         time_stats.columns = ["근무자", "총 근무시간(h)"]
@@ -585,7 +647,6 @@ with tab3:
 
         st.markdown("---")
 
-        # 2. 평일(월~목) / 금요일 / 토,일요일 근무 횟수 통계
         st.markdown(f"#### 📅 [{selected_stat_month}] 개인별 요일 세분화 근무 횟수 (평일 / 금요일 / 토·일요일)")
         
         count_stats = (

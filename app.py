@@ -56,17 +56,23 @@ responsive_css = """
         text-overflow: ellipsis;
     }
 
-    /* Streamlit Popover 버튼 스타일 커스텀 */
-    div[data-testid="stPopover"] > button {
+    /* 근무자 버튼 스타일 */
+    .stButton > button {
         width: 100% !important;
         font-size: 11px !important;
         padding: 2px 4px !important;
         min-height: 26px !important;
         height: auto !important;
-        border-radius: 4px !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
         margin-bottom: 2px !important;
+    }
+
+    /* Popover 버튼 커스텀 */
+    div[data-testid="stPopover"] > button {
+        width: 100% !important;
+        font-size: 11px !important;
+        padding: 2px 4px !important;
+        min-height: 24px !important;
+        height: 24px !important;
     }
 
     @media (max-width: 768px) {
@@ -78,7 +84,7 @@ responsive_css = """
             font-size: 10px !important;
             padding: 4px !important;
         }
-        div[data-testid="stPopover"] > button {
+        .stButton > button {
             font-size: 9px !important;
             padding: 1px 2px !important;
         }
@@ -87,14 +93,18 @@ responsive_css = """
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
+DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
 
 # ---------------------------------------------------------
-# 1. 스마트 엑셀 로더 함수
+# 1. 엑셀 로더 및 원본 파일 저장 함수
 # ---------------------------------------------------------
-def load_excel_smart(file_bytes, selected_sheet=None):
-    file_obj = io.BytesIO(file_bytes)
-    
-    file_obj.seek(0)
+def load_excel_smart(file_source, selected_sheet=None):
+    """파일 경로 또는 파일 바이트로부터 데이터프레임 로드"""
+    if isinstance(file_source, bytes):
+        file_obj = io.BytesIO(file_source)
+    else:
+        file_obj = file_source
+
     excel_file = pd.ExcelFile(file_obj)
     sheet_names = excel_file.sheet_names
 
@@ -103,7 +113,9 @@ def load_excel_smart(file_bytes, selected_sheet=None):
         priority_sheets = [s for s in sheet_names if any(k in s for k in ["의료과", "초과근무", "숙직", "근무"])]
         target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
 
-    file_obj.seek(0)
+    if isinstance(file_source, bytes):
+        file_obj.seek(0)
+
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
     header_idx = None
@@ -117,7 +129,9 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     if header_idx is None:
         header_idx = 0
 
-    file_obj.seek(0)
+    if isinstance(file_source, bytes):
+        file_obj.seek(0)
+
     df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
 
     # 컬럼 정제
@@ -152,14 +166,13 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     df["대직1"] = df[sub1_col] if sub1_col else None
     df["대직2"] = df[sub2_col] if sub2_col else None
 
-    # 근무시간 컬럼 자동 인식
+    # 근무시간
     time_col = next((c for c in cols if any(k in c for k in ["근무시간", "초과근무시간", "인정시간", "시간", "시간수"])), None)
     if time_col:
         df["근무시간"] = pd.to_numeric(df[time_col], errors="coerce").fillna(0)
     else:
         df["근무시간"] = 8.0
 
-    # 상세 근무구분 (평일(월~목) / 금요일 / 토,일요일)
     def classify_day(d):
         w = d.weekday()
         if w in [0, 1, 2, 3]:
@@ -173,7 +186,7 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     df["근무구분"] = df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 대직자 적용 로직
+    # 실제 근무자 처리
     df["실제근무1"] = (
         df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
         .combine_first(df["근무자1"]).fillna("미지정")
@@ -186,77 +199,123 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     return df, target_sheet, sheet_names, df_raw
 
 
-# ---------------------------------------------------------
-# data/ 폴더 기본 엑셀 로드 함수
-# ---------------------------------------------------------
-def get_default_excel_bytes():
-    data_dir = "data"
-    if os.path.exists(data_dir):
-        files = glob.glob(os.path.join(data_dir, "*.xlsx"))
-        if files:
-            with open(files[0], "rb") as f:
-                return f.read()
-    return None
+def save_to_excel_file(df, sheet_name):
+    """현재 데이터프레임을 원본 엑셀 파일(.xlsx)에 저장"""
+    save_path = st.session_state.get("file_path", DEFAULT_FILE_PATH)
+    
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    # 엑셀 저장용 파이프라인
+    save_df = df.copy()
+    save_df["날짜"] = save_df["날짜"].dt.strftime("%Y-%m-%d")
+    
+    # 엑셀 파일 저장
+    if os.path.exists(save_path):
+        try:
+            with pd.ExcelWriter(save_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                save_df.to_excel(writer, sheet_name=sheet_name, index=False)
+        except Exception:
+            with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
+                save_df.to_excel(writer, sheet_name=sheet_name, index=False)
+    else:
+        with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
+            save_df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    # 내보낸 데이터를 세션 바이트에도 동기화
+    with open(save_path, "rb") as f:
+        st.session_state.excel_bytes = f.read()
 
 
 # ---------------------------------------------------------
-# 세션 상태(Session State) 유지 관리
+# 세션 상태(Session State) 유지 및 기본 로드
 # ---------------------------------------------------------
-if "excel_bytes" not in st.session_state:
-    st.session_state.excel_bytes = get_default_excel_bytes()
+if "file_path" not in st.session_state:
+    if os.path.exists("data"):
+        files = glob.glob(os.path.join("data", "*.xlsx"))
+        st.session_state.file_path = files[0] if files else DEFAULT_FILE_PATH
+    else:
+        st.session_state.file_path = DEFAULT_FILE_PATH
 
-if "selected_sheet" not in st.session_state:
-    st.session_state.selected_sheet = None
-
-# 메모 저장소
 if "memos" not in st.session_state:
     st.session_state.memos = {}
 
-if st.session_state.excel_bytes is not None and "df" not in st.session_state:
-    try:
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(st.session_state.excel_bytes)
+if "df" not in st.session_state:
+    if os.path.exists(st.session_state.file_path):
+        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(st.session_state.file_path)
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-    except Exception:
-        pass
+    else:
+        today = datetime.date.today()
+        dates = pd.date_range(start=today.replace(day=1), periods=60, freq="D")
+        sample_df = pd.DataFrame({
+            "날짜": dates,
+            "근무자1": ["홍길동", "김철수", "이영희", "박민수", "정수진"] * 12,
+            "근무자2": ["김철수", "이영희", "박민수", "정수진", "홍길동"] * 12,
+            "대직1": [None] * 60,
+            "대직2": [None] * 60,
+            "근무시간": [8.0 if d.weekday() < 5 else 12.0 for d in dates],
+        })
+        
+        def classify_day_sample(d):
+            w = d.weekday()
+            if w in [0, 1, 2, 3]: return "평일(월~목)"
+            elif w == 4: return "금요일"
+            else: return "토/일요일"
 
-if "df" not in st.session_state:
-    today = datetime.date.today()
-    dates = pd.date_range(start=today.replace(day=1), periods=60, freq="D")
-    sample_df = pd.DataFrame({
-        "날짜": dates,
-        "근무자1": ["홍길동", "김철수", "이영희", "박민수", "정수진"] * 12,
-        "근무자2": ["김철수", "이영희", "박민수", "정수진", "홍길동"] * 12,
-        "대직1": [None] * 60,
-        "대직2": [None] * 60,
-        "근무시간": [8.0 if d.weekday() < 5 else 12.0 for d in dates],
-    })
-    
-    def classify_day_sample(d):
-        w = d.weekday()
-        if w in [0, 1, 2, 3]:
-            return "평일(월~목)"
-        elif w == 4:
-            return "금요일"
-        else:
-            return "토/일요일"
-
-    sample_df["상세구분"] = sample_df["날짜"].apply(classify_day_sample)
-    sample_df["근무구분"] = sample_df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
-    sample_df["년월"] = sample_df["날짜"].dt.strftime("%Y-%m")
-    sample_df["실제근무1"] = sample_df["근무자1"]
-    sample_df["실제근무2"] = sample_df["근무자2"]
-    
-    st.session_state.df = sample_df
-    st.session_state.sheet_names = ["의료과 개인별 초과근무내역"]
-    st.session_state.selected_sheet = "의료과 개인별 초과근무내역"
-    st.session_state.raw_df = pd.DataFrame()
+        sample_df["상세구분"] = sample_df["날짜"].apply(classify_day_sample)
+        sample_df["근무구분"] = sample_df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
+        sample_df["년월"] = sample_df["날짜"].dt.strftime("%Y-%m")
+        sample_df["실제근무1"] = sample_df["근무자1"]
+        sample_df["실제근무2"] = sample_df["근무자2"]
+        
+        st.session_state.df = sample_df
+        st.session_state.sheet_names = ["의료과 초과근무내역"]
+        st.session_state.selected_sheet = "의료과 초과근무내역"
+        st.session_state.raw_df = pd.DataFrame()
+        save_to_excel_file(sample_df, st.session_state.selected_sheet)
 
 
 # ---------------------------------------------------------
-# 사이드바: 파일 및 시트 관리
+# 모달 팝업(Dialog) 정의: 근무자 직접 수정
+# ---------------------------------------------------------
+@st.dialog("✏️ 근무자 수정 및 원본 저장")
+def edit_worker_dialog(date_str, duty_info):
+    st.write(f"📅 **{date_str} 근무자 수정**")
+    
+    with st.form(key=f"dialog_form_{date_str}"):
+        edit_p1 = st.text_input("원래 근무자1", value=duty_info["p1_orig"])
+        edit_sub1 = st.text_input("대직자1 (없으면 빈칸)", value=duty_info["sub1"])
+        st.divider()
+        edit_p2 = st.text_input("원래 근무자2", value=duty_info["p2_orig"])
+        edit_sub2 = st.text_input("대직자2 (없으면 빈칸)", value=duty_info["sub2"])
+        
+        submitted = st.form_submit_button("💾 변경사항 저장 (파일에 기록)", use_container_width=True)
+        
+        if submitted:
+            row_idx = duty_info["idx"]
+            
+            # 1. 데이터프레임 업데이트
+            st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
+            st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
+            st.session_state.df.at[row_idx, "대직1"] = edit_sub1.strip() if edit_sub1.strip() else None
+            st.session_state.df.at[row_idx, "대직2"] = edit_sub2.strip() if edit_sub2.strip() else None
+            
+            # 실제 근무자 적용
+            st.session_state.df.at[row_idx, "실제근무1"] = edit_sub1.strip() if edit_sub1.strip() else edit_p1.strip()
+            st.session_state.df.at[row_idx, "실제근무2"] = edit_sub2.strip() if edit_sub2.strip() else edit_p2.strip()
+            
+            # 2. 원본 엑셀 파일(.xlsx)에 저장
+            save_to_excel_file(st.session_state.df, st.session_state.selected_sheet)
+            
+            st.success("✅ 파일에 성공적으로 저장되었습니다!")
+            # 3. 팝업창을 닫고 전체 페이지 갱신
+            st.rerun()
+
+
+# ---------------------------------------------------------
+# 사이드바: 파일 관리
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 관리")
@@ -264,19 +323,20 @@ with st.sidebar:
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
-        if file_bytes != st.session_state.excel_bytes:
-            st.session_state.excel_bytes = file_bytes
-            st.session_state.selected_sheet = None
+        
+        # 파일 저장
+        with open(st.session_state.file_path, "wb") as f:
+            f.write(file_bytes)
             
-            parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
-            st.session_state.df = parsed_df
-            st.session_state.selected_sheet = used_sheet
-            st.session_state.sheet_names = sheet_names
-            st.session_state.raw_df = raw_df
-            st.success("✅ 파일이 성공적으로 갱신되었습니다!")
-            st.rerun()
+        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
+        st.session_state.df = parsed_df
+        st.session_state.selected_sheet = used_sheet
+        st.session_state.sheet_names = sheet_names
+        st.session_state.raw_df = raw_df
+        st.success("✅ 새로운 파일로 갱신되었습니다!")
+        st.rerun()
 
-    if st.session_state.excel_bytes is not None and "sheet_names" in st.session_state:
+    if "sheet_names" in st.session_state:
         sheets = st.session_state.sheet_names
         curr_idx = sheets.index(st.session_state.selected_sheet) if st.session_state.selected_sheet in sheets else 0
         
@@ -285,7 +345,7 @@ with st.sidebar:
         if selected_s != st.session_state.selected_sheet:
             st.session_state.selected_sheet = selected_s
             parsed_df, used_sheet, _, raw_df = load_excel_smart(
-                st.session_state.excel_bytes, selected_s
+                st.session_state.file_path, selected_s
             )
             st.session_state.df = parsed_df
             st.session_state.raw_df = raw_df
@@ -295,19 +355,8 @@ with st.sidebar:
 
 df = st.session_state.df
 
-# 전체 고유 근무자 목록 추출 (셀렉트박스용)
-all_workers = set()
-for col in ["근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]:
-    if col in df.columns:
-        all_workers.update(df[col].dropna().astype(str).unique())
-all_workers.discard("None")
-all_workers.discard("nan")
-all_workers.discard("미지정")
-worker_list = ["미지정"] + sorted(list(all_workers))
-
-
 # ---------------------------------------------------------
-# 메인 화면 구성 (탭)
+# 메인 화면 구성
 # ---------------------------------------------------------
 st.title("📋 숙직 근무표 통합 대시보드")
 
@@ -321,7 +370,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (근무자 클릭 시 직접 수정 팝오버)
+# TAB 1: 달력 메인 화면
 # ---------------------------------------------------------
 with tab1:
     st.subheader("📅 오늘 기준 숙직 근무 현황")
@@ -356,7 +405,7 @@ with tab1:
     st.markdown("---")
 
     st.subheader(f"🗓️ {selected_month} 숙직 근무 달력")
-    st.caption("💡 근무자 이름이나 [📝 메모] 버튼을 눌러서 원하시는 정보를 직접 수정할 수 있습니다.")
+    st.caption("💡 근무자 버튼을 클릭하면 팝업 창이 뜨고, 수정 후 저장 시 원본 파일에도 저장됩니다.")
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -366,7 +415,6 @@ with tab1:
 
         month_df = df[df["년월"] == selected_month].copy()
         
-        # 날짜별 데이터 딕셔너리 구성
         duty_map = {}
         for idx_row, row in month_df.iterrows():
             d_day = row["날짜"].day
@@ -388,7 +436,6 @@ with tab1:
             header_color = "🔴" if idx == 0 else ("🔵" if idx == 6 else "⚪")
             cols[idx].markdown(f"**{header_color} {day_name}**", unsafe_allow_html=True)
 
-        # 달력 그리드 렌더링
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -405,7 +452,6 @@ with tab1:
                         holiday_name = kr_holidays.get(curr_date)
                         is_holiday = holiday_name is not None
 
-                        # 배경 및 스타일 색상
                         if is_today:
                             bg_color = "#FFF3E0"
                             border_color = "#FF9800"
@@ -432,7 +478,7 @@ with tab1:
                         elif is_holiday:
                             title_label += f" ({holiday_name})"
 
-                        # 1. 날짜 헤더 표시
+                        # 카드 날짜 제목
                         header_html = f"""
                         <div class="duty-card-header" style="background-color:{bg_color}; border:1.5px solid {border_color}; color:{title_color};">
                             {title_label}
@@ -440,41 +486,19 @@ with tab1:
                         """
                         st.markdown(header_html, unsafe_allow_html=True)
 
-                        # 2. 근무자 누르면 수정할 수 있는 Popover
+                        # 근무자 수정 버튼 (클릭 시 Dialog 팝업 오픈)
                         if duty_info:
                             p1_display = duty_info['p1_real']
                             p2_display = duty_info['p2_real']
-                            
-                            # 대직 여부 표시
                             if duty_info['sub1']: p1_display += " (대)"
                             if duty_info['sub2']: p2_display += " (대)"
 
-                            with st.popover(f"👤 {p1_display} / {p2_display}", use_container_width=True):
-                                st.markdown(f"✏️ **{date_str} 근무자 수정**")
-                                with st.form(key=f"edit_worker_form_{date_str}"):
-                                    edit_p1 = st.text_input("원래 근무자1", value=duty_info["p1_orig"])
-                                    edit_sub1 = st.text_input("대직자1 (없으면 빈칸)", value=duty_info["sub1"])
-                                    st.divider()
-                                    edit_p2 = st.text_input("원래 근무자2", value=duty_info["p2_orig"])
-                                    edit_sub2 = st.text_input("대직자2 (없으면 빈칸)", value=duty_info["sub2"])
-                                    
-                                    if st.form_submit_button("💾 변경사항 저장", use_container_width=True):
-                                        row_idx = duty_info["idx"]
-                                        st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
-                                        st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
-                                        st.session_state.df.at[row_idx, "대직1"] = edit_sub1.strip() if edit_sub1.strip() else None
-                                        st.session_state.df.at[row_idx, "대직2"] = edit_sub2.strip() if edit_sub2.strip() else None
-                                        
-                                        # 실제근무 재계산
-                                        st.session_state.df.at[row_idx, "실제근무1"] = edit_sub1.strip() if edit_sub1.strip() else edit_p1.strip()
-                                        st.session_state.df.at[row_idx, "실제근무2"] = edit_sub2.strip() if edit_sub2.strip() else edit_p2.strip()
-                                        
-                                        st.success("근무자가 변경되었습니다!")
-                                        st.rerun()
+                            if st.button(f"👤 {p1_display} / {p2_display}", key=f"btn_edit_{date_str}"):
+                                edit_worker_dialog(date_str, duty_info)
                         else:
                             st.caption("근무 정보 없음")
 
-                        # 3. 메모 노출 및 작성 Popover
+                        # 메모 표시 및 작성
                         day_memo = st.session_state.memos.get(date_str, "")
                         if day_memo:
                             st.markdown(f'<div class="duty-card-memo" title="{day_memo}">📌 {day_memo}</div>', unsafe_allow_html=True)
@@ -563,28 +587,25 @@ with tab_sheet:
             st.info("원본 원천 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# TAB 3: 근무표 직접 수정
+# TAB 3: 근무표 직접 수정 (표 일괄 수정)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 원본 데이터 전체 수정 (표 형태)")
-    st.caption("💡 표 전체 데이터를 일괄 수정할 경우 여기서 수정 후 저장하세요.")
+    st.caption("💡 표 전체 데이터를 직접 수정한 뒤 저장 버튼을 누르면 원본 파일에도 저장됩니다.")
 
     edited_df = st.data_editor(
         st.session_state.df, num_rows="dynamic", key="data_editor"
     )
 
-    if st.button("💾 전체 변경사항 저장 및 반영"):
+    if st.button("💾 전체 변경사항 원본 파일에 저장"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
         
         def classify_day(d):
             w = d.weekday()
-            if w in [0, 1, 2, 3]:
-                return "평일(월~목)"
-            elif w == 4:
-                return "금요일"
-            else:
-                return "토/일요일"
+            if w in [0, 1, 2, 3]: return "평일(월~목)"
+            elif w == 4: return "금요일"
+            else: return "토/일요일"
 
         edited_df["상세구분"] = edited_df["날짜"].apply(classify_day)
         edited_df["근무구분"] = edited_df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
@@ -599,7 +620,8 @@ with tab2:
             .combine_first(edited_df["근무자2"]).fillna("미지정")
         )
         st.session_state.df = edited_df
-        st.success("변경사항이 성공적으로 저장되었습니다!")
+        save_to_excel_file(edited_df, st.session_state.selected_sheet)
+        st.success("✅ 파일에 원본 데이터가 성공적으로 저장되었습니다!")
         st.rerun()
 
 # ---------------------------------------------------------

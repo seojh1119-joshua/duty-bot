@@ -6,7 +6,7 @@ import glob
 import pandas as pd
 import streamlit as st
 
-# 대한민국 공휴일 라이브러리 (미설치 시 예외 처리)
+# 대한민국 공휴일 라이브러리
 try:
     import holidays
     kr_holidays = holidays.KR()
@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 반응형 CSS (PC/모바일 대응 및 공휴일/일요일 스타일링)
+# 반응형 CSS
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -91,8 +91,9 @@ def load_excel_smart(file_bytes, selected_sheet=None):
 
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
-        duty_sheets = [s for s in sheet_names if "숙직" in s or "근무" in s]
-        target_sheet = duty_sheets[0] if duty_sheets else sheet_names[0]
+        # '의료과', '초과근무', '숙직', '근무' 우선 탐색
+        priority_sheets = [s for s in sheet_names if any(k in s for k in ["의료과", "초과근무", "숙직", "근무"])]
+        target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
 
     file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
@@ -101,7 +102,7 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
         row_str = " ".join(row_values)
-        if any(k in row_str for k in ["날짜", "일자", "근무일", "Date", "근무자"]):
+        if any(k in row_str for k in ["날짜", "일자", "근무일", "Date", "근무자", "성명", "이름"]):
             header_idx = idx
             break
 
@@ -133,7 +134,7 @@ def load_excel_smart(file_bytes, selected_sheet=None):
 
     # 근무자 매핑
     cols = list(df.columns)
-    p1_col = next((c for c in cols if any(k in c for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1"]) and "대직" not in c), None)
+    p1_col = next((c for c in cols if any(k in c for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1", "성명", "이름"]) and "대직" not in c), None)
     p2_col = next((c for c in cols if any(k in c for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]) and "대직" not in c), None)
     sub1_col = next((c for c in cols if any(k in c for k in ["대직1", "대직자1", "대직 1", "대직자"])), None)
     sub2_col = next((c for c in cols if any(k in c for k in ["대직2", "대직자2", "대직 2"])), None)
@@ -143,12 +144,25 @@ def load_excel_smart(file_bytes, selected_sheet=None):
     df["대직1"] = df[sub1_col] if sub1_col else None
     df["대직2"] = df[sub2_col] if sub2_col else None
 
-    type_col = next((c for c in cols if any(k in c for k in ["구분", "근무구분", "요일", "비고"])), None)
-    if type_col and type_col != "날짜":
-        df.rename(columns={type_col: "근무구분"}, inplace=True)
+    # 근무시간 컬럼 자동 인식
+    time_col = next((c for c in cols if any(k in c for k in ["근무시간", "초과근무시간", "인정시간", "시간", "시간수"])), None)
+    if time_col:
+        df["근무시간"] = pd.to_numeric(df[time_col], errors="coerce").fillna(0)
     else:
-        df["근무구분"] = df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
+        df["근무시간"] = 8.0  # 기본값 8시간
 
+    # 상세 근무구분 (평일(월~목) / 금요일 / 토,일요일)
+    def classify_day(d):
+        w = d.weekday()
+        if w in [0, 1, 2, 3]:
+            return "평일(월~목)"
+        elif w == 4:
+            return "금요일"
+        else:
+            return "토/일요일"
+
+    df["상세구분"] = df["날짜"].apply(classify_day)
+    df["근무구분"] = df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
     # 대직자 적용 로직
@@ -178,7 +192,7 @@ def get_default_excel_bytes():
 
 
 # ---------------------------------------------------------
-# 세션 상태(Session State) 유지 관리 (새로고침 시 초기화 방지)
+# 세션 상태(Session State) 유지 관리
 # ---------------------------------------------------------
 if "excel_bytes" not in st.session_state:
     st.session_state.excel_bytes = get_default_excel_bytes()
@@ -197,24 +211,37 @@ if st.session_state.excel_bytes is not None and "df" not in st.session_state:
     except Exception:
         pass
 
-# 기본 샘플 데이터 Fallback
+# 샘플 데이터 Fallback
 if "df" not in st.session_state:
     today = datetime.date.today()
     dates = pd.date_range(start=today.replace(day=1), periods=35, freq="D")
     sample_df = pd.DataFrame({
         "날짜": dates,
-        "근무구분": ["주말" if d.weekday() in [5, 6] else "평일" for d in dates],
-        "근무자1": ["홍길동"] * 35,
-        "근무자2": ["김철수"] * 35,
-        "대직1": [None if i % 5 != 0 else "이대직" for i in range(35)],
+        "근무자1": ["홍길동", "김철수", "이영희", "박민수", "정수진"] * 7,
+        "근무자2": ["김철수", "이영희", "박민수", "정수진", "홍길동"] * 7,
+        "대직1": [None] * 35,
         "대직2": [None] * 35,
+        "근무시간": [8.0 if d.weekday() < 5 else 12.0 for d in dates],
     })
+    
+    def classify_day_sample(d):
+        w = d.weekday()
+        if w in [0, 1, 2, 3]:
+            return "평일(월~목)"
+        elif w == 4:
+            return "금요일"
+        else:
+            return "토/일요일"
+
+    sample_df["상세구분"] = sample_df["날짜"].apply(classify_day_sample)
+    sample_df["근무구분"] = sample_df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
     sample_df["년월"] = sample_df["날짜"].dt.strftime("%Y-%m")
-    sample_df["실제근무1"] = sample_df["대직1"].fillna("").replace("", None).combine_first(sample_df["근무자1"])
-    sample_df["실제근무2"] = sample_df["대직2"].fillna("").replace("", None).combine_first(sample_df["근무자2"])
+    sample_df["실제근무1"] = sample_df["근무자1"]
+    sample_df["실제근무2"] = sample_df["근무자2"]
     
     st.session_state.df = sample_df
-    st.session_state.sheet_names = ["샘플시트"]
+    st.session_state.sheet_names = ["의료과 개인별 초과근무내역"]
+    st.session_state.selected_sheet = "의료과 개인별 초과근무내역"
     st.session_state.raw_df = pd.DataFrame()
 
 
@@ -227,7 +254,6 @@ with st.sidebar:
         "새로운 엑셀(.xlsx) 파일 업로드", type=["xlsx"]
     )
 
-    # 새로운 파일 선택 시 세션 저장소 업데이트
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         if file_bytes != st.session_state.excel_bytes:
@@ -242,7 +268,6 @@ with st.sidebar:
             st.success("✅ 파일이 성공적으로 갱신되었습니다!")
             st.rerun()
 
-    # 시트 선택 드롭다운
     if st.session_state.excel_bytes is not None and "sheet_names" in st.session_state:
         sheets = st.session_state.sheet_names
         curr_idx = sheets.index(st.session_state.selected_sheet) if st.session_state.selected_sheet in sheets else 0
@@ -264,8 +289,6 @@ with st.sidebar:
             st.rerun()
 
         st.caption(f"🟢 현재 사용 중: **[{st.session_state.selected_sheet}]** 시트")
-    else:
-        st.info("💡 `data/` 폴더 내 엑셀이 없거나 업로드된 파일이 없어 샘플 데이터를 표시 중입니다.")
 
 df = st.session_state.df
 
@@ -284,7 +307,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (일요일 시작 7열 5행 달력)
+# TAB 1: 달력 메인 화면
 # ---------------------------------------------------------
 with tab1:
     st.subheader("📅 오늘 기준 숙직 근무 현황")
@@ -323,7 +346,6 @@ with tab1:
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
         
-        # 일요일 시작(firstweekday=6) 달력 객체 생성
         cal = calendar.Calendar(firstweekday=6)
         month_days = cal.monthdayscalendar(year, month)
 
@@ -338,14 +360,12 @@ with tab1:
                 "date_obj": row["날짜"].date(),
             }
 
-        # 일요일부터 시작하는 요일 헤더
         days_header = ["일", "월", "화", "수", "목", "금", "토"]
         cols = st.columns(7)
         for idx, day_name in enumerate(days_header):
             header_color = "🔴" if idx == 0 else ("🔵" if idx == 6 else "⚪")
             cols[idx].markdown(f"**{header_color} {day_name}**", unsafe_allow_html=True)
 
-        # 7열 달력 주차별 렌더링
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -358,11 +378,9 @@ with tab1:
                         is_sunday = (i == 0)
                         is_saturday = (i == 6)
                         
-                        # 대한민국 공휴일 체크
                         holiday_name = kr_holidays.get(curr_date)
                         is_holiday = holiday_name is not None
 
-                        # 카드 배경 및 테두리 색상
                         if is_today:
                             bg_color = "#FFF3E0"
                             border_color = "#FF9800"
@@ -376,7 +394,6 @@ with tab1:
                             bg_color = "#F9F9F9"
                             border_color = "#E0E0E0"
 
-                        # 타이틀 텍스트 색상
                         if is_holiday or is_sunday:
                             title_color = "#D32F2F"
                         elif is_saturday:
@@ -413,12 +430,11 @@ with tab1:
 
         st.markdown("---")
 
-        # 상세 목록
         st.markdown("#### 📋 상세 근무 목록")
         display_cols = [
             c for c in [
-                "날짜", "근무구분", "근무자1", "근무자2",
-                "대직1", "대직2", "실제근무1", "실제근무2"
+                "날짜", "근무구분", "상세구분", "근무자1", "근무자2",
+                "대직1", "대직2", "실제근무1", "실제근무2", "근무시간"
             ] if c in month_df.columns
         ]
 
@@ -447,9 +463,8 @@ with tab_sheet:
         f"{(df['근무자1'] != '미지정').mean() * 100:.1f}%" if "근무자1" in df.columns else "0%",
     )
     m4.metric(
-        "대직 발생 수",
-        f"{df['대직1'].notnull().sum() + df['대직2'].notnull().sum()}건"
-        if "대직1" in df.columns and "대직2" in df.columns else "0건",
+        "총 초과/근무시간 합계",
+        f"{df['근무시간'].sum():.1f} 시간" if "근무시간" in df.columns else "0 시간",
     )
 
     st.markdown("---")
@@ -475,7 +490,7 @@ with tab_sheet:
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 원본 데이터 직접 수정")
-    st.caption("💡 대직 정보를 입력하면 `실제근무1`, `실제근무2`가 자동으로 반영됩니다.")
+    st.caption("💡 대직 정보 및 근무시간을 수정하면 통계에 즉시 반영됩니다.")
 
     edited_df = st.data_editor(
         st.session_state.df, num_rows="dynamic", key="data_editor"
@@ -484,7 +499,20 @@ with tab2:
     if st.button("💾 변경사항 저장 및 반영"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
+        
+        def classify_day(d):
+            w = d.weekday()
+            if w in [0, 1, 2, 3]:
+                return "평일(월~목)"
+            elif w == 4:
+                return "금요일"
+            else:
+                return "토/일요일"
+
+        edited_df["상세구분"] = edited_df["날짜"].apply(classify_day)
+        edited_df["근무구분"] = edited_df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
         edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
+        
         edited_df["실제근무1"] = (
             edited_df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
             .combine_first(edited_df["근무자1"]).fillna("미지정")
@@ -498,26 +526,57 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 근무 통계
+# TAB 4: 근무 통계 (개별 근무시간 및 요일 세분화)
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("📊 근무 통계")
+    st.subheader("📊 의료과 개인별 초과근무 및 근무 통계")
 
-    st.markdown("#### 👤 개인별 총 근무 횟수 (평일 / 주말)")
-    workers_s1 = df[["실제근무1", "근무구분"]].rename(columns={"실제근무1": "근무자"})
-    workers_s2 = df[["실제근무2", "근무구분"]].rename(columns={"실제근무2": "근무자"})
-    all_workers_df = pd.concat([workers_s1, workers_s2])
-    all_workers_df = all_workers_df[
-        all_workers_df["근무자"].notnull()
-        & (~all_workers_df["근무자"].isin(["미지정", "nan", "None"]))
+    # 근무자1, 근무자2 데이터 통합 (개별 근무시간 포함)
+    w1 = df[["실제근무1", "상세구분", "근무시간"]].rename(columns={"실제근무1": "근무자"})
+    w2 = df[["실제근무2", "상세구분", "근무시간"]].rename(columns={"실제근무2": "근무자"})
+    
+    combined_workers = pd.concat([w1, w2], ignore_index=True)
+    combined_workers = combined_workers[
+        combined_workers["근무자"].notnull()
+        & (~combined_workers["근무자"].isin(["미지정", "nan", "None"]))
     ]
 
-    if not all_workers_df.empty:
-        stats_df = (
-            all_workers_df.groupby(["근무자", "근무구분"])
+    if not combined_workers.empty:
+        # 1. 개인별 개별 근무시간 통계
+        st.markdown("#### ⏱️ 1. 개인별 총 누적 근무시간 (시간)")
+        time_stats = combined_workers.groupby("근무자")["근무시간"].sum().reset_index()
+        time_stats.columns = ["근무자", "총 근무시간(h)"]
+        time_stats = time_stats.sort_values(by="총 근무시간(h)", ascending=False)
+
+        col_t1, col_t2 = st.columns([2, 1])
+        with col_t1:
+            st.bar_chart(time_stats.set_index("근무자"))
+        with col_t2:
+            st.dataframe(time_stats, use_container_width=True, height=300)
+
+        st.markdown("---")
+
+        # 2. 평일(월~목) / 금요일 / 토,일요일 근무 횟수 통계
+        st.markdown("#### 📅 2. 개인별 요일 세분화 근무 횟수 (평일 / 금요일 / 토·일요일)")
+        
+        count_stats = (
+            combined_workers.groupby(["근무자", "상세구분"])
             .size()
             .unstack(fill_value=0)
         )
-        st.bar_chart(stats_df)
+        
+        # 컬럼 순서 고정 (평일 -> 금요일 -> 토/일요일)
+        desired_order = ["평일(월~목)", "금요일", "토/일요일"]
+        existing_cols = [c for c in desired_order if c in count_stats.columns]
+        count_stats = count_stats[existing_cols]
+
+        col_c1, col_c2 = st.columns([2, 1])
+        with col_c1:
+            st.bar_chart(count_stats)
+        with col_c2:
+            count_stats_with_total = count_stats.copy()
+            count_stats_with_total["합계"] = count_stats_with_total.sum(axis=1)
+            st.dataframe(count_stats_with_total, use_container_width=True, height=300)
+
     else:
         st.info("통계를 산출할 근무자 데이터가 존재하지 않습니다.")

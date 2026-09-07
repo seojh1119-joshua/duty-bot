@@ -10,11 +10,12 @@ import streamlit as st
 # 대한민국 공휴일 라이브러리
 try:
     import holidays
+
     kr_holidays = holidays.KR()
 except ImportError:
     kr_holidays = {}
 
-# 데이터 보관 디렉터리 기본 생성
+# 데이터 보관 기본 디렉터리 생성
 os.makedirs("data", exist_ok=True)
 
 DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
@@ -31,11 +32,10 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (모바일 반응형 가로 7열 그리드 보장)
+# CSS 스타일링 (모바일 7열 대응 및 클릭형 카드 디자인)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 메인 컨테이너 패딩 축소 */
     .main .block-container {
         padding-top: 1rem;
         padding-bottom: 2rem;
@@ -43,7 +43,6 @@ responsive_css = """
         padding-right: 0.3rem;
     }
     
-    /* 모바일화면 7열 레이아웃 강제 유지 */
     .calendar-grid {
         display: grid;
         grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -60,50 +59,32 @@ responsive_css = """
         border-radius: 4px;
     }
 
-    .duty-card {
-        border: 1px solid #E2E8F0;
-        border-radius: 6px;
-        padding: 4px;
-        min-height: 90px;
-        background-color: #FFFFFF;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
+    /* 달력 내부 수정 버튼 스타일링 (사람 이미지 제거, 깔끔한 셀 디자인) */
+    .stButton > button {
+        width: 100% !important;
+        min-height: 85px !important;
+        padding: 4px !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 6px !important;
+        background-color: #FFFFFF !important;
+        color: #1E293B !important;
+        font-size: 11px !important;
+        text-align: left !important;
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        align-items: flex-start !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
     
-    .duty-card-header {
-        font-weight: bold;
-        font-size: 11px;
-        padding: 1px 3px;
-        border-radius: 3px;
-        margin-bottom: 3px;
-        text-align: center;
-    }
-    
-    .duty-worker-info {
-        font-size: 10.5px;
-        color: #1E293B;
-        line-height: 1.25;
-        margin-bottom: 2px;
-        word-break: break-all;
-    }
-    
-    .duty-card-memo {
-        margin-top: auto;
-        padding: 2px 3px;
-        background-color: #FEF3C7;
-        border-left: 2px solid #F59E0B;
-        font-size: 9.5px;
-        color: #92400E;
-        border-radius: 2px;
-        word-break: break-all;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+    .stButton > button:hover {
+        border-color: #3B82F6 !important;
+        background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 강조 카드 */
+    /* 오늘 근무자 상단 배너 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
@@ -118,14 +99,28 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 앱 데이터 지속성(Persistence) 관리 함수
+# 내 스마트 파일 탐색기 (로컬 및 하위 디렉터리 전체 검색)
+# ---------------------------------------------------------
+def find_all_excel_files(base_path="."):
+    """작업 공간 내 모든 엑셀(.xlsx) 파일 자동 검색"""
+    excel_files = []
+    for root, _, files in os.walk(base_path):
+        for file in files:
+            if file.endswith(".xlsx") and not file.startswith("~$"):
+                excel_files.append(os.path.join(root, file))
+    return sorted(excel_files)
+
+
+# ---------------------------------------------------------
+# 영구 데이터 저장/로드 관리
 # ---------------------------------------------------------
 def save_app_state(df, sheet_name, memos):
-    """수정된 근무표 및 메모 데이터를 로컬 JSON 파일로 영구 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime(
+                "%Y-%m-%d"
+            )
 
         state_data = {
             "selected_sheet": sheet_name,
@@ -139,7 +134,6 @@ def save_app_state(df, sheet_name, memos):
 
 
 def load_app_state():
-    """저장된 변경 상태 데이터 불러오기"""
     if os.path.exists(PERSISTENCE_STATE_PATH):
         try:
             with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
@@ -160,7 +154,7 @@ def load_app_state():
 
 
 # ---------------------------------------------------------
-# 엑셀 스마트 로더
+# 엑셀 스마트 파서
 # ---------------------------------------------------------
 def load_excel_smart(file_source, selected_sheet=None):
     if isinstance(file_source, bytes):
@@ -246,10 +240,9 @@ def load_excel_smart(file_source, selected_sheet=None):
         ),
         None,
     )
-    if duty_type_col:
-        df["근무구분_원본"] = df[duty_type_col].astype(str).str.strip()
-    else:
-        df["근무구분_원본"] = "평일"
+    df["근무구분_원본"] = (
+        df[duty_type_col].astype(str).str.strip() if duty_type_col else "평일"
+    )
 
     cols = list(df.columns)
     p1_col = next(
@@ -330,11 +323,13 @@ def load_excel_smart(file_source, selected_sheet=None):
 
 
 # ---------------------------------------------------------
-# 세션 및 저장된 데이터 상태 로드
+# 세션 상태 초기화
 # ---------------------------------------------------------
 if "file_path" not in st.session_state:
-    files = glob.glob(os.path.join("data", "*.xlsx"))
-    st.session_state.file_path = files[0] if files else DEFAULT_FILE_PATH
+    found_files = find_all_excel_files()
+    st.session_state.file_path = (
+        found_files[0] if found_files else DEFAULT_FILE_PATH
+    )
 
 if "df" not in st.session_state:
     saved_df, saved_sheet, saved_memos = load_app_state()
@@ -363,7 +358,9 @@ if "df" not in st.session_state:
         st.session_state.memos = {}
     else:
         today_date = datetime.date.today()
-        dates = pd.date_range(start=today_date.replace(day=1), periods=60, freq="D")
+        dates = pd.date_range(
+            start=today_date.replace(day=1), periods=60, freq="D"
+        )
         sample_df = pd.DataFrame({
             "날짜": dates,
             "근무구분_원본": ["평일", "금요일", "토요일", "일요일", "평일"] * 12,
@@ -384,12 +381,11 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 근무자 수정 및 메모 입력 모달/다이얼로그
-# Streamlit 최신 버전을 활용하는 다이얼로그
+# 달력 직접 클릭 시 팝업되는 수정 대화상자 (@st.dialog)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
-    st.write(f"📅 **{date_str} 상세 정보 수정**")
+    st.write(f"📅 **{date_str} 정보 수정**")
 
     current_memo = st.session_state.memos.get(date_str, "")
 
@@ -404,7 +400,7 @@ def edit_worker_dialog(date_str, duty_info):
 
         st.divider()
         edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력에 즉시 표시됨)",
+            "📌 날짜별 메모 (달력 셀에 바로 표시)",
             value=current_memo,
             height=80,
         )
@@ -437,19 +433,40 @@ def edit_worker_dialog(date_str, duty_info):
                 st.session_state.selected_sheet,
                 st.session_state.memos,
             )
-            st.success("✅ 변경사항이 성공적으로 저장되었습니다.")
+            st.success("✅ 변경사항이 반영되었습니다.")
             st.rerun()
 
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바 (파일 로딩 및 검색 기능 강화)
 # ---------------------------------------------------------
 with st.sidebar:
-    st.header("📂 파일 및 시트 설정")
-    uploaded_file = st.file_uploader(
-        "새 엑셀 파일 업로드 (데이터 초기화 및 교체)", type=["xlsx"]
-    )
+    st.header("📂 파일 탐색 및 시트 설정")
 
+    # 1. 시스템 내 모든 엑셀 파일 검색 드롭다운 (파일 검색 해결)
+    all_found_excels = find_all_excel_files()
+    if all_found_excels:
+        selected_file_path = st.selectbox(
+            "🔍 검색된 내 파일 선택",
+            all_found_excels,
+            index=0,
+            help="프로젝트 경로 내에서 발견된 모든 엑셀 파일 목록입니다.",
+        )
+        if selected_file_path != st.session_state.file_path:
+            st.session_state.file_path = selected_file_path
+            parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(
+                selected_file_path
+            )
+            st.session_state.df = parsed_df
+            st.session_state.selected_sheet = used_sheet
+            st.session_state.sheet_names = sheet_names
+            st.session_state.raw_df = raw_df
+            st.rerun()
+
+    # 2. 직접 업로드
+    uploaded_file = st.file_uploader(
+        "새 엑셀 파일 업로드", type=["xlsx"]
+    )
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(
@@ -466,7 +483,7 @@ with st.sidebar:
             os.remove(PERSISTENCE_STATE_PATH)
         save_app_state(parsed_df, used_sheet, {})
 
-        st.success("✅ 새로 업로드한 파일 데이터로 초기화되었습니다!")
+        st.success("✅ 새 엑셀 파일로 전환되었습니다!")
         st.rerun()
 
     if "sheet_names" in st.session_state:
@@ -504,9 +521,10 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (날짜 직접 클릭 수정 반영)
 # ---------------------------------------------------------
 with tab1:
+    # 1. 오늘 날짜 연동 및 실시간 갱신 상단 배너
     today_df = df[df["날짜"].dt.date == today]
     today_str = today.strftime("%Y년 %m월 %d일")
 
@@ -523,15 +541,15 @@ with tab1:
             else t_row["실제근무2"]
         )
         t_memo = st.session_state.memos.get(today.strftime("%Y-%m-%d"), "")
-        memo_str = f" | 📌 {t_memo}" if t_memo else ""
+        memo_str = f" | 📌 메모: {t_memo}" if t_memo else ""
 
         st.markdown(
             f"""
         <div class="today-card">
             <div style="font-size:13px; opacity:0.9; margin-bottom:4px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
             <div style="font-size:20px; font-weight:bold;">
-                👤 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
-                👤 근무자 2: <span style="color:#FDE047;">{p2}</span>
+                근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
+                근무자 2: <span style="color:#FDE047;">{p2}</span>
                 <span style="font-size:14px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
@@ -539,10 +557,9 @@ with tab1:
             unsafe_allow_html=True,
         )
     else:
-        st.info(
-            f"💡 **오늘({today_str})**은 지정된 숙직 근무 정보가 없습니다."
-        )
+        st.info(f"💡 오늘({today_str}) 지정된 숙직 근무 정보가 없습니다.")
 
+    # 조회 월 선택
     available_months = sorted(df["년월"].dropna().unique())
     current_ym = today.strftime("%Y-%m")
     default_idx = (
@@ -551,15 +568,16 @@ with tab1:
         else 0
     )
 
-    c_m1, c_m2 = st.columns([1, 1])
-    with c_m1:
-        selected_month = (
-            st.selectbox(
-                "📅 조회 월 선택", available_months, index=default_idx
-            )
-            if available_months
-            else current_ym
-        )
+    selected_month = st.selectbox(
+        "📅 조회 월 선택",
+        available_months,
+        index=default_idx,
+        key="calendar_month_select",
+    )
+
+    st.caption(
+        "💡 **달력의 날짜를 직접 클릭하면** 근무자 수정 및 메모 작성 팝업이 바로 나타납니다."
+    )
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -568,7 +586,6 @@ with tab1:
         month_df = df[df["년월"] == selected_month].copy()
 
         duty_map = {}
-        day_options = ["선택 안함"]
         for idx_row, row in month_df.iterrows():
             d_day = row["날짜"].day
             d_date_str = row["날짜"].strftime("%Y-%m-%d")
@@ -586,23 +603,8 @@ with tab1:
                 "p1_real": str(row["실제근무1"]),
                 "p2_real": str(row["실제근무2"]),
             }
-            day_options.append(f"{d_day}일 ({d_date_str})")
 
-        with c_m2:
-            selected_edit_day = st.selectbox(
-                "✏️ 근무 수정/메모 작성 날짜 선택",
-                day_options,
-                help="수정하고 싶은 날짜를 선택하면 정보 변경 창이 나타납니다.",
-            )
-
-        if selected_edit_day != "선택 안함":
-            target_day_int = int(selected_edit_day.split("일")[0])
-            target_info = duty_map.get(target_day_int)
-            if target_info:
-                edit_worker_dialog(target_info["date_str"], target_info)
-
-        st.markdown("---")
-
+        # 요일 헤더
         headers = ["일", "월", "화", "수", "목", "금", "토"]
         colors = ["🔴", "⚪", "⚪", "⚪", "⚪", "⚪", "🔵"]
         header_html = "<div class='calendar-grid'>"
@@ -611,50 +613,43 @@ with tab1:
         header_html += "</div>"
         st.markdown(header_html, unsafe_allow_html=True)
 
+        # 2. 클릭 가능한 날짜 그리드 (사람 이미지 제거, 이름+메모 구성)
         for week in month_days:
-            grid_html = "<div class='calendar-grid'>"
+            week_cols = st.columns(7)
             for i, day in enumerate(week):
-                if day == 0:
-                    grid_html += "<div style='background:transparent;'></div>"
-                else:
-                    curr_date = datetime.date(year, month, day)
-                    date_str = curr_date.strftime("%Y-%m-%d")
-                    duty_info = duty_map.get(day)
+                with week_cols[i]:
+                    if day != 0:
+                        curr_date = datetime.date(year, month, day)
+                        date_str = curr_date.strftime("%Y-%m-%d")
+                        duty_info = duty_map.get(day)
 
-                    is_today = curr_date == today
-                    is_holiday = (
-                        curr_date in kr_holidays or i == 0
-                    )
-
-                    bg_header = (
-                        "#FFD54F"
-                        if is_today
-                        else (
-                            "#FFCDD2"
-                            if is_holiday
-                            else ("#BBDEFB" if i == 6 else "#E2E8F0")
+                        is_today = curr_date == today
+                        is_holiday = (
+                            curr_date in kr_holidays or i == 0
                         )
-                    )
 
-                    grid_html += "<div class='duty-card'>"
-                    grid_html += f"<div class='duty-card-header' style='background-color:{bg_header};'>{day}</div>"
+                        # 버튼 라벨 생성 (사람 이미지 없이 이름과 메모만 표시)
+                        card_label = f"[{day}일]"
+                        if is_today:
+                            card_label += " (오늘)"
 
-                    if duty_info:
-                        p1_txt = duty_info["p1_real"] + (
-                            "(대)" if duty_info["sub1"] else ""
-                        )
-                        p2_txt = duty_info["p2_real"] + (
-                            "(대)" if duty_info["sub2"] else ""
-                        )
-                        grid_html += f"<div class='duty-worker-info'>👤 {p1_txt}<br>👤 {p2_txt}</div>"
+                        if duty_info:
+                            p1_txt = duty_info["p1_real"] + (
+                                "(대)" if duty_info["sub1"] else ""
+                            )
+                            p2_txt = duty_info["p2_real"] + (
+                                "(대)" if duty_info["sub2"] else ""
+                            )
+                            card_label += f"\n1: {p1_txt}\n2: {p2_txt}"
 
-                    day_memo = st.session_state.memos.get(date_str, "")
-                    if day_memo:
-                        grid_html += f"<div class='duty-card-memo' title='{day_memo}'>📌 {day_memo}</div>"
+                        day_memo = st.session_state.memos.get(date_str, "")
+                        if day_memo:
+                            card_label += f"\n📌 {day_memo}"
 
-                    grid_html += "</div>"
-            grid_html += "</div>"
-            st.markdown(grid_html, unsafe_allow_html=True)
+                        # 직접 클릭 시 수정 모달 다이얼로그 호출
+                        if st.button(card_label, key=f"btn_card_{date_str}"):
+                            if duty_info:
+                                edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
 # TAB 2: 데이터 점검
@@ -708,7 +703,7 @@ with tab2:
             st.session_state.selected_sheet,
             st.session_state.memos,
         )
-        st.success("✅ 성공적으로 저장되었습니다. (새로고침을 해도 유지됩니다)")
+        st.success("✅ 성공적으로 저장되었습니다.")
         st.rerun()
 
 # ---------------------------------------------------------

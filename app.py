@@ -1,264 +1,563 @@
-import os
-import io
-import glob
-import datetime
 import calendar
-import re
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+import datetime
+import io
+import pandas as pd
 import streamlit as st
 
-# ==========================================
-# 1. 대시보드 생성 함수
-# ==========================================
-def generate_dashboard_workbook(file_source, target_sheet_name):
-    """
-    file_source: 파일 경로(str) 또는 BytesIO 객체
-    target_sheet_name: 대시보드를 생성할 기준 시트명
-    """
-    wb = openpyxl.load_workbook(file_source)
-    
-    if target_sheet_name not in wb.sheetnames:
-        st.error(f"'{target_sheet_name}' 시트를 찾을 수 없습니다.")
-        return None
-
-    target_ws = wb[target_sheet_name]
-
-    # "대시보드" 시트 생성 또는 초기화 (가장 앞에 배치)
-    if "대시보드" in wb.sheetnames:
-        dash_ws = wb["대시보드"]
-        dash_ws.delete_rows(1, dash_ws.max_row + 1)
-        for range_ in list(dash_ws.merged_cells.ranges):
-            dash_ws.unmerge_cells(str(range_))
-    else:
-        dash_ws = wb.create_sheet(title="대시보드", index=0)
-
-    # 서식 스타일 정의
-    font_title = Font(name="맑은 고딕", size=16, bold=True)
-    font_header = Font(name="맑은 고딕", size=11, bold=True)
-    font_date_bold = Font(name="맑은 고딕", size=10, bold=True)
-    font_work = Font(name="맑은 고딕", size=9)
-    font_gray = Font(name="맑은 고딕", size=9, color="A0A0A0")
-    
-    fill_title = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
-    fill_header = PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid")
-    fill_date = PatternFill(start_color="FAFAFA", end_color="FAFAFA", fill_type="solid")
-    fill_work = PatternFill(start_color="EBF5FF", end_color="EBF5FF", fill_type="solid")
-
-    thin_side = Side(style='thin', color='CCCCCC')
-    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
-
-    align_center = Alignment(horizontal='center', vertical='center')
-    align_top_left = Alignment(horizontal='left', vertical='top')
-    align_work = Alignment(horizontal='center', vertical='center', wrap_text=True)
-
-    # 1. 제목 생성 (B2:H2)
-    dash_ws.merge_cells("B2:H2")
-    title_cell = dash_ws["B2"]
-    title_cell.value = f"{target_sheet_name} 근무 대시보드"
-    title_cell.font = font_title
-    title_cell.fill = fill_title
-    title_cell.alignment = align_center
-
-    # 2. 요일 헤더 생성 (B4:H4)
-    headers = ["일", "월", "화", "수", "목", "금", "토"]
-    for idx, header in enumerate(headers, start=2):
-        cell = dash_ws.cell(row=4, column=idx)
-        cell.value = header
-        cell.font = font_header
-        cell.fill = fill_header
-        cell.alignment = align_center
-        cell.border = thin_border
-        if idx == 2:
-            cell.font = Font(name="맑은 고딕", size=11, bold=True, color="C00000") # 일요일
-        elif idx == 8:
-            cell.font = Font(name="맑은 고딕", size=11, bold=True, color="0000C0") # 토요일
-
-    # 3. 시트명에서 연도/월 분석
-    now = datetime.datetime.now()
-    year_val = now.year
-    month_val = now.month
-
-    if "-" in target_sheet_name:
-        parts = target_sheet_name.split("-")
-        try:
-            year_val = int(parts[0])
-            month_val = int(parts[1])
-        except ValueError:
-            pass
-    elif "월" in target_sheet_name:
-        numbers = re.findall(r'\d+', target_sheet_name)
-        if numbers:
-            month_val = int(numbers[0])
-
-    # 4. 원본 데이터 읽기 (A열: 날짜, B열: 근무1, C열: 근무2)
-    work_data = {}
-    for row in target_ws.iter_rows(min_row=2, values_only=True):
-        if not row or row[0] is None:
-            continue
-        
-        day_num = None
-        date_val = row[0]
-
-        if isinstance(date_val, (int, float)):
-            day_num = int(date_val)
-        elif isinstance(date_val, (datetime.datetime, datetime.date)):
-            day_num = date_val.day
-        elif isinstance(date_val, str) and date_val.strip().isdigit():
-            day_num = int(date_val.strip())
-
-        if day_num:
-            w1 = str(row[1]) if len(row) > 1 and row[1] is not None else ""
-            w2 = str(row[2]) if len(row) > 2 and row[2] is not None else ""
-            work_data[day_num] = (w1, w2)
-
-    # 5. 달력 구조 생성
-    first_weekday, total_days = calendar.monthrange(year_val, month_val)
-    first_day_col = (first_weekday + 1) % 7 + 1 
-
-    day_counter = 1
-    for i in range(6):
-        for j in range(1, 8):
-            cur_row = 5 + (i * 2)
-            cur_col = j + 1
-
-            date_cell = dash_ws.cell(row=cur_row, column=cur_col)
-            work_cell = dash_ws.cell(row=cur_row + 1, column=cur_col)
-
-            date_cell.border = thin_border
-            work_cell.border = thin_border
-
-            if (i == 0 and j >= first_day_col) or (i > 0 and day_counter <= total_days):
-                date_cell.value = f"{day_counter}일"
-                date_cell.font = font_date_bold
-                date_cell.fill = fill_date
-                date_cell.alignment = align_top_left
-
-                if j == 1:
-                    date_cell.font = Font(name="맑은 고딕", size=10, bold=True, color="C00000")
-                elif j == 7:
-                    date_cell.font = Font(name="맑은 고딕", size=10, bold=True, color="0000C0")
-
-                if day_counter in work_data:
-                    w1, w2 = work_data[day_counter]
-                    if w1 or w2:
-                        work_cell.value = f"근무1: {w1}\n근무2: {w2}"
-                        work_cell.font = font_work
-                        work_cell.fill = fill_work
-                        work_cell.alignment = align_work
-                    else:
-                        work_cell.value = "-"
-                        work_cell.font = font_gray
-                        work_cell.alignment = align_center
-                else:
-                    work_cell.value = "-"
-                    work_cell.font = font_gray
-                    work_cell.alignment = align_center
-
-                day_counter += 1
-
-        if day_counter > total_days:
-            break
-
-    # 6. 열/행 간격 조정
-    for col in ["B", "C", "D", "E", "F", "G", "H"]:
-        dash_ws.column_dimensions[col].width = 18
-
-    dash_ws.row_dimensions[2].height = 35
-    dash_ws.row_dimensions[4].height = 25
-
-    for i in range(6):
-        dash_ws.row_dimensions[5 + (i * 2)].height = 20
-        dash_ws.row_dimensions[6 + (i * 2)].height = 45
-
-    return wb
-
-
-# ==========================================
-# 2. Streamlit 메인 UI 로직
-# ==========================================
-st.set_page_config(page_title="근무 대시보드 생성기", layout="wide")
-st.title("📅 근무표 대시보드 자동 생성기")
-
-# 기본 경로 및 폴더 설정
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-
-# data 폴더가 없으면 자동 생성
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
-# data/ 폴더 안의 모든 엑셀 파일 탐색 (.xlsx, .xls)
-excel_files_in_data = glob.glob(os.path.join(DATA_DIR, "*.xlsx")) + glob.glob(os.path.join(DATA_DIR, "*.xls"))
-
-# 임시 파일(~$ 시작) 제외
-excel_files_in_data = [f for f in excel_files_in_data if not os.path.basename(f).startswith("~$")]
-
-# 사이드바: 파일 및 시트 선택
-st.sidebar.header("📁 파일 및 옵션 설정")
-
-# 웹 화면에서 직관적으로 새 파일을 올릴 수 있는 업로더
-uploaded_file = st.sidebar.file_uploader(
-    "새로운 엑셀 파일로 갱신하려면 업로드하세요", 
-    type=["xlsx", "xls"]
+# ---------------------------------------------------------
+# 페이지 기본 설정
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="숙직 근무표 대시보드",
+    page_icon="📋",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-file_to_process = None
-source_name = ""
-
-# 파일 탐색 및 자동 매핑 우선순위 지정
-if uploaded_file is not None:
-    file_to_process = uploaded_file
-    source_name = f"웹에서 업로드한 파일: {uploaded_file.name}"
-    st.sidebar.success("새 엑셀 파일이 업로드되었습니다!")
-
-elif excel_files_in_data:
-    # data/ 폴더에 엑셀 파일이 하나 이상 있을 때: 가장 최근에 수정된 파일 선택
-    latest_file = max(excel_files_in_data, key=os.path.getmtime)
-    file_to_process = latest_file
-    file_basename = os.path.basename(latest_file)
-    source_name = f"data/ 폴더 감지 파일: {file_basename}"
-    st.sidebar.info(f"`data/` 폴더에서 `{file_basename}` 파일을 자동으로 로드했습니다.")
-
-else:
-    st.error("`data/` 폴더 내에 엑셀 파일이 존재하지 않고, 웹 업로드된 파일도 없습니다.")
-    st.info("GitHub의 `data/` 폴더에 임의의 엑셀 파일(.xlsx)을 넣어두시거나, 왼쪽 사이드바에서 파일을 직접 업로드해 주세요.")
-
-# 파일 로드가 정상적으로 준비된 경우
-if file_to_process is not None:
-    st.caption(f"📌 **현재 적용 기준:** {source_name}")
+# ---------------------------------------------------------
+# 반응형 CSS (PC/모바일 자동 대응 스타일링)
+# ---------------------------------------------------------
+responsive_css = """
+<style>
+    /* 기본 글로벌 스타일 */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
     
-    try:
-        # 시트 목록 읽기
-        temp_wb = openpyxl.load_workbook(file_to_process, read_only=True)
-        all_sheets = [s for s in temp_wb.sheetnames if s != "대시보드"]
-        
-        if not all_sheets:
-            st.warning("엑셀 파일에 근무 데이터 시트가 존재하지 않습니다.")
+    /* 모바일 기기 반응형 스타일링 (768px 이하) */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding-top: 1rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        /* 카드 텍스트 크기 조정 */
+        .duty-card {
+            min-height: 75px !important;
+            padding: 4px !important;
+        }
+        .duty-card-title {
+            font-size: 11px !important;
+        }
+        .duty-card-text {
+            font-size: 10px !important;
+        }
+        /* Tab 글씨 크기 조정 */
+        button[data-baseweb="tab"] {
+            font-size: 13px !important;
+            padding: 6px 10px !important;
+        }
+    }
+</style>
+"""
+st.markdown(responsive_css, unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------
+# 1. 스마트 엑셀 로더 함수
+# ---------------------------------------------------------
+def load_excel_smart(file_bytes, selected_sheet=None):
+    file_obj = io.BytesIO(file_bytes)
+    excel_file = pd.ExcelFile(file_obj)
+    sheet_names = excel_file.sheet_names
+
+    target_sheet = selected_sheet
+    if not target_sheet or target_sheet not in sheet_names:
+        duty_sheets = [s for s in sheet_names if "숙직" in s or "근무" in s]
+        target_sheet = duty_sheets[0] if duty_sheets else sheet_names[0]
+
+    df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
+
+    header_idx = None
+    for idx in range(min(25, len(df_raw))):
+        row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
+        row_str = " ".join(row_values)
+        if any(
+            k in row_str for k in ["날짜", "일자", "근무일", "Date", "근무자"]
+        ):
+            header_idx = idx
+            break
+
+    if header_idx is None:
+        header_idx = 0
+
+    df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
+
+    # 컬럼 정제
+    clean_cols = []
+    for i, col in enumerate(df.columns):
+        c_str = (
+            str(col)
+            .replace("\n", "")
+            .replace("\r", "")
+            .strip()
+            if not str(col).startswith("Unnamed")
+            else f"열_{i}"
+        )
+        clean_cols.append(c_str)
+    df.columns = clean_cols
+
+    # 날짜 컬럼 자동 인식
+    date_col = None
+    for col in df.columns:
+        if any(
+            k in col.lower()
+            for k in ["날짜", "일자", "근무일", "date", "일자/요일"]
+        ):
+            date_col = col
+            break
+
+    if date_col:
+        df.rename(columns={date_col: "날짜"}, inplace=True)
+    else:
+        df.rename(columns={df.columns[0]: "날짜"}, inplace=True)
+
+    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+    df = df.dropna(subset=["날짜"]).copy()
+
+    # 근무자 매핑
+    cols = list(df.columns)
+    p1_col = next(
+        (
+            c
+            for c in cols
+            if any(
+                k in c
+                for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1"]
+            )
+            and "대직" not in c
+        ),
+        None,
+    )
+    p2_col = next(
+        (
+            c
+            for c in cols
+            if any(
+                k in c
+                for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]
+            )
+            and "대직" not in c
+        ),
+        None,
+    )
+    sub1_col = next(
+        (
+            c
+            for c in cols
+            if any(k in c for k in ["대직1", "대직자1", "대직 1", "대직자"])
+        ),
+        None,
+    )
+    sub2_col = next(
+        (
+            c
+            for c in cols
+            if any(k in c for k in ["대직2", "대직자2", "대직 2"])
+        ),
+        None,
+    )
+
+    if p1_col:
+        df.rename(columns={p1_col: "근무자1"}, inplace=True)
+    elif "근무자1" not in df.columns:
+        df["근무자1"] = "미지정"
+
+    if p2_col:
+        df.rename(columns={p2_col: "근무자2"}, inplace=True)
+    elif "근무자2" not in df.columns:
+        df["근무자2"] = "미지정"
+
+    if sub1_col:
+        df.rename(columns={sub1_col: "대직1"}, inplace=True)
+    elif "대직1" not in df.columns:
+        df["대직1"] = None
+
+    if sub2_col:
+        df.rename(columns={sub2_col: "대직2"}, inplace=True)
+    elif "대직2" not in df.columns:
+        df["대직2"] = None
+
+    type_col = next(
+        (
+            c
+            for c in cols
+            if any(k in c for k in ["구분", "근무구분", "요일", "비고"])
+        ),
+        None,
+    )
+    if type_col and type_col != "날짜":
+        df.rename(columns={type_col: "근무구분"}, inplace=True)
+    else:
+        df["근무구분"] = df["날짜"].dt.weekday.map(
+            lambda x: "주말" if x >= 5 else "평일"
+        )
+
+    df["년월"] = df["날짜"].dt.strftime("%Y-%m")
+
+    # 대직자 적용 로직
+    df["실제근무1"] = (
+        df["대직1"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace(["", "nan", "None"], None)
+        .combine_first(df["근무자1"])
+        .fillna("미지정")
+    )
+    df["실제근무2"] = (
+        df["대직2"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace(["", "nan", "None"], None)
+        .combine_first(df["근무자2"])
+        .fillna("미지정")
+    )
+
+    return df, target_sheet, sheet_names, df_raw
+
+
+# 샘플 데이터 생성
+@st.cache_data
+def get_sample_data():
+    today = datetime.date.today()
+    start_date = today.replace(day=1)
+    dates = pd.date_range(start=start_date, periods=35, freq="D")
+
+    df = pd.DataFrame({
+        "날짜": dates,
+        "근무구분": ["평일" if d.weekday() < 5 else "주말" for d in dates],
+        "근무자1": ["홍길동"] * 35,
+        "근무자2": ["김철수"] * 35,
+        "대직1": [None if i % 4 != 0 else "이대직" for i in range(35)],
+        "대직2": [None] * 35,
+    })
+    df["년월"] = df["날짜"].dt.strftime("%Y-%m")
+    df["실제근무1"] = (
+        df["대직1"].fillna("").replace("", None).combine_first(df["근무자1"])
+    )
+    df["실제근무2"] = (
+        df["대직2"].fillna("").replace("", None).combine_first(df["근무자2"])
+    )
+    return df
+
+
+# ---------------------------------------------------------
+# 세션 상태(Session State) 유지 관리
+# ---------------------------------------------------------
+if "excel_bytes" not in st.session_state:
+    st.session_state.excel_bytes = None
+if "selected_sheet" not in st.session_state:
+    st.session_state.selected_sheet = None
+if "df" not in st.session_state:
+    st.session_state.df = get_sample_data()
+if "sheet_names" not in st.session_state:
+    st.session_state.sheet_names = ["기본샘플"]
+if "raw_df" not in st.session_state:
+    st.session_state.raw_df = pd.DataFrame()
+
+# ---------------------------------------------------------
+# 사이드바: 파일 업로드 및 상태 유지
+# ---------------------------------------------------------
+with st.sidebar:
+    st.header("📂 파일 및 시트 관리")
+    uploaded_file = st.file_uploader(
+        "새로운 엑셀(.xlsx) 파일 업로드", type=["xlsx"]
+    )
+
+    # 새 파일이 업로드된 경우 세션 저장소 갱신
+    if uploaded_file is not None:
+        st.session_state.excel_bytes = uploaded_file.getvalue()
+        # 파일이 새로 들어오면 시트 세션 초기화
+        st.session_state.selected_sheet = None
+
+    # 저장된 파일 바이너리가 있는 경우 세션에서 지속 로드
+    if st.session_state.excel_bytes is not None:
+        try:
+            excel_obj = pd.ExcelFile(
+                io.BytesIO(st.session_state.excel_bytes)
+            )
+            sheets = excel_obj.sheet_names
+            st.session_state.sheet_names = sheets
+
+            if not st.session_state.selected_sheet:
+                duty_sheets = [s for s in sheets if "숙직" in s or "근무" in s]
+                st.session_state.selected_sheet = (
+                    duty_sheets[0] if duty_sheets else sheets[0]
+                )
+
+            selected_s = st.selectbox(
+                "📌 불러올 시트 선택",
+                sheets,
+                index=sheets.index(st.session_state.selected_sheet),
+                key="sheet_selector",
+            )
+
+            # 시트 변경 시 파싱 실행
+            if selected_s != st.session_state.selected_sheet:
+                st.session_state.selected_sheet = selected_s
+
+            parsed_df, used_sheet, _, raw_df = load_excel_smart(
+                st.session_state.excel_bytes, st.session_state.selected_sheet
+            )
+            st.session_state.df = parsed_df
+            st.session_state.raw_df = raw_df
+            st.caption(f"🟢 현재 데이터: **[{used_sheet}]** 시트")
+
+        except Exception as e:
+            st.error(f"❌ 파일 데이터 로드 실패: {e}")
+    else:
+        st.info("💡 샘플 데이터를 표시 중입니다. 엑셀 파일을 업로드해 보세요.")
+
+df = st.session_state.df
+
+# ---------------------------------------------------------
+# 메인 화면 구성 (탭)
+# ---------------------------------------------------------
+st.title("📋 숙직 근무표 통합 대시보드")
+
+tab1, tab_sheet, tab2, tab3 = st.tabs([
+    "📅 달력 메인 화면",
+    "📊 시트 데이터 점검",
+    "✏️ 근무표 수정",
+    "📊 근무 통계",
+])
+
+today = datetime.date.today()
+
+# ---------------------------------------------------------
+# TAB 1: 달력 메인 화면
+# ---------------------------------------------------------
+with tab1:
+    st.subheader("📅 오늘 기준 숙직 근무 현황")
+
+    today_df = df[df["날짜"].dt.date == today]
+
+    col_card1, col_card2 = st.columns([1.2, 1])
+    with col_card1:
+        st.info(f"📌 **오늘 날짜 ({today.strftime('%Y-%m-%d')}) 실제 근무자**")
+        if not today_df.empty:
+            p1 = today_df.iloc[0]["실제근무1"]
+            p2 = today_df.iloc[0]["실제근무2"]
+            st.markdown(f"### 👤 근무1: **{p1}** | 👤 근무2: **{p2}**")
         else:
-            selected_sheet = st.sidebar.selectbox("대시보드를 생성할 시트를 선택하세요", all_sheets)
+            st.write("오늘 등록된 숙직 정보가 없습니다.")
 
-            if st.button("🚀 선택한 시트로 대시보드 생성/갱신"):
-                # 파일 포인터 초기화 (업로드 파일 대응)
-                if hasattr(file_to_process, "seek"):
-                    file_to_process.seek(0)
-                
-                # 대시보드 포함된 워크북 생성
-                updated_wb = generate_dashboard_workbook(file_to_process, selected_sheet)
+    with col_card2:
+        available_months = sorted(df["년월"].dropna().unique())
+        current_ym = today.strftime("%Y-%m")
+        default_idx = (
+            available_months.index(current_ym)
+            if current_ym in available_months
+            else 0
+        )
 
-                if updated_wb:
-                    st.success(f"'{selected_sheet}' 시트 기준 대시보드가 정상적으로 작성되었습니다!")
+        selected_month = st.selectbox(
+            "조회 월 선택", available_months, index=default_idx
+        )
 
-                    # 메모리 스트림에 파일 저장 후 다운로드 제공
-                    output_stream = io.BytesIO()
-                    updated_wb.save(output_stream)
-                    output_stream.seek(0)
+    st.markdown("---")
 
-                    st.download_button(
-                        label="📥 대시보드가 반영된 엑셀 파일 다운로드",
-                        data=output_stream,
-                        file_name=f"근무대시보드_{selected_sheet}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    # 월간 달력
+    st.subheader(f"🗓️ {selected_month} 숙직 근무 달력")
+
+    year, month = map(int, selected_month.split("-"))
+    cal = calendar.monthcalendar(year, month)
+
+    month_df = df[df["년월"] == selected_month].copy()
+    duty_map = {}
+    for _, row in month_df.iterrows():
+        d_day = row["날짜"].day
+        duty_map[d_day] = {
+            "p1": row["실제근무1"],
+            "p2": row["실제근무2"],
+            "type": row["근무구분"],
+            "date_obj": row["날짜"].date(),
+        }
+
+    days_header = ["월", "화", "수", "목", "금", "토", "일"]
+    cols = st.columns(7)
+    for idx, day_name in enumerate(days_header):
+        header_color = "🔴" if idx == 6 else ("🔵" if idx == 5 else "⚪")
+        cols[idx].markdown(
+            f"**{header_color} {day_name}**", unsafe_allow_html=True
+        )
+
+    for week in cal:
+        week_cols = st.columns(7)
+        for i, day in enumerate(week):
+            with week_cols[i]:
+                if day != 0:
+                    duty_info = duty_map.get(day)
+                    is_today = (
+                        duty_info and duty_info["date_obj"] == today
                     )
-    except Exception as e:
-        st.error(f"파일 처리 중 오류가 발생했습니다: {e}")
+                    bg_color = "#FFF3E0" if is_today else "#F9F9F9"
+                    border_color = "#FF9800" if is_today else "#E0E0E0"
+
+                    p1_text = duty_info["p1"] if duty_info else "-"
+                    p2_text = duty_info["p2"] if duty_info else "-"
+
+                    card_html = f"""
+                    <div class="duty-card" style="
+                        background-color: {bg_color};
+                        border: 2px solid {border_color};
+                        border-radius: 8px;
+                        padding: 8px;
+                        margin-bottom: 8px;
+                        min-height: 90px;
+                    ">
+                        <div class="duty-card-title" style="font-weight: bold; font-size: 13px; color: {'#D32F2F' if i == 6 else ('#1976D2' if i == 5 else '#333')};">
+                            {day}일 {'(오늘)' if is_today else ''}
+                        </div>
+                        <div class="duty-card-text" style="font-size: 11px; margin-top: 4px; color: #333; line-height: 1.3;">
+                            <b>1:</b> {p1_text}<br>
+                            <b>2:</b> {p2_text}
+                        </div>
+                    </div>
+                    """
+                    st.markdown(card_html, unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        "<div style='min-height: 90px;'></div>",
+                        unsafe_allow_html=True,
+                    )
+
+    st.markdown("---")
+
+    # 상세 목록
+    st.markdown("#### 📋 상세 근무 목록")
+    display_cols = [
+        c
+        for c in [
+            "날짜",
+            "근무구분",
+            "근무자1",
+            "근무자2",
+            "대직1",
+            "대직2",
+            "실제근무1",
+            "실제근무2",
+        ]
+        if c in month_df.columns
+    ]
+
+    st.dataframe(
+        month_df[display_cols].style.highlight_between(
+            left=pd.Timestamp(today),
+            right=pd.Timestamp(today),
+            subset=["날짜"],
+            color="#FFE0B2",
+        ),
+        use_container_width=True,
+    )
+
+# ---------------------------------------------------------
+# TAB 2: 시트 데이터 점검 (신규 추가 대시보드)
+# ---------------------------------------------------------
+with tab_sheet:
+    current_s = st.session_state.selected_sheet or "기본"
+    st.subheader(f"🔍 시트 데이터 분석: [{current_s}]")
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("총 등록 데이터(행)", f"{len(df)}건")
+    m2.metric("인식된 컬럼 수", f"{len(df.columns)}개")
+    m3.metric(
+        "근무자1 지정률",
+        f"{(df['근무자1'] != '미지정').mean() * 100:.1f}%"
+        if "근무자1" in df.columns
+        else "0%",
+    )
+    m4.metric(
+        "대직 발생 수",
+        f"{df['대직1'].notnull().sum() + df['대직2'].notnull().sum()}건"
+        if "대직1" in df.columns
+        else "0건",
+    )
+
+    st.markdown("---")
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        st.markdown("#### ⚙️ 자동 인식 및 정제된 데이터")
+        st.dataframe(df, height=350, use_container_width=True)
+
+    with col_b:
+        st.markdown("#### 📄 원본 시트 데이터 구조 (상단)")
+        if not st.session_state.raw_df.empty:
+            st.dataframe(
+                st.session_state.raw_df.head(15),
+                height=350,
+                use_container_width=True,
+            )
+        else:
+            st.info("원본 원천 데이터가 없습니다.")
+
+# ---------------------------------------------------------
+# TAB 3: 근무표 직접 수정
+# ---------------------------------------------------------
+with tab2:
+    st.subheader("✏️ 원본 데이터 직접 수정")
+    st.caption(
+        "💡 대직 정보를 입력하면 `실제근무1`, `실제근무2`가 자동으로 반영됩니다."
+    )
+
+    edited_df = st.data_editor(
+        st.session_state.df, num_rows="dynamic", key="data_editor"
+    )
+
+    if st.button("💾 변경사항 저장 및 반영"):
+        edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
+        edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
+        edited_df["실제근무1"] = (
+            edited_df["대직1"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .replace(["", "nan", "None"], None)
+            .combine_first(edited_df["근무자1"])
+        )
+        edited_df["실제근무2"] = (
+            edited_df["대직2"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .replace(["", "nan", "None"], None)
+            .combine_first(edited_df["근무자2"])
+        )
+        st.session_state.df = edited_df
+        st.success("변경사항이 성공적으로 저장되었습니다!")
+        st.rerun()
+
+# ---------------------------------------------------------
+# TAB 4: 근무 통계
+# ---------------------------------------------------------
+with tab3:
+    st.subheader("📊 근무 통계")
+
+    st.markdown("#### 👤 개인별 총 근무 횟수 (평일 / 주말)")
+    workers_s1 = df[["실제근무1", "근무구분"]].rename(
+        columns={"실제근무1": "근무자"}
+    )
+    workers_s2 = df[["실제근무2", "근무구분"]].rename(
+        columns={"실제근무2": "근무자"}
+    )
+    all_workers_df = pd.concat([workers_s1, workers_s2])
+    all_workers_df = all_workers_df[
+        all_workers_df["근무자"].notnull()
+        & (~all_workers_df["근무자"].isin(["미지정", "nan", "None"]))
+    ]
+
+    if not all_workers_df.empty:
+        stats_df = (
+            all_workers_df.groupby(["근무자", "근무구분"])
+            .size()
+            .unstack(fill_value=0)
+        )
+        st.bar_chart(stats_df)
+    else:
+        st.info("통계를 산출할 근무자 데이터가 존재하지 않습니다.")

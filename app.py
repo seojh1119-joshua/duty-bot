@@ -62,13 +62,6 @@ responsive_css = """
         height: auto !important;
         margin-bottom: 2px !important;
     }
-    div[data-testid="stPopover"] > button {
-        width: 100% !important;
-        font-size: 11px !important;
-        padding: 2px 4px !important;
-        min-height: 24px !important;
-        height: 24px !important;
-    }
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -80,27 +73,25 @@ DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
 # ---------------------------------------------------------
 def parse_duty_type_from_text(duty_str):
     """
-    근무구분 셀에 적힌 문자열을 읽어 요일 범주를 결정합니다.
+    근무구분 셀에 적힌 문자열을 정확히 감지하여 분류합니다.
     """
     if pd.isnull(duty_str):
         return "평일"
     
     val = str(duty_str).strip()
     
-    # 문자로 요일 파악
+    # 문자로 요일 파악 (우선순위 고려)
     if "금" in val:
         return "금요일"
     elif "토" in val:
         return "토요일(휴일)"
     elif "일" in val:
         return "일요일(휴일)"
-    elif any(k in val for k in ["평일", "월", "화", "수", "목"]):
-        return "평일"
     else:
         return "평일"
 
 def get_duty_hours_by_category(category):
-    """요약된 구분별 규정 근무시간 설정"""
+    """구분별 규정 근무시간 설정"""
     if category == "평일":
         return 7.0
     elif category == "금요일":
@@ -133,6 +124,7 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
+    # 헤더 행 탐색
     header_idx = None
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
@@ -159,7 +151,7 @@ def load_excel_smart(file_source, selected_sheet=None):
         clean_cols.append(c_str)
     df.columns = clean_cols
 
-    # 날짜 열 자동 검색
+    # 날짜 열 감지
     date_col = next(
         (col for col in df.columns if any(k in col.lower() for k in ["날짜", "일자", "근무일", "date", "일자/요일"])),
         df.columns[0]
@@ -168,13 +160,17 @@ def load_excel_smart(file_source, selected_sheet=None):
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     df = df.dropna(subset=["날짜"]).copy()
 
-    # 근무구분 열 텍스트 추출
-    duty_type_col = next((c for c in df.columns if any(k in c for k in ["근무구분", "구분", "근무유형", "요일구분"])), None)
+    # ★ 핵심 보완: 근무구분 열을 유연하고 정확하게 검색
+    duty_type_col = next(
+        (c for c in df.columns if any(k in c for k in ["근무구분", "구분", "근무유형", "요일구분", "요일"])), 
+        None
+    )
     if duty_type_col:
-        df["근무구분_원본"] = df[duty_type_col]
+        df["근무구분_원본"] = df[duty_type_col].astype(str)
     else:
         df["근무구분_원본"] = "평일"
 
+    # 근무자 및 대직자 열 검색
     cols = list(df.columns)
     p1_col = next((c for c in cols if any(k in c for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1", "성명", "이름"]) and "대직" not in c), None)
     p2_col = next((c for c in cols if any(k in c for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]) and "대직" not in c), None)
@@ -186,12 +182,12 @@ def load_excel_smart(file_source, selected_sheet=None):
     df["대직1"] = df[sub1_col] if sub1_col else None
     df["대직2"] = df[sub2_col] if sub2_col else None
 
-    # 문자로 요일 감지 및 시간 산출
+    # 요일 구분 파싱 및 시간 산출
     df["상세구분"] = df["근무구분_원본"].apply(parse_duty_type_from_text)
     df["근무시간"] = df["상세구분"].apply(get_duty_hours_by_category)
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 대직자 반영한 실제 근무자 적용
+    # 대직자 적용한 실제근무자 열 생성
     df["실제근무1"] = (
         df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
         .combine_first(df["근무자1"]).fillna("미지정")
@@ -423,9 +419,21 @@ with tab2:
     if st.button("💾 전체 변경사항 저장"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
+        
+        # ★ 수정된 근무구분 문자열에 맞춰 상세구분/시간 재계산
         edited_df["상세구분"] = edited_df["근무구분_원본"].apply(parse_duty_type_from_text)
         edited_df["근무시간"] = edited_df["상세구분"].apply(get_duty_hours_by_category)
         edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
+
+        # 대직자 변경에 맞게 실제근무자 재산출
+        edited_df["실제근무1"] = (
+            edited_df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
+            .combine_first(edited_df["근무자1"]).fillna("미지정")
+        )
+        edited_df["실제근무2"] = (
+            edited_df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
+            .combine_first(edited_df["근무자2"]).fillna("미지정")
+        )
 
         st.session_state.df = edited_df
         save_to_excel_file(edited_df, st.session_state.selected_sheet)
@@ -433,19 +441,17 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 월별 근무 통계 (근무구분 문자열 직접 검색 방식)
+# TAB 4: 월별 근무 통계 (★ 실시간 세션 데이터 사용하도록 수정 완료)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
-    st.caption("📌 **'근무구분' 텍스트 문자열 검색 기준**: 평일(7h), 금요일(15h), 토요일(휴일)(15h), 일요일(휴일)(7h) / 휴일근무횟수 = 토요일(휴일) + 일요일(휴일)")
+    st.caption("📌 **'근무구분' 열 텍스트 반영**: 평일(7h), 금요일(15h), 토요일(휴일)(15h), 일요일(휴일)(7h) / 휴일근무 = 토요일 + 일요일")
 
-    # 숙직 관련 시트 탐색
-    target_duty_sheet = next((s for s in st.session_state.get("sheet_names", []) if "숙직" in s), st.session_state.selected_sheet)
+    # 세션에 저장된 최신 df 데이터 활용
+    duty_stat_df = st.session_state.df.copy()
 
-    if os.path.exists(st.session_state.file_path):
-        duty_stat_df, _, _, _ = load_excel_smart(st.session_state.file_path, selected_sheet=target_duty_sheet)
-    else:
-        duty_stat_df = df.copy()
+    # 실시간 데이터 기준 다시 파싱
+    duty_stat_df["상세구분"] = duty_stat_df["근무구분_원본"].apply(parse_duty_type_from_text)
 
     available_stat_months = ["전체 기간"] + sorted(duty_stat_df["년월"].dropna().unique(), reverse=True)
     curr_ym = today.strftime("%Y-%m")
@@ -462,19 +468,17 @@ with tab3:
 
     filtered_df = duty_stat_df.copy() if selected_stat_month == "전체 기간" else duty_stat_df[duty_stat_df["년월"] == selected_stat_month].copy()
 
-    # 근무구분 셀 문자를 분석하여 평일/금요일/토요일/일요일 분류
-    filtered_df["상세구분"] = filtered_df["근무구분_원본"].apply(parse_duty_type_from_text)
-
-    # 근무자1, 근무자2 (대직 반영 실제근무자) 통합
+    # 근무자1, 근무자2 병합하여 집계 대상 생성
     w1 = filtered_df[["실제근무1", "상세구분"]].rename(columns={"실제근무1": "근무자"})
     w2 = filtered_df[["실제근무2", "상세구분"]].rename(columns={"실제근무2": "근무자"})
     
     combined = pd.concat([w1, w2], ignore_index=True)
-    
     combined["근무자"] = combined["근무자"].astype(str).str.strip()
+    
+    # 예외 처리: 미지정, 빈값 제외
     combined = combined[
         combined["근무자"].notnull() & 
-        (~combined["근무자"].isin(["미지정", "nan", "None", ""]))
+        (~combined["근무자"].isin(["미지정", "nan", "None", "", "NaN"]))
     ]
 
     if not combined.empty:
@@ -484,16 +488,16 @@ with tab3:
         for worker in unique_workers:
             w_df = combined[combined["근무자"] == worker]
             
-            # 문자 검색 기반 분류 횟수 카운트
+            # 문자 검색 기반 요일별 횟수 카운트
             cnt_weekday = (w_df["상세구분"] == "평일").sum()
             cnt_friday = (w_df["상세구분"] == "금요일").sum()
             cnt_saturday = (w_df["상세구분"] == "토요일(휴일)").sum()
             cnt_sunday = (w_df["상세구분"] == "일요일(휴일)").sum()
             
-            # 수식 계산
+            # 합계 수식 계산
             holiday_work_cnt = cnt_saturday + cnt_sunday
             total_work_cnt = cnt_weekday + cnt_friday + cnt_saturday + cnt_sunday
-            total_work_hours = (cnt_weekday * 7) + (cnt_friday * 15) + (cnt_saturday * 15) + (cnt_sunday * 7)
+            total_work_hours = (cnt_weekday * 7.0) + (cnt_friday * 15.0) + (cnt_saturday * 15.0) + (cnt_sunday * 7.0)
             
             stat_rows.append({
                 "근무자": worker,
@@ -512,21 +516,20 @@ with tab3:
         # 상단 핵심 메트릭 지표
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
-        m2.metric("총 근무건수 합계", f"{stats_df['총 근무 횟수'].sum()}건")
-        m3.metric("휴일근무횟수 합계", f"{stats_df['휴일근무횟수'].sum()}건")
-        m4.metric("총 근무시간 합계", f"{stats_df['총 근무시간(h)'].sum()}시간")
+        m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
+        m3.metric("휴일근무횟수 합계", f"{int(stats_df['휴일근무횟수'].sum())}건")
+        m4.metric("총 근무시간 합계", f"{stats_df['총 근무시간(h)'].sum():.1f}시간")
 
         st.markdown("---")
 
-        st.markdown(f"#### 📊 [{target_duty_sheet} 시트 / {selected_stat_month}] 문자열 매핑 기반 개인별 근무 통계")
+        st.markdown(f"#### 📊 [{selected_stat_month}] 근무자별 요일 횟수 및 근무시간 집계 결과")
         
-        # 차트 및 테이블 시각화
         c1, c2 = st.columns([1.5, 1])
         with c1:
-            st.markdown("##### ⏱️ 개인별 총 근무시간 (시간)")
+            st.markdown("##### ⏱️ 근무자별 총 근무시간 (시간)")
             st.bar_chart(stats_df["총 근무시간(h)"])
 
-            st.markdown("##### 📅 개인별 요일/휴일 근무 횟수")
+            st.markdown("##### 📅 근무자별 요일/휴일 근무 횟수")
             st.bar_chart(stats_df[["평일 횟수", "금요일 횟수", "토요일(휴일) 횟수", "일요일(휴일) 횟수"]])
 
         with c2:

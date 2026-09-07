@@ -1,9 +1,9 @@
 import calendar
 import datetime
+import glob
 import io
 import json
 import os
-import glob
 import pandas as pd
 import streamlit as st
 
@@ -13,6 +13,12 @@ try:
     kr_holidays = holidays.KR()
 except ImportError:
     kr_holidays = {}
+
+# 데이터 보관 디렉터리 기본 생성
+os.makedirs("data", exist_ok=True)
+
+DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
+PERSISTENCE_STATE_PATH = os.path.join("data", "edited_duty_schedule.json")
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -110,9 +116,6 @@ responsive_css = """
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
-DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
-PERSISTENCE_STATE_PATH = os.path.join("data", "edited_duty_schedule.json")
-
 
 # ---------------------------------------------------------
 # 앱 데이터 지속성(Persistence) 관리 함수
@@ -120,10 +123,9 @@ PERSISTENCE_STATE_PATH = os.path.join("data", "edited_duty_schedule.json")
 def save_app_state(df, sheet_name, memos):
     """수정된 근무표 및 메모 데이터를 로컬 JSON 파일로 영구 저장"""
     try:
-        os.makedirs("data", exist_ok=True)
         save_df = df.copy()
         if "날짜" in save_df.columns:
-            save_df["날짜"] = save_df["날짜"].dt.strftime("%Y-%m-%d")
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
         state_data = {
             "selected_sheet": sheet_name,
@@ -174,7 +176,7 @@ def load_excel_smart(file_source, selected_sheet=None):
         priority_sheets = [
             s
             for s in sheet_names
-            if "숙직근무자" in s or "숙직" in s or "의료과" in s or "야근" in s
+            if any(k in s for k in ["숙직근무자", "숙직", "의료과", "야근"])
         ]
         target_sheet = (
             priority_sheets[0] if priority_sheets else sheet_names[0]
@@ -185,7 +187,7 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
-    header_idx = None
+    header_idx = 0
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
         row_str = " ".join(row_values)
@@ -195,9 +197,6 @@ def load_excel_smart(file_source, selected_sheet=None):
         ):
             header_idx = idx
             break
-
-    if header_idx is None:
-        header_idx = 0
 
     if isinstance(file_source, bytes):
         file_obj.seek(0)
@@ -334,11 +333,8 @@ def load_excel_smart(file_source, selected_sheet=None):
 # 세션 및 저장된 데이터 상태 로드
 # ---------------------------------------------------------
 if "file_path" not in st.session_state:
-    if os.path.exists("data"):
-        files = glob.glob(os.path.join("data", "*.xlsx"))
-        st.session_state.file_path = files[0] if files else DEFAULT_FILE_PATH
-    else:
-        st.session_state.file_path = DEFAULT_FILE_PATH
+    files = glob.glob(os.path.join("data", "*.xlsx"))
+    st.session_state.file_path = files[0] if files else DEFAULT_FILE_PATH
 
 if "df" not in st.session_state:
     saved_df, saved_sheet, saved_memos = load_app_state()
@@ -366,28 +362,13 @@ if "df" not in st.session_state:
         st.session_state.raw_df = raw_df
         st.session_state.memos = {}
     else:
-        today = datetime.date.today()
-        dates = pd.date_range(start=today.replace(day=1), periods=60, freq="D")
+        today_date = datetime.date.today()
+        dates = pd.date_range(start=today_date.replace(day=1), periods=60, freq="D")
         sample_df = pd.DataFrame({
             "날짜": dates,
-            "근무구분_원본": ["평일", "금요일", "토요일", "일요일", "평일"]
-            * 12,
-            "근무자1": [
-                "서진호",
-                "김철수",
-                "이영희",
-                "박민수",
-                "정수진",
-            ]
-            * 12,
-            "근무자2": [
-                "김철수",
-                "이영희",
-                "박민수",
-                "정수진",
-                "서진호",
-            ]
-            * 12,
+            "근무구분_원본": ["평일", "금요일", "토요일", "일요일", "평일"] * 12,
+            "근무자1": ["서진호", "김철수", "이영희", "박민수", "정수진"] * 12,
+            "근무자2": ["김철수", "이영희", "박민수", "정수진", "서진호"] * 12,
             "대직1": [None] * 60,
             "대직2": [None] * 60,
         })
@@ -404,6 +385,7 @@ if "df" not in st.session_state:
 
 # ---------------------------------------------------------
 # 근무자 수정 및 메모 입력 모달/다이얼로그
+# Streamlit 최신 버전을 활용하는 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -427,9 +409,7 @@ def edit_worker_dialog(date_str, duty_info):
             height=80,
         )
 
-        submitted = st.form_submit_button(
-            "💾 저장하기", use_container_width=True
-        )
+        submitted = st.form_submit_button("💾 저장하기", use_container_width=True)
 
         if submitted:
             row_idx = duty_info["idx"]
@@ -527,9 +507,6 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 # TAB 1: 달력 메인 화면
 # ---------------------------------------------------------
 with tab1:
-    # ---------------------------------------------------------
-    # 1. [신규 기능] 오늘 근무자 상단 표시 영역
-    # ---------------------------------------------------------
     today_df = df[df["날짜"].dt.date == today]
     today_str = today.strftime("%Y년 %m월 %d일")
 
@@ -566,9 +543,6 @@ with tab1:
             f"💡 **오늘({today_str})**은 지정된 숙직 근무 정보가 없습니다."
         )
 
-    # ---------------------------------------------------------
-    # 달력 컨트롤 및 선택적 수정 섹션
-    # ---------------------------------------------------------
     available_months = sorted(df["년월"].dropna().unique())
     current_ym = today.strftime("%Y-%m")
     default_idx = (
@@ -614,9 +588,6 @@ with tab1:
             }
             day_options.append(f"{d_day}일 ({d_date_str})")
 
-        # ---------------------------------------------------------
-        # 2. [신규 기능] 선택창을통해 버튼없이 달력 날짜 수정하기
-        # ---------------------------------------------------------
         with c_m2:
             selected_edit_day = st.selectbox(
                 "✏️ 근무 수정/메모 작성 날짜 선택",
@@ -632,21 +603,14 @@ with tab1:
 
         st.markdown("---")
 
-        # ---------------------------------------------------------
-        # 3. [신규 기능] 모바일에서도 가로 7열로 유지되는 CSS Grid 달력
-        # ---------------------------------------------------------
-        # 요일 헤더
         headers = ["일", "월", "화", "수", "목", "금", "토"]
         colors = ["🔴", "⚪", "⚪", "⚪", "⚪", "⚪", "🔵"]
         header_html = "<div class='calendar-grid'>"
         for h, c in zip(headers, colors):
-            header_html += (
-                f"<div class='calendar-header'>{c} {h}</div>"
-            )
+            header_html += f"<div class='calendar-header'>{c} {h}</div>"
         header_html += "</div>"
         st.markdown(header_html, unsafe_allow_html=True)
 
-        # 달력 날짜 그리드 출력
         for week in month_days:
             grid_html = "<div class='calendar-grid'>"
             for i, day in enumerate(week):
@@ -659,7 +623,7 @@ with tab1:
 
                     is_today = curr_date == today
                     is_holiday = (
-                        kr_holidays.get(curr_date) is not None or i == 0
+                        curr_date in kr_holidays or i == 0
                     )
 
                     bg_header = (

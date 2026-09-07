@@ -171,23 +171,11 @@ def load_excel_smart(file_source, selected_sheet=None):
 
 
 def save_to_excel_file(df, sheet_name):
-    """수정사항 엑셀 저장"""
-    save_path = st.session_state.get("file_path", DEFAULT_FILE_PATH)
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
-    save_df = df.copy()
-    save_df["날짜"] = save_df["날짜"].dt.strftime("%Y-%m-%d")
-
-    if os.path.exists(save_path):
-        try:
-            with pd.ExcelWriter(save_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-                save_df.to_excel(writer, sheet_name=sheet_name, index=False)
-        except Exception:
-            with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
-                save_df.to_excel(writer, sheet_name=sheet_name, index=False)
-    else:
-        with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
-            save_df.to_excel(writer, sheet_name=sheet_name, index=False)
+    """
+    엑셀 파일 보존을 위해 파일 저장 기능을 비활성화합니다.
+    데이터 변경 사항은 세션 내 메모리(Session State)에서만 유지됩니다.
+    """
+    pass
 
 
 # ---------------------------------------------------------
@@ -229,7 +217,6 @@ if "df" not in st.session_state:
         st.session_state.sheet_names = ["숙직근무자"]
         st.session_state.selected_sheet = "숙직근무자"
         st.session_state.raw_df = pd.DataFrame()
-        save_to_excel_file(sample_df, st.session_state.selected_sheet)
 
 
 # ---------------------------------------------------------
@@ -253,7 +240,7 @@ def edit_worker_dialog(date_str, duty_info):
         st.divider()
         edit_memo = st.text_area("📌 날짜별 메모 (달력에 바로 표시됨)", value=current_memo, height=80)
 
-        submitted = st.form_submit_button("💾 저장하기", use_container_width=True)
+        submitted = st.form_submit_button("💾 반영하기", use_container_width=True)
 
         if submitted:
             row_idx = duty_info["idx"]
@@ -268,7 +255,7 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.memos[date_str] = edit_memo.strip()
 
             save_to_excel_file(st.session_state.df, st.session_state.selected_sheet)
-            st.success("✅ 저장되었습니다!")
+            st.success("✅ 화면에 반영되었습니다! (원본 엑셀 파일은 유지됩니다)")
             st.rerun()
 
 
@@ -281,9 +268,6 @@ with st.sidebar:
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
-        with open(st.session_state.file_path, "wb") as f:
-            f.write(file_bytes)
-
         parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
@@ -401,7 +385,7 @@ with tab2:
     st.subheader("✏️ 전체 근무표 수정")
     edited_df = st.data_editor(st.session_state.df, num_rows="dynamic", key="data_editor")
 
-    if st.button("💾 전체 변경사항 저장"):
+    if st.button("💾 화면 변경사항 적용"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
         
@@ -419,7 +403,7 @@ with tab2:
 
         st.session_state.df = edited_df
         save_to_excel_file(edited_df, st.session_state.selected_sheet)
-        st.success("✅ 성공적으로 저장되었습니다.")
+        st.success("✅ 성공적으로 적용되었습니다. (원본 엑셀 파일은 변경되지 않습니다)")
         st.rerun()
 
 # ---------------------------------------------------------

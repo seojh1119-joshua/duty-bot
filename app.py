@@ -1,890 +1,495 @@
-import calendar
-import datetime
-import io
-import json
 import os
-import glob
+import json
+import io
+from datetime import datetime, date
 import pandas as pd
+import numpy as np
 import streamlit as st
 
-# 대한민국 공휴일 라이브러리
+# 공휴일 라이브러리 예외 처리
 try:
     import holidays
     kr_holidays = holidays.KR()
 except ImportError:
     kr_holidays = {}
 
-# ---------------------------------------------------------
-# 페이지 기본 설정
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 1. 페이지 및 스티일 설정
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="숙직 근무표 대시보드",
-    page_icon="📋",
+    page_title="야근/숙직 근무표 관리 시스템",
+    page_icon="📅",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# ---------------------------------------------------------
-# CSS 스타일링 (모바일 반응형 가로 7열 그리드 보장)
-# ---------------------------------------------------------
-responsive_css = """
+# 커스텀 CSS (달력 및 통계 스타일링)
+st.markdown("""
 <style>
-    /* 메인 컨테이너 패딩 축소 */
-    .main .block-container {
-        padding-top: 1rem;
-        padding-bottom: 2rem;
-        padding-left: 0.3rem;
-        padding-right: 0.3rem;
-    }
-    
-    /* 모바일화면 7열 레이아웃 강제 유지 */
-    .calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-        gap: 4px;
-        margin-bottom: 8px;
-    }
-    
-    .calendar-header {
-        text-align: center;
-        font-size: 11px;
-        font-weight: bold;
-        padding: 4px 0;
-        background-color: #F1F5F9;
-        border-radius: 4px;
-    }
-
-    .duty-card {
-        border: 1px solid #E2E8F0;
-        border-radius: 6px;
-        padding: 4px;
-        min-height: 90px;
-        background-color: #FFFFFF;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-    }
-    
-    .duty-card-header {
-        font-weight: bold;
-        font-size: 11px;
-        padding: 1px 3px;
-        border-radius: 3px;
-        margin-bottom: 3px;
-        text-align: center;
-    }
-    
-    .duty-worker-info {
-        font-size: 10.5px;
+    /* 메인 배경 및 타이틀 */
+    .main-title {
+        font-size: 2.2rem;
+        font-weight: 800;
         color: #1E293B;
-        line-height: 1.25;
-        margin-bottom: 2px;
-        word-break: break-all;
+        margin-bottom: 0.2rem;
     }
     
-    .duty-card-memo {
-        margin-top: auto;
-        padding: 2px 3px;
-        background-color: #FEF3C7;
-        border-left: 2px solid #F59E0B;
-        font-size: 9.5px;
-        color: #92400E;
-        border-radius: 2px;
-        word-break: break-all;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    /* 오늘 근무자 강조 카드 */
+    /* 오늘 당직자 배너 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 14px 18px;
+        padding: 1.2rem 1.5rem;
         border-radius: 12px;
-        margin-bottom: 16px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .today-card h3 {
+        color: #93C5FD !important;
+        font-size: 1rem !important;
+        margin-bottom: 0.3rem !important;
+    }
+    
+    .today-card .worker-names {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+    /* 달력 헤더 */
+    .cal-weekday {
+        text-align: center;
+        font-weight: 700;
+        padding: 8px 0;
+        background-color: #F1F5F9;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    .cal-sun { color: #EF4444; }
+    .cal-sat { color: #2563EB; }
+    
+    /* 메모 표시 스타일 */
+    .memo-tag {
+        background-color: #FEF3C7;
+        color: #92400E;
+        font-size: 0.75rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 4px;
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
     }
 </style>
-"""
-st.markdown(responsive_css, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-DEFAULT_FILE_PATH = os.path.join("data", "duty_schedule.xlsx")
-PERSISTENCE_STATE_PATH = os.path.join("data", "edited_duty_schedule.json")
+DATA_DIR = "data"
+STATE_FILE = os.path.join(DATA_DIR, "edited_duty_schedule.json")
 
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
 
-# ---------------------------------------------------------
-# 앱 데이터 지속성(Persistence) 관리 함수
-# ---------------------------------------------------------
-def save_app_state(df, sheet_name, memos):
-    """수정된 근무표 및 메모 데이터를 로컬 JSON 파일로 영구 저장"""
-    try:
-        os.makedirs("data", exist_ok=True)
-        save_df = df.copy()
-        if "날짜" in save_df.columns:
-            save_df["날짜"] = save_df["날짜"].dt.strftime("%Y-%m-%d")
-
-        state_data = {
-            "selected_sheet": sheet_name,
-            "memos": memos,
-            "df_dict": save_df.to_dict(orient="records"),
-        }
-        with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
-            json.dump(state_data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        st.error(f"상태 저장 중 오류가 발생했습니다: {e}")
-
-
+# -----------------------------------------------------------------------------
+# 2. 데이터 로드 및 저장 함수
+# -----------------------------------------------------------------------------
 def load_app_state():
-    """저장된 변경 상태 데이터 불러오기"""
-    if os.path.exists(PERSISTENCE_STATE_PATH):
+    """저장된 영구 데이터 상태(대직자/메모 수정건)를 불러옵니다."""
+    if os.path.exists(STATE_FILE):
         try:
-            with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
-                state_data = json.load(f)
-
-            df = pd.DataFrame(state_data["df_dict"])
-            if "날짜" in df.columns:
-                df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
-
-            return (
-                df,
-                state_data.get("selected_sheet", "숙직근무자"),
-                state_data.get("memos", {}),
-            )
+            with open(STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
         except Exception:
-            return None, None, None
-    return None, None, None
+            return {}
+    return {}
 
+def save_app_state(state_dict):
+    """수정된 데이터를 JSON 파일에 저장합니다."""
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state_dict, f, ensure_ascii=False, indent=2)
 
-# ---------------------------------------------------------
-# 엑셀 스마트 로더
-# ---------------------------------------------------------
-def load_excel_smart(file_source, selected_sheet=None):
-    if isinstance(file_source, bytes):
-        file_obj = io.BytesIO(file_source)
-    else:
-        file_obj = file_source
-
-    excel_file = pd.ExcelFile(file_obj)
-    sheet_names = excel_file.sheet_names
-
-    target_sheet = selected_sheet
-    if not target_sheet or target_sheet not in sheet_names:
-        priority_sheets = [
-            s
-            for s in sheet_names
-            if "숙직근무자" in s or "숙직" in s or "의료과" in s or "야근" in s
-        ]
-        target_sheet = (
-            priority_sheets[0] if priority_sheets else sheet_names[0]
-        )
-
-    if isinstance(file_source, bytes):
-        file_obj.seek(0)
-
-    df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
-
-    header_idx = None
-    for idx in range(min(25, len(df_raw))):
-        row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
-        row_str = " ".join(row_values)
-        if any(
-            k in row_str
-            for k in ["날짜", "일자", "근무일", "Date", "근무자", "성명", "이름"]
-        ):
-            header_idx = idx
-            break
-
-    if header_idx is None:
-        header_idx = 0
-
-    if isinstance(file_source, bytes):
-        file_obj.seek(0)
-
-    df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
-
-    clean_cols = []
-    for i, col in enumerate(df.columns):
-        c_str = (
-            str(col).replace("\n", "").replace("\r", "").strip()
-            if not str(col).startswith("Unnamed")
-            else f"열_{i}"
-        )
-        clean_cols.append(c_str)
-    df.columns = clean_cols
-
-    date_col = next(
-        (
-            col
-            for col in df.columns
-            if any(
-                k in col.lower()
-                for k in ["날짜", "일자", "근무일", "date", "일자/요일"]
-            )
-        ),
-        df.columns[0],
-    )
-    df.rename(columns={date_col: "날짜"}, inplace=True)
-    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
-    df = df.dropna(subset=["날짜"]).copy()
-
-    duty_type_col = next(
-        (
-            c
-            for c in df.columns
-            if any(
-                k in c
-                for k in [
-                    "근무구분_원본",
-                    "근무구분",
-                    "구분",
-                    "근무유형",
-                    "요일구분",
-                    "요일",
-                ]
-            )
-        ),
-        None,
-    )
-    if duty_type_col:
-        df["근무구분_원본"] = df[duty_type_col].astype(str).str.strip()
-    else:
-        df["근무구분_원본"] = "평일"
-
-    cols = list(df.columns)
-    p1_col = next(
-        (
-            c
-            for c in cols
-            if any(
-                k in c
-                for k in [
-                    "근무자1",
-                    "근무자 1",
-                    "1근무",
-                    "숙직1",
-                    "당직1",
-                    "성명",
-                    "이름",
-                ]
-            )
-            and "대직" not in c
-        ),
-        None,
-    )
-    p2_col = next(
-        (
-            c
-            for c in cols
-            if any(
-                k in c for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]
-            )
-            and "대직" not in c
-        ),
-        None,
-    )
-    sub1_col = next(
-        (
-            c
-            for c in cols
-            if any(k in c for k in ["대직1", "대직자1", "대직 1", "대직자"])
-        ),
-        None,
-    )
-    sub2_col = next(
-        (c for c in cols if any(k in c for k in ["대직2", "대직자2", "대직 2"])),
-        None,
-    )
-
-    df["근무자1"] = (
-        df[p1_col].astype(str).str.strip() if p1_col else "미지정"
-    )
-    df["근무자2"] = (
-        df[p2_col].astype(str).str.strip() if p2_col else "미지정"
-    )
-    df["대직1"] = df[sub1_col].astype(str).str.strip() if sub1_col else None
-    df["대직2"] = df[sub2_col].astype(str).str.strip() if sub2_col else None
-
-    df["년월"] = df["날짜"].dt.strftime("%Y-%m")
-
-    df["실제근무1"] = (
-        df["대직1"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .replace(["", "nan", "None"], None)
-        .combine_first(df["근무자1"])
-        .fillna("미지정")
-    )
-    df["실제근무2"] = (
-        df["대직2"]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .replace(["", "nan", "None"], None)
-        .combine_first(df["근무자2"])
-        .fillna("미지정")
-    )
-
-    return df, target_sheet, sheet_names, df_raw
-
-
-# ---------------------------------------------------------
-# 세션 및 저장된 데이터 상태 로드
-# ---------------------------------------------------------
-if "file_path" not in st.session_state:
-    if os.path.exists("data"):
-        files = glob.glob(os.path.join("data", "*.xlsx"))
-        st.session_state.file_path = files[0] if files else DEFAULT_FILE_PATH
-    else:
-        st.session_state.file_path = DEFAULT_FILE_PATH
-
-if "df" not in st.session_state:
-    saved_df, saved_sheet, saved_memos = load_app_state()
-
-    if saved_df is not None:
-        st.session_state.df = saved_df
-        st.session_state.selected_sheet = saved_sheet
-        st.session_state.memos = saved_memos
-        if os.path.exists(st.session_state.file_path):
-            _, _, sheet_names, raw_df = load_excel_smart(
-                st.session_state.file_path
-            )
-            st.session_state.sheet_names = sheet_names
-            st.session_state.raw_df = raw_df
-        else:
-            st.session_state.sheet_names = [saved_sheet]
-            st.session_state.raw_df = pd.DataFrame()
-    elif os.path.exists(st.session_state.file_path):
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(
-            st.session_state.file_path
-        )
-        st.session_state.df = parsed_df
-        st.session_state.selected_sheet = used_sheet
-        st.session_state.sheet_names = sheet_names
-        st.session_state.raw_df = raw_df
-        st.session_state.memos = {}
-    else:
-        today = datetime.date.today()
-        dates = pd.date_range(start=today.replace(day=1), periods=60, freq="D")
-        sample_df = pd.DataFrame({
-            "날짜": dates,
-            "근무구분_원본": ["평일", "금요일", "토요일", "일요일", "평일"]
-            * 12,
-            "근무자1": [
-                "서진호",
-                "김철수",
-                "이영희",
-                "박민수",
-                "정수진",
-            ]
-            * 12,
-            "근무자2": [
-                "김철수",
-                "이영희",
-                "박민수",
-                "정수진",
-                "서진호",
-            ]
-            * 12,
-            "대직1": [None] * 60,
-            "대직2": [None] * 60,
+@st.cache_data
+def create_sample_data():
+    """엑셀 파일이 없을 경우 사용할 기본 샘플 데이터 생성"""
+    today = datetime.now()
+    year = today.year
+    month = today.month
+    num_days = pd.Period(f"{year}-{month}").days_in_month
+    
+    dates = [date(year, month, d) for d in range(1, num_days + 1)]
+    workers_pool = ["김철수", "이영희", "박민수", "정지원", "최동현", "강서연", "윤재석", "한지민"]
+    
+    data = []
+    for i, d in enumerate(dates):
+        w1 = workers_pool[i % len(workers_pool)]
+        w2 = workers_pool[(i + 1) % len(workers_pool)]
+        data.append({
+            "날짜": d.strftime("%Y-%m-%d"),
+            "근무자1": w1,
+            "근무자2": w2,
+            "대직자1": "",
+            "대직자2": "",
+            "메모": ""
         })
-        sample_df["년월"] = sample_df["날짜"].dt.strftime("%Y-%m")
-        sample_df["실제근무1"] = sample_df["근무자1"]
-        sample_df["실제근무2"] = sample_df["근무자2"]
+    return pd.DataFrame(data)
 
-        st.session_state.df = sample_df
-        st.session_state.sheet_names = ["숙직근무자"]
-        st.session_state.selected_sheet = "숙직근무자"
-        st.session_state.raw_df = pd.DataFrame()
-        st.session_state.memos = {}
+def load_excel_smart(uploaded_file):
+    """엑셀 스마트 로더"""
+    if uploaded_file is None:
+        return create_sample_data()
+    
+    try:
+        xls = pd.ExcelFile(uploaded_file)
+        sheet_name = xls.sheet_names[0]
+        for name in xls.sheet_names:
+            if any(k in name for k in ["숙직근무자", "숙직", "의료과", "야근"]):
+                sheet_name = name
+                break
+        
+        df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
+        
+        # 헤더 자동 찾기
+        header_row = 0
+        for idx, row in df.iterrows():
+            row_str = row.astype(str).str.cat(sep=" ")
+            if "날짜" in row_str or "일자" in row_str or "근무자" in row_str:
+                header_row = idx
+                break
+        
+        df = pd.read_excel(uploaded_file, sheet_name=sheet_name, header=header_row)
+        df = df.dropna(how="all").dropna(subset=[df.columns[0]])
+        
+        # 컬럼 표준화
+        cols = list(df.columns)
+        date_col = next((c for c in cols if "날짜" in str(c) or "일자" in str(c)), cols[0])
+        worker_cols = [c for c in cols if "근무자" in str(c) or "당직" in str(c) or "성명" in str(c)]
+        
+        res_df = pd.DataFrame()
+        res_df["날짜"] = pd.to_datetime(df[date_col], errors="coerce").dt.strftime("%Y-%m-%d")
+        res_df = res_df.dropna(subset=["날짜"])
+        
+        res_df["근무자1"] = df[worker_cols[0]].astype(str).fillna("") if len(worker_cols) > 0 else "미정"
+        res_df["근무자2"] = df[worker_cols[1]].astype(str).fillna("") if len(worker_cols) > 1 else ""
+        res_df["대직자1"] = df["대직자1"].astype(str).replace("nan", "") if "대직자1" in df.columns else ""
+        res_df["대직자2"] = df["대직자2"].astype(str).replace("nan", "") if "대직자2" in df.columns else ""
+        res_df["메모"] = df["메모"].astype(str).replace("nan", "") if "메모" in df.columns else ""
+        
+        return res_df
+    except Exception as e:
+        st.error(f"엑셀 파일 읽기 오류: {e}")
+        return create_sample_data()
 
+# -----------------------------------------------------------------------------
+# 3. 세션 상태 초기화
+# -----------------------------------------------------------------------------
+saved_state = load_app_state()
 
-# ---------------------------------------------------------
-# 근무자 수정 및 메모 입력 모달/다이얼로그
-# ---------------------------------------------------------
-@st.dialog("✏️ 근무자 수정 및 메모 작성")
-def edit_worker_dialog(date_str, duty_info):
-    st.write(f"📅 **{date_str} 상세 정보 수정**")
+if "schedule_df" not in st.session_state:
+    st.session_state.schedule_df = create_sample_data()
 
-    current_memo = st.session_state.memos.get(date_str, "")
+# 저장된 수정사항(JSON)을 DataFrame에 동기화
+for idx, row in st.session_state.schedule_df.iterrows():
+    d_str = row["날짜"]
+    if d_str in saved_state:
+        st.session_state.schedule_df.at[idx, "대직자1"] = saved_state[d_str].get("대직자1", row["대직자1"])
+        st.session_state.schedule_df.at[idx, "대직자2"] = saved_state[d_str].get("대직자2", row["대직자2"])
+        st.session_state.schedule_df.at[idx, "메모"] = saved_state[d_str].get("메모", row["메모"])
 
-    with st.form(key=f"dialog_form_{date_str}"):
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            edit_p1 = st.text_input("근무자1", value=duty_info["p1_orig"])
-            edit_sub1 = st.text_input("대직자1", value=duty_info["sub1"])
-        with col_f2:
-            edit_p2 = st.text_input("근무자2", value=duty_info["p2_orig"])
-            edit_sub2 = st.text_input("대직자2", value=duty_info["sub2"])
-
-        st.divider()
-        edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력에 즉시 표시됨)",
-            value=current_memo,
-            height=80,
-        )
-
-        submitted = st.form_submit_button(
-            "💾 저장하기", use_container_width=True
-        )
-
-        if submitted:
-            row_idx = duty_info["idx"]
-
-            st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
-            st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
-            st.session_state.df.at[row_idx, "대직1"] = (
-                edit_sub1.strip() if edit_sub1.strip() else None
-            )
-            st.session_state.df.at[row_idx, "대직2"] = (
-                edit_sub2.strip() if edit_sub2.strip() else None
-            )
-
-            st.session_state.df.at[row_idx, "실제근무1"] = (
-                edit_sub1.strip() if edit_sub1.strip() else edit_p1.strip()
-            )
-            st.session_state.df.at[row_idx, "실제근무2"] = (
-                edit_sub2.strip() if edit_sub2.strip() else edit_p2.strip()
-            )
-
-            st.session_state.memos[date_str] = edit_memo.strip()
-
-            save_app_state(
-                st.session_state.df,
-                st.session_state.selected_sheet,
-                st.session_state.memos,
-            )
-            st.success("✅ 변경사항이 성공적으로 저장되었습니다.")
-            st.rerun()
-
-
-# ---------------------------------------------------------
-# 사이드바
-# ---------------------------------------------------------
-with st.sidebar:
-    st.header("📂 파일 및 시트 설정")
-    uploaded_file = st.file_uploader(
-        "새 엑셀 파일 업로드 (데이터 초기화 및 교체)", type=["xlsx"]
-    )
-
-    if uploaded_file is not None:
-        file_bytes = uploaded_file.getvalue()
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(
-            file_bytes
-        )
-
-        st.session_state.df = parsed_df
-        st.session_state.selected_sheet = used_sheet
-        st.session_state.sheet_names = sheet_names
-        st.session_state.raw_df = raw_df
-        st.session_state.memos = {}
-
-        if os.path.exists(PERSISTENCE_STATE_PATH):
-            os.remove(PERSISTENCE_STATE_PATH)
-        save_app_state(parsed_df, used_sheet, {})
-
-        st.success("✅ 새로 업로드한 파일 데이터로 초기화되었습니다!")
+# -----------------------------------------------------------------------------
+# 4. 모달 다이얼로그 (날짜 클릭 시 수정 창)
+# -----------------------------------------------------------------------------
+@st.dialog("📅 근무자 및 메모 수정")
+def edit_duty_dialog(selected_date_str):
+    st.caption(f"선택한 날짜: **{selected_date_str}**")
+    
+    df = st.session_state.schedule_df
+    row_idx = df[df["날짜"] == selected_date_str].index
+    
+    if len(row_idx) == 0:
+        st.warning("해당 날짜의 데이터가 없습니다.")
+        return
+    
+    idx = row_idx[0]
+    curr_row = df.loc[idx]
+    
+    w1 = curr_row["근무자1"]
+    w2 = curr_row["근무자2"]
+    sub1 = curr_row["대직자1"]
+    sub2 = curr_row["대직자2"]
+    memo = curr_row["메모"]
+    
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"**근무자 1:** `{w1}`")
+        new_sub1 = st.text_input("대직자 1 (없으면 빈칸)", value=sub1, key=f"sub1_{selected_date_str}")
+        
+    with col2:
+        st.markdown(f"**근무자 2:** `{w2}`")
+        new_sub2 = st.text_input("대직자 2 (없으면 빈칸)", value=sub2, key=f"sub2_{selected_date_str}")
+        
+    new_memo = st.text_area("일자 메모", value=memo, key=f"memo_{selected_date_str}", placeholder="특이사항이나 연차/대직 사유 입력")
+    
+    if st.button("저장하기", type="primary", use_container_width=True):
+        # 세션 데이터 업데이트
+        st.session_state.schedule_df.at[idx, "대직자1"] = new_sub1.strip()
+        st.session_state.schedule_df.at[idx, "대직자2"] = new_sub2.strip()
+        st.session_state.schedule_df.at[idx, "메모"] = new_memo.strip()
+        
+        # JSON 저장
+        saved_state = load_app_state()
+        saved_state[selected_date_str] = {
+            "대직자1": new_sub1.strip(),
+            "대직자2": new_sub2.strip(),
+            "메모": new_memo.strip()
+        }
+        save_app_state(saved_state)
+        
+        st.success("수정 사항이 저장되었습니다!")
         st.rerun()
 
-    if "sheet_names" in st.session_state:
-        sheets = st.session_state.sheet_names
-        curr_idx = (
-            sheets.index(st.session_state.selected_sheet)
-            if st.session_state.selected_sheet in sheets
-            else 0
-        )
-
-        selected_s = st.selectbox("📌 시트 선택", sheets, index=curr_idx)
-        if selected_s != st.session_state.selected_sheet:
-            st.session_state.selected_sheet = selected_s
-            parsed_df, used_sheet, _, raw_df = load_excel_smart(
-                st.session_state.file_path, selected_s
-            )
-            st.session_state.df = parsed_df
-            st.session_state.raw_df = raw_df
-            save_app_state(parsed_df, used_sheet, st.session_state.memos)
+# -----------------------------------------------------------------------------
+# 5. 사이드바 (파일 업로드 & 월 선택)
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.header("⚙️ 설정 및 데이터")
+    
+    uploaded_file = st.file_uploader("근무표 엑셀 파일 업로드", type=["xlsx", "xls"])
+    if uploaded_file is not None:
+        if st.button("엑셀 데이터 적용", use_container_width=True):
+            st.session_state.schedule_df = load_excel_smart(uploaded_file)
+            st.success("새 근무표가 로드되었습니다!")
             st.rerun()
+            
+    st.markdown("---")
+    
+    # 조회 연월 선택
+    df_dates = pd.to_datetime(st.session_state.schedule_df["날짜"], errors="coerce").dropna()
+    if not df_dates.empty:
+        available_months = sorted(list(set(df_dates.dt.strftime("%Y-%m").tolist())))
+        default_idx = len(available_months) - 1
+        selected_ym = st.selectbox("조회 연월 선택", available_months, index=default_idx)
+    else:
+        selected_ym = datetime.now().strftime("%Y-%m")
 
-df = st.session_state.df
-today = datetime.date.today()
+# -----------------------------------------------------------------------------
+# 6. 메인 화면 - 상단 배너 (오늘의 숙직자 연동)
+# -----------------------------------------------------------------------------
+st.markdown("<div class='main-title'>📅 야근/숙직 근무표 시스템</div>", unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# 메인 탭 구성
-# ---------------------------------------------------------
-st.title("📋 야근/숙직 근무 현황 및 통계")
+today_str = datetime.now().strftime("%Y-%m-%d")
+today_df = st.session_state.schedule_df[st.session_state.schedule_df["날짜"] == today_str]
 
-tab1, tab_sheet, tab2, tab3 = st.tabs([
-    "📅 달력 메인 화면",
-    "📊 시트 데이터 점검",
-    "✏️ 근무표 전체 수정",
-    "📊 숙직근무자 월별 근무 통계",
+if not today_df.empty:
+    t_row = today_df.iloc[0]
+    p1 = f"{t_row['대직자1']}(대직)" if t_row['대직자1'] else t_row['근무자1']
+    p2 = f"{t_row['대직자2']}(대직)" if t_row['대직자2'] else t_row['근무자2']
+    
+    workers_text = f"{p1}" + (f", {p2}" if p2 else "")
+    memo_text = f" | 메모: {t_row['메모']}" if t_row['메모'] else ""
+else:
+    workers_text = "오늘 일정 없음"
+    memo_text = ""
+
+st.markdown(f"""
+<div class='today-card'>
+    <h3>🔔 TODAY'S DUTY ({today_str})</h3>
+    <div class='worker-names'>{workers_text} <span style='font-size: 1rem; font-weight: normal; opacity: 0.9;'>{memo_text}</span></div>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# 7. 탭 구성 (달력, 전체 수정, 시트 데이터, 월별 통계)
+# -----------------------------------------------------------------------------
+tab_cal, tab_edit, tab_view, tab_stats = st.tabs([
+    "📅 달력 근무표 (클릭 수정)", "📝 전체 일괄 수정", "🔍 시트 데이터 점검", "📊 월별 근무 통계 & 다운로드"
 ])
 
-# ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
-# ---------------------------------------------------------
-with tab1:
-    # ---------------------------------------------------------
-    # 1. [신규 기능] 오늘 근무자 상단 표시 영역
-    # ---------------------------------------------------------
-    today_df = df[df["날짜"].dt.date == today]
-    today_str = today.strftime("%Y년 %m월 %d일")
-
-    if not today_df.empty:
-        t_row = today_df.iloc[0]
-        p1 = (
-            f"{t_row['실제근무1']}(대)"
-            if pd.notnull(t_row.get("대직1")) and str(t_row.get("대직1")).strip()
-            else t_row["실제근무1"]
-        )
-        p2 = (
-            f"{t_row['실제근무2']}(대)"
-            if pd.notnull(t_row.get("대직2")) and str(t_row.get("대직2")).strip()
-            else t_row["실제근무2"]
-        )
-        t_memo = st.session_state.memos.get(today.strftime("%Y-%m-%d"), "")
-        memo_str = f" | 📌 {t_memo}" if t_memo else ""
-
-        st.markdown(
-            f"""
-        <div class="today-card">
-            <div style="font-size:13px; opacity:0.9; margin-bottom:4px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:20px; font-weight:bold;">
-                👤 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
-                👤 근무자 2: <span style="color:#FDE047;">{p2}</span>
-                <span style="font-size:14px; font-weight:normal;">{memo_str}</span>
-            </div>
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.info(
-            f"💡 **오늘({today_str})**은 지정된 숙직 근무 정보가 없습니다."
-        )
-
-    # ---------------------------------------------------------
-    # 달력 컨트롤 및 선택적 수정 섹션
-    # ---------------------------------------------------------
-    available_months = sorted(df["년월"].dropna().unique())
-    current_ym = today.strftime("%Y-%m")
-    default_idx = (
-        available_months.index(current_ym)
-        if current_ym in available_months
-        else 0
-    )
-
-    c_m1, c_m2 = st.columns([1, 1])
-    with c_m1:
-        selected_month = (
-            st.selectbox(
-                "📅 조회 월 선택", available_months, index=default_idx
-            )
-            if available_months
-            else current_ym
-        )
-
-    if selected_month in available_months:
-        year, month = map(int, selected_month.split("-"))
-        cal = calendar.Calendar(firstweekday=6)
-        month_days = cal.monthdayscalendar(year, month)
-        month_df = df[df["년월"] == selected_month].copy()
-
-        duty_map = {}
-        day_options = ["선택 안함"]
-        for idx_row, row in month_df.iterrows():
-            d_day = row["날짜"].day
-            d_date_str = row["날짜"].strftime("%Y-%m-%d")
-            duty_map[d_day] = {
-                "idx": idx_row,
-                "date_str": d_date_str,
-                "p1_orig": str(row["근무자1"]),
-                "p2_orig": str(row["근무자2"]),
-                "sub1": (
-                    str(row["대직1"]) if pd.notnull(row["대직1"]) else ""
-                ),
-                "sub2": (
-                    str(row["대직2"]) if pd.notnull(row["대직2"]) else ""
-                ),
-                "p1_real": str(row["실제근무1"]),
-                "p2_real": str(row["실제근무2"]),
-            }
-            day_options.append(f"{d_day}일 ({d_date_str})")
-
-        # ---------------------------------------------------------
-        # 2. [신규 기능] 선택창을통해 버튼없이 달력 날짜 수정하기
-        # ---------------------------------------------------------
-        with c_m2:
-            selected_edit_day = st.selectbox(
-                "✏️ 근무 수정/메모 작성 날짜 선택",
-                day_options,
-                help="수정하고 싶은 날짜를 선택하면 정보 변경 창이 나타납니다.",
-            )
-
-        if selected_edit_day != "선택 안함":
-            target_day_int = int(selected_edit_day.split("일")[0])
-            target_info = duty_map.get(target_day_int)
-            if target_info:
-                edit_worker_dialog(target_info["date_str"], target_info)
-
-        st.markdown("---")
-
-        # ---------------------------------------------------------
-        # 3. [신규 기능] 모바일에서도 가로 7열로 유지되는 CSS Grid 달력
-        # ---------------------------------------------------------
-        # 요일 헤더
-        headers = ["일", "월", "화", "수", "목", "금", "토"]
-        colors = ["🔴", "⚪", "⚪", "⚪", "⚪", "⚪", "🔵"]
-        header_html = "<div class='calendar-grid'>"
-        for h, c in zip(headers, colors):
-            header_html += (
-                f"<div class='calendar-header'>{c} {h}</div>"
-            )
-        header_html += "</div>"
-        st.markdown(header_html, unsafe_allow_html=True)
-
-        # 달력 날짜 그리드 출력
-        for week in month_days:
-            grid_html = "<div class='calendar-grid'>"
-            for i, day in enumerate(week):
-                if day == 0:
-                    grid_html += "<div style='background:transparent;'></div>"
+# -----------------------------------------------------------------------------
+# TAB 1: 달력 메인 화면 (날짜 버튼 클릭 시 수정)
+# -----------------------------------------------------------------------------
+with tab_cal:
+    st.subheader(f"🗓️ {selected_ym} 근무 달력")
+    st.caption("💡 수정할 **날짜 버튼**을 직접 누르면 근무자/대직자 및 메모를 편집할 수 있습니다.")
+    
+    # 요일 헤더 표시
+    weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    cols_hdr = st.columns(7)
+    for idx, w in enumerate(weekdays):
+        clr = "cal-sun" if idx == 0 else ("cal-sat" if idx == 6 else "")
+        cols_hdr[idx].markdown(f"<div class='cal-weekday {clr}'>{w}</div>", unsafe_allow_html=True)
+    
+    # 선택된 월 데이터 필터링
+    year_sel, month_sel = map(int, selected_ym.split("-"))
+    first_date = date(year_sel, month_sel, 1)
+    num_days = pd.Period(selected_ym).days_in_month
+    start_weekday = (first_date.weekday() + 1) % 7 # 일요일:0, 월요일:1 ...
+    
+    # 7열 달력 그리드 생성
+    day_counter = 1
+    total_slots = start_weekday + num_days
+    num_rows = (total_slots + 6) // 7
+    
+    for r in range(num_rows):
+        cols = st.columns(7)
+        for c in range(7):
+            cell_idx = r * 7 + c
+            if cell_idx < start_weekday or day_counter > num_days:
+                cols[c].write("") # 빈 공간
+            else:
+                curr_date = date(year_sel, month_sel, day_counter)
+                date_str = curr_date.strftime("%Y-%m-%d")
+                
+                # 데이터 검색
+                day_data = st.session_state.schedule_df[st.session_state.schedule_df["날짜"] == date_str]
+                
+                # 표시 문구 생성
+                if not day_data.empty:
+                    row = day_data.iloc[0]
+                    w1 = f"{row['대직자1']}(대)" if row['대직자1'] else row['근무자1']
+                    w2 = f"{row['대직자2']}(대)" if row['대직자2'] else row['근무자2']
+                    names = f"{w1} {w2}".strip()
+                    memo_str = f"📌{row['메모']}" if row['메모'] else ""
                 else:
-                    curr_date = datetime.date(year, month, day)
-                    date_str = curr_date.strftime("%Y-%m-%d")
-                    duty_info = duty_map.get(day)
+                    names = "-"
+                    memo_str = ""
+                
+                # 공휴일 및 주말 강조
+                is_holiday = curr_date in kr_holidays
+                label_prefix = "🚩 " if is_holiday else ""
+                
+                # 날짜 버튼 라벨 구성 (이름 + 메모 포함)
+                button_label = f"{label_prefix}{day_counter}일\n{names}\n{memo_str}".strip()
+                
+                # 버튼 생성 (클릭 시 모달 호출)
+                if cols[c].button(
+                    button_label,
+                    key=f"btn_cal_{date_str}",
+                    use_container_width=True,
+                    type="primary" if date_str == today_str else "secondary"
+                ):
+                    edit_duty_dialog(date_str)
+                    
+                day_counter += 1
 
-                    is_today = curr_date == today
-                    is_holiday = (
-                        kr_holidays.get(curr_date) is not None or i == 0
-                    )
-
-                    bg_header = (
-                        "#FFD54F"
-                        if is_today
-                        else (
-                            "#FFCDD2"
-                            if is_holiday
-                            else ("#BBDEFB" if i == 6 else "#E2E8F0")
-                        )
-                    )
-
-                    grid_html += "<div class='duty-card'>"
-                    grid_html += f"<div class='duty-card-header' style='background-color:{bg_header};'>{day}</div>"
-
-                    if duty_info:
-                        p1_txt = duty_info["p1_real"] + (
-                            "(대)" if duty_info["sub1"] else ""
-                        )
-                        p2_txt = duty_info["p2_real"] + (
-                            "(대)" if duty_info["sub2"] else ""
-                        )
-                        grid_html += f"<div class='duty-worker-info'>👤 {p1_txt}<br>👤 {p2_txt}</div>"
-
-                    day_memo = st.session_state.memos.get(date_str, "")
-                    if day_memo:
-                        grid_html += f"<div class='duty-card-memo' title='{day_memo}'>📌 {day_memo}</div>"
-
-                    grid_html += "</div>"
-            grid_html += "</div>"
-            st.markdown(grid_html, unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# TAB 2: 데이터 점검
-# ---------------------------------------------------------
-with tab_sheet:
-    st.subheader(
-        f"🔍 [{st.session_state.selected_sheet}] 시트 데이터 확인"
-    )
-    st.dataframe(df, use_container_width=True)
-
-# ---------------------------------------------------------
-# TAB 3: 근무표 전체 수정
-# ---------------------------------------------------------
-with tab2:
-    st.subheader("✏️ 전체 근무표 수정")
+# -----------------------------------------------------------------------------
+# TAB 2: 전체 일괄 수정 (st.data_editor)
+# -----------------------------------------------------------------------------
+with tab_edit:
+    st.subheader("📝 전체 근무표 일괄 수정")
+    st.caption("표에서 직접 대직자나 메모를 수정한 후 [수정 사항 저장] 버튼을 누르세요.")
+    
     edited_df = st.data_editor(
-        st.session_state.df, num_rows="dynamic", key="data_editor"
+        st.session_state.schedule_df,
+        use_container_width=True,
+        num_rows="dynamic",
+        key="data_editor_table"
     )
-
-    if st.button("💾 변경사항 적용 및 영구 저장"):
-        edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
-        edited_df = edited_df.dropna(subset=["날짜"]).copy()
-
-        edited_df["근무구분_원본"] = (
-            edited_df["근무구분_원본"].astype(str).str.strip()
-        )
-        edited_df["년월"] = edited_df["날짜"].dt.strftime("%Y-%m")
-
-        edited_df["실제근무1"] = (
-            edited_df["대직1"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .replace(["", "nan", "None"], None)
-            .combine_first(edited_df["근무자1"])
-            .fillna("미지정")
-        )
-        edited_df["실제근무2"] = (
-            edited_df["대직2"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .replace(["", "nan", "None"], None)
-            .combine_first(edited_df["근무자2"])
-            .fillna("미지정")
-        )
-
-        st.session_state.df = edited_df
-        save_app_state(
-            edited_df,
-            st.session_state.selected_sheet,
-            st.session_state.memos,
-        )
-        st.success("✅ 성공적으로 저장되었습니다. (새로고침을 해도 유지됩니다)")
+    
+    if st.button("수정 사항 저장", type="primary"):
+        st.session_state.schedule_df = edited_df
+        
+        # 변경 내용을 JSON persistence 저장
+        saved_state = load_app_state()
+        for _, row in edited_df.iterrows():
+            d_str = row["날짜"]
+            saved_state[d_str] = {
+                "대직자1": str(row.get("대직자1", "")),
+                "대직자2": str(row.get("대직자2", "")),
+                "메모": str(row.get("메모", ""))
+            }
+        save_app_state(saved_state)
+        st.success("전체 수정 내용이 저장되었습니다!")
         st.rerun()
 
-# ---------------------------------------------------------
-# TAB 4: 월별 근무 통계
-# ---------------------------------------------------------
-with tab3:
-    st.subheader("📊 숙직근무자 월별 근무 통계")
-    st.caption(
-        "📌 **근무 시간 산출 기준:** 금요일 15시간, 토요일 15시간, 일요일 7시간, 평일 7시간 | **휴일근무 횟수:** 토요일 + 일요일 근무 횟수"
-    )
+# -----------------------------------------------------------------------------
+# TAB 3: 시트 데이터 점검
+# -----------------------------------------------------------------------------
+with tab_view:
+    st.subheader("🔍 현재 등록된 근무 데이터 목록")
+    st.dataframe(st.session_state.schedule_df, use_container_width=True)
 
-    duty_stat_df = st.session_state.df.copy()
-
-    available_stat_months = ["전체 기간"] + sorted(
-        duty_stat_df["년월"].dropna().unique(), reverse=True
-    )
-    curr_ym = today.strftime("%Y-%m")
-    default_stat_idx = (
-        available_stat_months.index(curr_ym)
-        if curr_ym in available_stat_months
-        else 0
-    )
-
-    col_s1, _ = st.columns([1, 2])
-    with col_s1:
-        selected_stat_month = st.selectbox(
-            "📅 통계 조회 월 선택",
-            available_stat_months,
-            index=default_stat_idx,
-            key="stat_month_select",
-        )
-
-    filtered_df = (
-        duty_stat_df.copy()
-        if selected_stat_month == "전체 기간"
-        else duty_stat_df[duty_stat_df["년월"] == selected_stat_month].copy()
-    )
-
-    w1 = filtered_df[["실제근무1", "근무구분_원본"]].rename(
-        columns={"실제근무1": "근무자", "근무구분_원본": "근무구분"}
-    )
-    w2 = filtered_df[["실제근무2", "근무구분_원본"]].rename(
-        columns={"실제근무2": "근무자", "근무구분_원본": "근무구분"}
-    )
-
-    combined = pd.concat([w1, w2], ignore_index=True)
-    combined["근무자"] = combined["근무자"].astype(str).str.strip()
-    combined["근무구분"] = combined["근무구분"].astype(str).str.strip()
-
-    combined = combined[
-        combined["근무자"].notnull()
-        & (~combined["근무자"].isin(["미지정", "nan", "None", "", "NaN"]))
-        & (~combined["근무구분"].isin(["nan", "None", "", "NaN"]))
-    ]
-
-    if not combined.empty:
-        stats_df = pd.crosstab(
-            index=combined["근무자"],
-            columns=combined["근무구분"],
-            margins=False,
-        )
-
-        sat_cnt = stats_df["토요일"] if "토요일" in stats_df.columns else 0
-        sun_cnt = stats_df["일요일"] if "일요일" in stats_df.columns else 0
-        stats_df["휴일근무 횟수"] = sat_cnt + sun_cnt
-
-        hours_per_type = {
-            "금요일": 15,
-            "토요일": 15,
-            "일요일": 7,
-            "평일": 7,
-        }
-
-        total_hours = pd.Series(0, index=stats_df.index)
-        for col in stats_df.columns:
-            if col in hours_per_type:
-                total_hours += stats_df[col] * hours_per_type[col]
-            elif col not in ["총 근무 횟수", "휴일근무 횟수"]:
-                total_hours += stats_df[col] * 7
-
-        stats_df["총 근무시간(h)"] = total_hours
-
-        type_cols = [
-            c
-            for c in stats_df.columns
-            if c not in ["총 근무 횟수", "휴일근무 횟수", "총 근무시간(h)"]
-        ]
-        stats_df["총 근무 횟수"] = stats_df[type_cols].sum(axis=1)
-
-        ordered_cols = type_cols + [
-            "휴일근무 횟수",
-            "총 근무 횟수",
-            "총 근무시간(h)",
-        ]
-        stats_df = stats_df[ordered_cols].sort_values(
-            by="총 근무시간(h)", ascending=False
-        )
-
-        m1, m2, m3 = st.columns(3)
-        m1.metric("총 근무 인원", f"{len(stats_df)}명")
-        m2.metric(
-            "총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건"
-        )
-        m3.metric(
-            "총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간"
-        )
-
-        st.markdown("---")
-
-        st.markdown(
-            f"#### 📊 [{selected_stat_month}] 근무자별 총 근무시간 비교 차트"
-        )
-
-        max_workers = len(stats_df)
-        default_limit = min(10, max_workers)
-
-        top_n = st.slider(
-            "차트에 표시할 상위 근무자 수 제한",
-            min_value=1,
-            max_value=max_workers,
-            value=default_limit,
-            help="근무시간이 많은 상위 N명의 근무자만 차트에 표시합니다.",
-        )
-
-        chart_df = stats_df.head(top_n)[["총 근무시간(h)"]]
-        st.bar_chart(chart_df)
-
-        st.markdown("---")
-
-        st.markdown(
-            f"#### 📋 [{selected_stat_month}] 근무시간 산출 상세 집계표"
-        )
-
-        display_df = stats_df.copy()
-
-        total_row = display_df.sum(axis=0)
-        total_row.name = "합계"
-        display_df = pd.concat([display_df, pd.DataFrame(total_row).T])
-
-        st.dataframe(display_df, use_container_width=True, height=500)
-
+# -----------------------------------------------------------------------------
+# TAB 4: 월별 근무 통계 및 데이터 다운로드 (확장 기능)
+# -----------------------------------------------------------------------------
+with tab_stats:
+    st.subheader(f"📊 {selected_ym} 근무 집계 통계")
+    
+    # 선택 연월 데이터 필터
+    df_month = st.session_state.schedule_df[
+        st.session_state.schedule_df["날짜"].str.startswith(selected_ym)
+    ].copy()
+    
+    if df_month.empty:
+        st.info("해당 월의 데이터가 없습니다.")
     else:
-        st.info("조회할 근무 정보가 존재하지 않습니다.")
+        # 실제 근무자 계산 (대직자 우선)
+        df_month["실제1"] = np.where(df_month["대직자1"] != "", df_month["대직자1"], df_month["근무자1"])
+        df_month["실제2"] = np.where(df_month["대직자2"] != "", df_month["대직자2"], df_month["근무자2"])
+        
+        # 근무 시간 계산 함수 (금: 15h, 토: 15h, 일: 7h, 평일: 7h)
+        def get_duty_hours(row):
+            dt = datetime.strptime(row["날짜"], "%Y-%m-%d")
+            w = dt.weekday() # 0:월~6:일
+            if w == 4 or w == 5: # 금, 토
+                return 15, True
+            elif w == 6: # 일
+                return 7, True
+            else: # 평일(월~목)
+                return 7, False
+
+        stats = {}
+        for _, row in df_month.iterrows():
+            hrs, is_weekend = get_duty_hours(row)
+            for w_col in ["실제1", "실제2"]:
+                worker = row[w_col]
+                if worker and worker != "미정":
+                    if worker not in stats:
+                        stats[worker] = {"총근무시간": 0, "휴일근무횟수": 0, "평일근무횟수": 0}
+                    stats[worker]["총근무시간"] += hrs
+                    if is_weekend:
+                        stats[worker]["휴일근무횟수"] += 1
+                    else:
+                        stats[worker]["평일근무횟수"] += 1
+                        
+        stats_df = pd.DataFrame.from_dict(stats, orient="index").reset_index()
+        stats_df.rename(columns={"index": "근무자"}, inplace=True)
+        stats_df = stats_df.sort_values(by="총근무시간", ascending=False)
+        
+        # 시각화 차트
+        st.markdown("#### 📈 근무자별 총 근무 시간")
+        st.bar_chart(stats_df.set_index("근무자")["총근무시간"])
+        
+        st.markdown("#### 📋 상세 집계표")
+        st.dataframe(stats_df, use_container_width=True)
+        
+        # 📥 데이터 다운로드 (확장 기능: Excel 및 CSV)
+        st.markdown("---")
+        st.markdown("#### 📥 통계 집계표 파일 다운로드")
+        col_dl1, col_dl2 = st.columns(2)
+        
+        # 1. CSV 다운로드
+        csv_data = stats_df.to_csv(index=False).encode('utf-8-sig')
+        col_dl1.download_button(
+            label="📄 CSV 파일로 다운로드",
+            data=csv_data,
+            file_name=f"근무통계_{selected_ym}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        
+        # 2. Excel 다운로드
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            stats_df.to_excel(writer, index=False, sheet_name="월별근무통계")
+            df_month.to_excel(writer, index=False, sheet_name="상세근무내역")
+        excel_data = excel_buffer.getvalue()
+        
+        col_dl2.download_button(
+            label="📊 Excel 파일로 다운로드 (.xlsx)",
+            data=excel_data,
+            file_name=f"근무통계_{selected_ym}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )

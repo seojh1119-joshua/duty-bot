@@ -82,23 +82,23 @@ def get_day_category(d):
     """요일별 상세 구분 지정"""
     w = d.weekday()
     if w in [0, 1, 2, 3]:
-        return "평일(월~목)"
+        return "평일"
     elif w == 4:
         return "금요일"
     elif w == 5:
-        return "토요일"
+        return "토요일(휴일)"
     else:
-        return "일요일"
+        return "일요일(휴일)"
 
 def get_duty_hours(category):
-    """규정된 근무시간 반환 (평일:7h, 금:15h, 토:15h, 일:7h)"""
-    if category == "평일(월~목)":
+    """규정 근무시간 반환 (평일: 7h, 금: 15h, 토(휴일): 15h, 일(휴일): 7h)"""
+    if category == "평일":
         return 7.0
     elif category == "금요일":
         return 15.0
-    elif category == "토요일":
+    elif category == "토요일(휴일)":
         return 15.0
-    elif category == "일요일":
+    elif category == "일요일(휴일)":
         return 7.0
     return 0.0
 
@@ -116,7 +116,6 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
-        # '야근횟수&비번' 시트가 존재하면 최우선으로 지정
         priority_sheets = [s for s in sheet_names if "야근" in s or "비번" in s or "의료과" in s or "숙직" in s]
         target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
 
@@ -141,7 +140,6 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
 
-    # 컬럼 정리
     clean_cols = []
     for i, col in enumerate(df.columns):
         c_str = (
@@ -171,13 +169,13 @@ def load_excel_smart(file_source, selected_sheet=None):
     df["대직1"] = df[sub1_col] if sub1_col else None
     df["대직2"] = df[sub2_col] if sub2_col else None
 
-    # 요일 구분 및 규정 근무시간 계산 적용
+    # 요일 구분 및 규정 근무시간 적용
     df["상세구분"] = df["날짜"].apply(get_day_category)
     df["근무시간"] = df["상세구분"].apply(get_duty_hours)
     df["근무구분"] = df["날짜"].dt.weekday.map(lambda x: "주말" if x in [5, 6] else "평일")
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 실제 근무자 결합 (대직 우선)
+    # 실제 근무자 적용
     df["실제근무1"] = (
         df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
         .combine_first(df["근무자1"]).fillna("미지정")
@@ -424,7 +422,7 @@ with tab2:
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 야근횟수&비번 월별 근무 통계")
-    st.caption("📌 **산정 기준**: 평일(7시간), 금요일(15시간), 토요일(15시간), 일요일(7시간) / 휴일근무 = 토요일 + 일요일")
+    st.caption("📌 **산정 기준**: 평일(7시간), 금요일(15시간), 토요일(휴일)(15시간), 일요일(휴일)(7시간) / 휴일근무횟수 = 토요일(휴일) + 일요일(휴일)")
 
     available_stat_months = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
     curr_ym = today.strftime("%Y-%m")
@@ -453,43 +451,43 @@ with tab3:
         pivot_count = combined.groupby(["근무자", "상세구분"]).size().unstack(fill_value=0)
         
         # 필수 컬럼 확보
-        for col_name in ["평일(월~목)", "금요일", "토요일", "일요일"]:
+        for col_name in ["평일", "금요일", "토요일(휴일)", "일요일(휴일)"]:
             if col_name not in pivot_count.columns:
                 pivot_count[col_name] = 0
 
-        # 계산 로직 적용
+        # 상세 집계표 생성
         stats_df = pd.DataFrame(index=pivot_count.index)
-        stats_df["평일(월~목) 횟수"] = pivot_count["평일(월~목)"]
+        stats_df["평일 횟수"] = pivot_count["평일"]
         stats_df["금요일 횟수"] = pivot_count["금요일"]
-        stats_df["토요일 횟수"] = pivot_count["토요일"]
-        stats_df["일요일 횟수"] = pivot_count["일요일"]
+        stats_df["토요일(휴일) 횟수"] = pivot_count["토요일(휴일)"]
+        stats_df["일요일(휴일) 횟수"] = pivot_count["일요일(휴일)"]
 
-        # 1) 휴일 근무일수 통계 (토요일 + 일요일)
-        stats_df["휴일근무 횟수"] = stats_df["토요일 횟수"] + stats_df["일요일 횟수"]
+        # 1) 휴일근무횟수 (토요일(휴일) + 일요일(휴일))
+        stats_df["휴일근무횟수"] = stats_df["토요일(휴일) 횟수"] + stats_df["일요일(휴일) 횟수"]
 
         # 2) 총 근무 횟수
         stats_df["총 근무 횟수"] = (
-            stats_df["평일(월~목) 횟수"]
+            stats_df["평일 횟수"]
             + stats_df["금요일 횟수"]
-            + stats_df["토요일 횟수"]
-            + stats_df["일요일 횟수"]
+            + stats_df["토요일(휴일) 횟수"]
+            + stats_df["일요일(휴일) 횟수"]
         )
 
-        # 3) 총 근무시간 산정 (평일:7h, 금:15h, 토:15h, 일:7h)
+        # 3) 규정 근무시간 계산 (평일: 7h, 금: 15h, 토(휴일): 15h, 일(휴일): 7h)
         stats_df["총 근무시간(h)"] = (
-            stats_df["평일(월~목) 횟수"] * 7
+            stats_df["평일 횟수"] * 7
             + stats_df["금요일 횟수"] * 15
-            + stats_df["토요일 횟수"] * 15
-            + stats_df["일요일 횟수"] * 7
+            + stats_df["토요일(휴일) 횟수"] * 15
+            + stats_df["일요일(휴일) 횟수"] * 7
         )
 
         stats_df = stats_df.sort_values(by="총 근무시간(h)", ascending=False)
 
-        # 요약 메트릭 카드
+        # 요약 카드
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
         m2.metric("총 근무건수 합계", f"{stats_df['총 근무 횟수'].sum()}건")
-        m3.metric("휴일 근무건수 합계", f"{stats_df['휴일근무 횟수'].sum()}건")
+        m3.metric("휴일근무횟수 합계", f"{stats_df['휴일근무횟수'].sum()}건")
         m4.metric("총 근무시간 합계", f"{stats_df['총 근무시간(h)'].sum()}시간")
 
         st.markdown("---")
@@ -502,8 +500,8 @@ with tab3:
             st.markdown("##### ⏱️ 개인별 총 근무시간 (시간)")
             st.bar_chart(stats_df["총 근무시간(h)"])
 
-            st.markdown("##### 📅 개인별 요일별 근무 횟수")
-            st.bar_chart(stats_df[["평일(월~목) 횟수", "금요일 횟수", "토요일 횟수", "일요일 횟수"]])
+            st.markdown("##### 📅 개인별 요일/휴일 근무 횟수")
+            st.bar_chart(stats_df[["평일 횟수", "금요일 횟수", "토요일(휴일) 횟수", "일요일(휴일) 횟수"]])
 
         with c2:
             st.markdown("##### 📋 상세 집계표")

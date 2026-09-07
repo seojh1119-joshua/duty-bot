@@ -7,7 +7,6 @@ import base64
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-import holidays
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -20,6 +19,32 @@ st.set_page_config(
 )
 
 DATA_DIR = "./data"
+
+# ---------------------------------------------------------
+# 대한민국 주요 법정 공휴일 계산기 (외부 패키지 미설치 에러 방지)
+# ---------------------------------------------------------
+def get_kr_holidays(year):
+    """외부 패키지(holidays) 없이 대한민국 주요 양력 공휴일 계산"""
+    fixed_holidays = {
+        (1, 1): "신정",
+        (3, 1): "삼일절",
+        (5, 5): "어린이날",
+        (6, 6): "현충일",
+        (8, 15): "광복절",
+        (10, 3): "개천절",
+        (10, 9): "한글날",
+        (12, 25): "성탄절",
+    }
+    
+    holidays_dict = {}
+    for (m, d), name in fixed_holidays.items():
+        try:
+            holidays_dict[datetime.date(year, m, d)] = name
+        except ValueError:
+            pass
+            
+    return holidays_dict
+
 
 # ---------------------------------------------------------
 # 모바일 7열 5행 달력 및 공휴일 전용 CSS
@@ -136,7 +161,7 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 1. 근본 해결: data/ 폴더 자동 로더 및 스마트 파서
+# 1. data/ 폴더 자동 로더 및 스마트 파서
 # ---------------------------------------------------------
 def get_data_folder_excel():
     """data 폴더에서 가장 최근에 수정된 엑셀 파일을 가져옵니다."""
@@ -234,7 +259,6 @@ def get_sample_df():
 # 세션 상태 및 data/ 폴더 자동 동기화
 # ---------------------------------------------------------
 if "excel_bytes" not in st.session_state or st.session_state.excel_bytes is None:
-    # 1순위: data/ 폴더에서 로드
     file_bytes, file_name = get_data_folder_excel()
     if file_bytes:
         st.session_state.excel_bytes = file_bytes
@@ -276,7 +300,7 @@ with st.sidebar:
         st.session_state.selected_sheet = None
         st.session_state.source_info = f"📤 업로드됨: {uploaded_file.name}"
 
-        # data/ 폴더에 자동 저장하여 근본적으로 지속성 확보
+        # data/ 폴더에 자동 저장하여 지속성 확보
         os.makedirs(DATA_DIR, exist_ok=True)
         save_path = os.path.join(DATA_DIR, uploaded_file.name)
         with open(save_path, "wb") as f:
@@ -289,7 +313,11 @@ with st.sidebar:
 
     if st.session_state.excel_bytes and len(st.session_state.sheet_names) > 1:
         st.subheader("📌 시트 변경")
-        new_sheet = st.selectbox("시트 선택", st.session_state.sheet_names, index=st.session_state.sheet_names.index(st.session_state.selected_sheet) if st.session_state.selected_sheet in st.session_state.sheet_names else 0)
+        new_sheet = st.selectbox(
+            "시트 선택", 
+            st.session_state.sheet_names, 
+            index=st.session_state.sheet_names.index(st.session_state.selected_sheet) if st.session_state.selected_sheet in st.session_state.sheet_names else 0
+        )
         if new_sheet != st.session_state.selected_sheet:
             st.session_state.selected_sheet = new_sheet
             st.rerun()
@@ -328,8 +356,8 @@ with tab1:
 
     year, month = map(int, selected_month.split("-"))
 
-    # 대한민국 공휴일 정보 가져오기
-    kr_holidays = holidays.KR(years=year)
+    # 공휴일 계산 (내장 함수 활용)
+    kr_holidays = get_kr_holidays(year)
 
     st.markdown("---")
     st.markdown(f"### 🗓️ {year}년 {month}월 숙직 달력")

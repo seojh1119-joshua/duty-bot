@@ -94,7 +94,6 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
-        # '숙직근무자' 시트를 최우선 지정
         priority_sheets = [s for s in sheet_names if "숙직근무자" in s or "숙직" in s or "의료과" in s or "야근" in s]
         target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
 
@@ -103,7 +102,6 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
-    # 헤더 행 위치 자동 감지
     header_idx = None
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
@@ -130,7 +128,6 @@ def load_excel_smart(file_source, selected_sheet=None):
         clean_cols.append(c_str)
     df.columns = clean_cols
 
-    # 날짜 열 탐색 및 변환
     date_col = next(
         (col for col in df.columns if any(k in col.lower() for k in ["날짜", "일자", "근무일", "date", "일자/요일"])),
         df.columns[0]
@@ -139,7 +136,6 @@ def load_excel_smart(file_source, selected_sheet=None):
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     df = df.dropna(subset=["날짜"]).copy()
 
-    # 근무구분 원본 열 탐색
     duty_type_col = next(
         (c for c in df.columns if any(k in c for k in ["근무구분_원본", "근무구분", "구분", "근무유형", "요일구분", "요일"])), 
         None
@@ -149,7 +145,6 @@ def load_excel_smart(file_source, selected_sheet=None):
     else:
         df["근무구분_원본"] = "평일"
 
-    # 근무자 및 대직자 열 탐색
     cols = list(df.columns)
     p1_col = next((c for c in cols if any(k in c for k in ["근무자1", "근무자 1", "1근무", "숙직1", "당직1", "성명", "이름"]) and "대직" not in c), None)
     p2_col = next((c for c in cols if any(k in c for k in ["근무자2", "근무자 2", "2근무", "숙직2", "당직2"]) and "대직" not in c), None)
@@ -163,7 +158,6 @@ def load_excel_smart(file_source, selected_sheet=None):
 
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 대직 적용 실제근무자 계산
     df["실제근무1"] = (
         df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None)
         .combine_first(df["근무자1"]).fillna("미지정")
@@ -429,11 +423,11 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 월별 근무 통계 (문자열 종류별 개수 자동 카운트)
+# TAB 4: 월별 근무 통계 (시간 및 휴일근무 횟수 계산 반영)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
-    st.caption("📌 **`숙직근무자` 시트의 `근무구분` 열에 포함된 텍스트/문자열 종류별 개수를 자동으로 집계합니다.**")
+    st.caption("📌 **근무 시간 산출 기준:** 금요일 15시간, 토요일 15시간, 일요일 7시간, 평일 7시간 | **휴일근무 횟수:** 토요일 + 일요일 근무 횟수")
 
     duty_stat_df = st.session_state.df.copy()
 
@@ -471,28 +465,54 @@ with tab3:
         # 피벗 테이블 생성: 근무자별 근무구분 문자열 개수 카운트
         stats_df = pd.crosstab(index=combined["근무자"], columns=combined["근무구분"], margins=False)
         
-        # 총 근무 횟수 열 추가
-        stats_df["총 근무 횟수"] = stats_df.sum(axis=1)
-        stats_df = stats_df.sort_values(by="총 근무 횟수", ascending=False)
+        # 1. 휴일근무 횟수 계산 (토요일 + 일요일 근무 횟수)
+        sat_cnt = stats_df["토요일"] if "토요일" in stats_df.columns else 0
+        sun_cnt = stats_df["일요일"] if "일요일" in stats_df.columns else 0
+        stats_df["휴일근무 횟수"] = sat_cnt + sun_cnt
+
+        # 2. 근무시간 계산 (금: 15h, 토: 15h, 일: 7h, 평일/기타: 7h)
+        hours_per_type = {
+            "금요일": 15,
+            "토요일": 15,
+            "일요일": 7,
+            "평일": 7
+        }
+
+        total_hours = pd.Series(0, index=stats_df.index)
+        for col in stats_df.columns:
+            if col in hours_per_type:
+                total_hours += stats_df[col] * hours_per_type[col]
+            elif col not in ["총 근무 횟수", "휴일근무 횟수"]:
+                # 기타 구분의 기본 근무시간은 7시간 적용
+                total_hours += stats_df[col] * 7
+
+        stats_df["총 근무시간(h)"] = total_hours
+
+        # 3. 총 근무 횟수 연산
+        type_cols = [c for c in stats_df.columns if c not in ["총 근무 횟수", "휴일근무 횟수", "총 근무시간(h)"]]
+        stats_df["총 근무 횟수"] = stats_df[type_cols].sum(axis=1)
+
+        # 열 순서 정렬 및 총 근무시간 내림차순 정렬
+        ordered_cols = type_cols + ["휴일근무 횟수", "총 근무 횟수", "총 근무시간(h)"]
+        stats_df = stats_df[ordered_cols].sort_values(by="총 근무시간(h)", ascending=False)
 
         # 요약 메트릭 카드
-        m1, m2 = st.columns(2)
+        m1, m2, m3 = st.columns(3)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
         m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
+        m3.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")
 
         st.markdown("---")
 
-        st.markdown(f"#### 📊 [{selected_stat_month}] 근무자별 근무구분 문자열 횟수 통계")
+        st.markdown(f"#### 📊 [{selected_stat_month}] 근무자별 상세 근무 집계표")
         
-        c1, c2 = st.columns([1.5, 1])
+        c1, c2 = st.columns([1.3, 1])
         with c1:
-            st.markdown("##### 📅 근무자별 근무구분 항목 횟수 차트")
-            # '총 근무 횟수' 열을 제외하고 차트 표시
-            chart_cols = [c for c in stats_df.columns if c != "총 근무 횟수"]
-            st.bar_chart(stats_df[chart_cols])
+            st.markdown("##### 📅 근무자별 총 근무시간(h) 비교 차트")
+            st.bar_chart(stats_df["총 근무시간(h)"])
 
         with c2:
-            st.markdown("##### 📋 상세 집계표")
+            st.markdown("##### 📋 상세 집계 및 시간 산출표")
             st.dataframe(stats_df, use_container_width=True, height=520)
 
     else:

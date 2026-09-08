@@ -32,82 +32,99 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (모바일 반응형 가로 7열 레이아웃 최적화)
+# CSS 스타일링 (줄바꿈 강제 및 모바일 가로 7열 완전 고정)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 전체 여백 최소화 */
+    /* 여백 및 패딩 최적화 */
     .main .block-container {
-        padding-top: 1rem;
+        padding-top: 0.5rem;
         padding-bottom: 2rem;
         padding-left: 0.2rem;
         padding-right: 0.2rem;
     }
-    
-    /* 7열 헤더 레이아웃 */
-    .calendar-grid {
-        display: grid;
-        grid-template-columns: repeat(7, minmax(0, 1fr));
-        gap: 3px;
-        margin-bottom: 6px;
+
+    /* Streamlit 컬럼이 모바일에서 세로로 떨어지는 현상 방지 (가로 7열 강제 유지) */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 2px !important;
     }
-    
+
+    [data-testid="column"] {
+        width: 14.28% !important;
+        min-width: 0 !important;
+        flex: 1 1 0% !important;
+        padding: 0px !important;
+    }
+
+    /* 7열 달력 헤더 */
     .calendar-header {
         text-align: center;
-        font-size: 11px;
+        font-size: clamp(10px, 1.2vw, 13px);
         font-weight: bold;
         padding: 4px 0;
         background-color: #F1F5F9;
         border-radius: 4px;
+        margin-bottom: 4px;
     }
 
-    /* Streamlit 컬럼 모바일 깨짐 방지 및 가로 7열 고정 설정 */
-    [data-testid="column"] {
-        min-width: 0 !important;
-        padding: 1px !important;
-    }
-
-    /* 달력 날짜 셀 버튼 반응형 스타일 */
+    /* 달력 셀 버튼 - 줄바꿈 및 반응형 높이 설정 */
     .stButton > button {
         width: 100% !important;
-        min-height: 75px !important;
-        padding: 4px 2px !important;
-        border: 1px solid #E2E8F0 !important;
+        min-height: 85px !important;
+        padding: 4px 3px !important;
+        border: 1px solid #CBD5E1 !important;
         border-radius: 6px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
-        font-size: clamp(8px, 1.1vw, 11px) !important;
+        font-size: clamp(9px, 1.0vw, 12px) !important;
         line-height: 1.35 !important;
         text-align: left !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+
+        /* 줄바꿈 강제 적용 규칙 */
         white-space: pre-wrap !important;
+        white-space: break-spaces !important;
         word-break: break-all !important;
+        overflow-wrap: break-word !important;
+
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
         align-items: flex-start !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
     }
-    
+
+    /* 버튼 내부 모든 p, div, span 요소에도 줄바꿈 적용 */
+    .stButton > button * {
+        white-space: pre-wrap !important;
+        white-space: break-spaces !important;
+        word-break: break-all !important;
+        text-align: left !important;
+    }
+
     .stButton > button:hover {
-        border-color: #3B82F6 !important;
+        border-color: #2563EB !important;
         background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 상단 강조 카드 */
+    /* 오늘 근무자 상단 카드 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 14px 18px;
-        border-radius: 12px;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 12px 16px;
+        border-radius: 10px;
+        margin-bottom: 12px;
     }
 
-    /* 모바일 기기 반응형 미세 조정 */
+    /* 모바일 기기 화면 맞춤 미세 조정 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 65px !important;
+            min-height: 70px !important;
             padding: 2px 1px !important;
+            font-size: 8.5px !important;
+            line-height: 1.25 !important;
         }
     }
 </style>
@@ -129,7 +146,7 @@ def get_initial_excel_file():
 
 
 # ---------------------------------------------------------
-# 앱 데이터 영구 저장/로드 관리 (Persistence)
+# 앱 데이터 영구 저장/로드 관리
 # ---------------------------------------------------------
 def save_app_state(df, sheet_name, memos):
     try:
@@ -169,7 +186,7 @@ def load_app_state():
 
 
 # ---------------------------------------------------------
-# 스마트 엑셀 파서 ('숙직근무자' 시트 최우선 자동 색출 & 로드)
+# 스마트 엑셀 파서
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
     if isinstance(file_input, bytes):
@@ -186,7 +203,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     excel_file = pd.ExcelFile(file_obj)
     sheet_names = excel_file.sheet_names
 
-    # 1. '숙직근무자' 시트 최우선 색출 로직
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
         p1 = [s for s in sheet_names if "숙직근무자" in s]
@@ -203,7 +219,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
-    # 2. 표 헤더(시작 행) 자동 탐색
     header_idx = 0
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
@@ -340,7 +355,7 @@ def load_excel_smart(file_input, selected_sheet=None):
 
 
 # ---------------------------------------------------------
-# 세션 상태 초기화 및 기본 파일 로드
+# 세션 상태 초기화 및 파일 로드
 # ---------------------------------------------------------
 initial_file = get_initial_excel_file()
 
@@ -397,7 +412,7 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 직접 클릭 수정 모달 다이얼로그 (@st.dialog)
+# 수정 다이얼로그 모달
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -449,22 +464,20 @@ def edit_worker_dialog(date_str, duty_info):
                 st.session_state.selected_sheet,
                 st.session_state.memos,
             )
-            st.success("✅ 변경사항이 성공적으로 반영되었습니다.")
+            st.success("✅ 변경사항이 반영되었습니다.")
             st.rerun()
 
 
 # ---------------------------------------------------------
-# 사이드바 (파일 업로드 및 시트 선택 오류 방지 처리)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 설정")
 
     if "file_name" in st.session_state:
-        st.info(f"📄 현재 로드된 파일: `{st.session_state.file_name}`")
+        st.info(f"📄 로드된 파일: `{st.session_state.file_name}`")
 
-    uploaded_file = st.file_uploader(
-        "새 엑셀 파일 업로드 (DATA 데이터 교체)", type=["xlsx"]
-    )
+    uploaded_file = st.file_uploader("새 엑셀 파일 업로드", type=["xlsx"])
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
@@ -484,7 +497,7 @@ with st.sidebar:
             os.remove(PERSISTENCE_STATE_PATH)
         save_app_state(parsed_df, used_sheet, {})
 
-        st.success(f"✅ '{used_sheet}' 시트 데이터를 성공적으로 불러왔습니다!")
+        st.success(f"✅ '{used_sheet}' 시트를 불러왔습니다.")
         st.rerun()
 
     if "sheet_names" in st.session_state and st.session_state.sheet_names:
@@ -508,7 +521,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 탭 구성
+# 메인 화면
 # ---------------------------------------------------------
 st.title("📋 야근/숙직 근무 현황 및 통계")
 
@@ -544,11 +557,11 @@ with tab1:
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:13px; opacity:0.9; margin-bottom:4px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:20px; font-weight:bold;">
+            <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
+            <div style="font-size:18px; font-weight:bold;">
                 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span style="color:#FDE047;">{p2}</span>
-                <span style="font-size:14px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -571,8 +584,6 @@ with tab1:
         index=default_idx,
         key="calendar_month_select",
     )
-
-    st.caption("💡 **달력 날짜 셀을 직접 클릭하면** 정보 수정 팝업 창이 표시됩니다.")
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -601,12 +612,17 @@ with tab1:
 
         headers = ["일", "월", "화", "수", "목", "금", "토"]
         colors = ["🔴", "⚪", "⚪", "⚪", "⚪", "⚪", "🔵"]
-        header_html = "<div class='calendar-grid'>"
-        for h, c in zip(headers, colors):
-            header_html += f"<div class='calendar-header'>{c} {h}</div>"
-        header_html += "</div>"
-        st.markdown(header_html, unsafe_allow_html=True)
 
+        # 헤더 7열 배치
+        header_cols = st.columns(7)
+        for i, (h, c) in enumerate(zip(headers, colors)):
+            with header_cols[i]:
+                st.markdown(
+                    f"<div class='calendar-header'>{c} {h}</div>",
+                    unsafe_allow_html=True,
+                )
+
+        # 각 주차별 7열 셀 배치
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -618,9 +634,12 @@ with tab1:
 
                         is_today = curr_date == today
 
-                        card_label = f"[{day}일]"
+                        # 줄바꿈 문자(\n)가 확실하게 동작하도록 각 줄 단위 생성
+                        lines = []
                         if is_today:
-                            card_label += " (오늘)"
+                            lines.append(f"[{day}일] (오늘)")
+                        else:
+                            lines.append(f"[{day}일]")
 
                         if duty_info:
                             p1_txt = duty_info["p1_real"] + (
@@ -629,11 +648,15 @@ with tab1:
                             p2_txt = duty_info["p2_real"] + (
                                 "(대)" if duty_info["sub2"] else ""
                             )
-                            card_label += f"\n{p1_txt}\n{p2_txt}"
+                            lines.append(f"1: {p1_txt}")
+                            lines.append(f"2: {p2_txt}")
 
                         day_memo = st.session_state.memos.get(date_str, "")
                         if day_memo:
-                            card_label += f"\n📌 {day_memo}"
+                            lines.append(f"📌 {day_memo}")
+
+                        # \n으로 구분된 텍스트
+                        card_label = "\n".join(lines)
 
                         if st.button(card_label, key=f"btn_card_{date_str}"):
                             if duty_info:
@@ -699,9 +722,6 @@ with tab2:
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
-    st.caption(
-        "📌 **근무 시간 산출 기준:** 금요일 15시간, 토요일 15시간, 일요일 7시간, 평일 7시간 | **휴일근무 횟수:** 토요일 + 일요일 근무 횟수"
-    )
 
     duty_stat_df = st.session_state.df.copy()
 
@@ -800,38 +820,6 @@ with tab3:
         )
 
         st.markdown("---")
-
-        st.markdown(
-            f"#### 📊 [{selected_stat_month}] 근무자별 총 근무시간 비교 차트"
-        )
-
-        max_workers = len(stats_df)
-        default_limit = min(10, max_workers)
-
-        top_n = st.slider(
-            "차트에 표시할 상위 근무자 수 제한",
-            min_value=1,
-            max_value=max_workers,
-            value=default_limit,
-            help="근무시간이 많은 상위 N명의 근무자만 차트에 표시합니다.",
-        )
-
-        chart_df = stats_df.head(top_n)[["총 근무시간(h)"]]
-        st.bar_chart(chart_df)
-
-        st.markdown("---")
-
-        st.markdown(
-            f"#### 📋 [{selected_stat_month}] 근무시간 산출 상세 집계표"
-        )
-
-        display_df = stats_df.copy()
-
-        total_row = display_df.sum(axis=0)
-        total_row.name = "합계"
-        display_df = pd.concat([display_df, pd.DataFrame(total_row).T])
-
-        st.dataframe(display_df, use_container_width=True, height=500)
-
+        st.dataframe(stats_df, use_container_width=True)
     else:
-        st.info("조회할 근무 정보가 존재하지 않습니다.")
+        st.info("조회할 근무 정보가 없습니다.")

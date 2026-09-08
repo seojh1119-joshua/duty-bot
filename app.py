@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (최소 5글자 수용 셀 크기 & 비례 스케일링)
+# CSS 스타일링 (7등분 격자 + 최소 5글자 수용 가로 텍스트 자동조절)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -43,7 +43,7 @@ responsive_css = """
     }
 
     .main .block-container {
-        padding: 0.5rem 0.5rem 0.5rem 0.5rem !important;
+        padding: 0.5rem !important;
         max-width: 100% !important;
         height: calc(100vh - 1rem) !important;
         display: flex !important;
@@ -67,7 +67,7 @@ responsive_css = """
         overflow: auto !important;
     }
 
-    /* 2. 요일 및 달력 7열 정렬 (Grid 1fr 방식 적용) */
+    /* 2. 요일 및 달력 7열 완벽 7등분 정렬 (Grid 1fr 적용) */
     [data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
@@ -76,11 +76,12 @@ responsive_css = """
         margin: 0 0 4px 0 !important;
     }
 
+    /* 컬럼 개별 너비 제한을 해제하여 1/7 정확한 분할 보장 */
     [data-testid="column"] {
         width: 100% !important;
         min-width: 0 !important;
         max-width: 100% !important;
-        flex: none !important;
+        flex: 1 1 0 !important;
         padding: 0px !important;
         margin: 0px !important;
     }
@@ -88,7 +89,7 @@ responsive_css = """
     /* 3. 요일 헤더 박스 */
     .cal-header {
         text-align: center;
-        font-size: clamp(11px, 1.1vw, 15px);
+        font-size: clamp(12px, 1.1vw, 16px);
         font-weight: bold;
         padding: 6px 0;
         border-radius: 4px;
@@ -101,22 +102,11 @@ responsive_css = """
         justify-content: center;
     }
 
-    .calendar-header-sun {
-        background-color: #FEE2E2;
-        color: #DC2626;
-    }
-    
-    .calendar-header-sat {
-        background-color: #DBEAFE;
-        color: #2563EB;
-    }
+    .calendar-header-sun { background-color: #FEE2E2; color: #DC2626; }
+    .calendar-header-sat { background-color: #DBEAFE; color: #2563EB; }
+    .calendar-header-weekday { background-color: #F1F5F9; color: #1E293B; }
 
-    .calendar-header-weekday {
-        background-color: #F1F5F9;
-        color: #1E293B;
-    }
-
-    /* 4. 달력 버튼 셀 크기 (최소 5글자 수용 높이 및 폰트 설정) */
+    /* 4. 달력 버튼 셀 크기 및 가로 5글자 수용 자동폰트 조절 */
     .stButton {
         width: 100% !important;
         height: 100% !important;
@@ -127,20 +117,22 @@ responsive_css = """
     .stButton > button {
         width: 100% !important;
         height: 100% !important;
-        /* 최소 5줄 이상의 글자가 안정적으로 보이도록 min-height 상향 */
-        min-height: clamp(85px, 12vh, 150px) !important;
-        padding: 5px 6px !important;
+        /* 최소 5줄 내용 표시 가능한 높이 확보 */
+        min-height: clamp(90px, 13vh, 160px) !important;
+        padding: 6px 4px !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 6px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
-        /* 최소 5글자 수평 배치가 잘 되도록 폰트 크기 및 줄간격 최적화 */
-        font-size: clamp(10px, 0.95vw, 14px) !important;
+
+        /* 최소 5글자(예: 홍길동(대)) 가로 배치가 짤리지 않도록 반응형 폰트 조절 */
+        font-size: clamp(10px, 0.9vw, 14px) !important;
         line-height: 1.35 !important;
-        text-align: left !important;
+        text-align: center !important;
         box-sizing: border-box !important;
 
-        /* 자동 줄바꿈 및 텍스트 짤림 방지 */
+        /* 가로 쓰기 및 자연스러운 단어 줄바꿈 설정 */
+        writing-mode: horizontal-tb !important;
         white-space: pre-wrap !important;
         white-space: break-spaces !important;
         word-break: break-all !important;
@@ -149,14 +141,15 @@ responsive_css = """
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
-        align-items: flex-start !important;
+        align-items: center !important;
     }
 
     .stButton > button * {
+        writing-mode: horizontal-tb !important;
         white-space: pre-wrap !important;
         white-space: break-spaces !important;
         word-break: break-all !important;
-        text-align: left !important;
+        text-align: center !important;
     }
 
     .stButton > button:hover {
@@ -184,11 +177,11 @@ responsive_css = """
         flex-shrink: 0;
     }
 
-    /* 모바일 기기 반응형 미세 조절 */
+    /* 모바일 기기 감지 시 셀 스케일 조정 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 70px !important;
-            padding: 3px 3px !important;
+            min-height: 75px !important;
+            padding: 3px 2px !important;
             font-size: 9px !important;
             line-height: 1.2 !important;
         }
@@ -482,7 +475,7 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 수정 다이얼로그 모달 (반응형 비율 조절 & 뒤로 가기 감지)
+# 수정 다이얼로그 모달 (뒤로가기 감지 자동 닫기 기능 포함)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):

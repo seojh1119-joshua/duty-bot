@@ -137,6 +137,11 @@ def save_to_excel_file(df, file_path):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
+        # 1열이 날짜가 되도록 컬럼 순서 조정 후 저장
+        if "날짜" in save_df.columns:
+            cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
+            save_df = save_df[cols]
+
         save_df.to_excel(file_path, index=False)
 
         output = io.BytesIO()
@@ -154,6 +159,11 @@ def save_app_state(df, sheet_name, memos):
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+
+        # 1열이 날짜가 되도록 정렬
+        if "날짜" in save_df.columns:
+            cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
+            save_df = save_df[cols]
 
         state_data = {
             "selected_sheet": sheet_name,
@@ -179,6 +189,8 @@ def load_app_state():
             df = pd.DataFrame(state_data["df_dict"])
             if "날짜" in df.columns:
                 df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+                cols = ["날짜"] + [c for c in df.columns if c != "날짜"]
+                df = df[cols]
 
             return (
                 df,
@@ -356,6 +368,10 @@ def load_excel_smart(file_input, selected_sheet=None):
         .fillna("미지정")
     )
 
+    # 1열에 '날짜'가 위치하도록 순서 조정
+    reordered_cols = ["날짜"] + [c for c in df.columns if c != "날짜"]
+    df = df[reordered_cols]
+
     return df, target_sheet, sheet_names, df_raw, file_bytes
 
 
@@ -424,6 +440,9 @@ if "df" not in st.session_state:
         sample_df["실제근무1"] = sample_df["근무자1"]
         sample_df["실제근무2"] = sample_df["근무자2"]
 
+        cols = ["날짜"] + [c for c in sample_df.columns if c != "날짜"]
+        sample_df = sample_df[cols]
+
         st.session_state.df = sample_df
         st.session_state.sheet_names = ["숙직근무자"]
         st.session_state.selected_sheet = "숙직근무자"
@@ -450,7 +469,7 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
-# 하위 레이어: 근무자 수정 다이얼로그 (종료 클릭 시 상위메뉴로 이동)
+# 하위 레이어: 근무자 수정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -588,7 +607,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (세로 방향 리스트 레이아웃)
+# TAB 1: 달력 메인 화면
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -705,12 +724,11 @@ with tab1:
                     edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
-# TAB 2: 근무표 전체 수정 (상단 저장 버튼 & 월별 검색 추가)
+# TAB 2: 근무표 전체 수정 (1열 날짜 고정 순서 및 오름차순 정렬)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
 
-    # 상단 컨트롤 레이아웃: 조회 월 검색 및 상단 고정 저장 버튼
     edit_months = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     current_ym = today.strftime("%Y-%m")
     default_edit_idx = (
@@ -727,7 +745,7 @@ with tab2:
             key="edit_month_filter",
         )
 
-    # 선택된 월 데이터 필터링
+    # 데이터 필터링 시 1열을 반드시 '날짜'로 정렬하여 표출
     if selected_edit_month == "전체 기간":
         target_editor_df = st.session_state.df.copy()
     else:
@@ -735,8 +753,12 @@ with tab2:
             st.session_state.df["년월"] == selected_edit_month
         ].copy()
 
+    if "날짜" in target_editor_df.columns:
+        cols = ["날짜"] + [c for c in target_editor_df.columns if c != "날짜"]
+        target_editor_df = target_editor_df[cols]
+
     with col_ctrl2:
-        st.write("")  # 수평 위치 맞춤용 공백
+        st.write("")
         st.write("")
         save_btn_clicked = st.button(
             "💾 변경사항 적용 및 엑셀 저장",
@@ -747,7 +769,6 @@ with tab2:
 
     st.caption("아래 표에서 근무자, 대직자 및 근무 구분을 직접 수정할 수 있습니다.")
 
-    # 데이터 에디터 출력
     edited_df = st.data_editor(
         target_editor_df,
         num_rows="dynamic",
@@ -755,7 +776,6 @@ with tab2:
         use_container_width=True,
     )
 
-    # 상단 저장 버튼 클릭 처리
     if save_btn_clicked:
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
@@ -784,19 +804,18 @@ with tab2:
             .fillna("미지정")
         )
 
-        # 필터링된 부분 데이터가 수정된 경우, 전체 session_state.df에 반영
         if selected_edit_month == "전체 기간":
-            st.session_state.df = edited_df
+            full_df = edited_df
         else:
             other_df = st.session_state.df[
                 st.session_state.df["년월"] != selected_edit_month
             ]
-            merged_df = (
-                pd.concat([other_df, edited_df], ignore_index=True)
-                .sort_values(by="날짜")
-                .reset_index(drop=True)
-            )
-            st.session_state.df = merged_df
+            full_df = pd.concat([other_df, edited_df], ignore_index=True)
+
+        # 날짜 순서대로 정렬 및 1열을 날짜로 배치
+        full_df = full_df.sort_values(by="날짜").reset_index(drop=True)
+        cols = ["날짜"] + [c for c in full_df.columns if c != "날짜"]
+        st.session_state.df = full_df[cols]
 
         save_app_state(
             st.session_state.df,

@@ -22,7 +22,7 @@ os.makedirs("data", exist_ok=True)
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 
 # ---------------------------------------------------------
-# 페이지 기본 설정 (가로 너비 전체 활용)
+# 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="숙직 근무표 대시보드",
@@ -32,11 +32,10 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (화면 비율 맞춤 자동 조절 + 가로 쓰기 강제)
+# CSS 스타일링 (가로 비율 자동 조절 + 가로 쓰기 강제)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 1. 전체 루트 및 메인 레이아웃 상대 비율 적용 */
     html, body, [data-testid="stAppViewContainer"] {
         width: 100vw !important;
         height: 100vh !important;
@@ -51,7 +50,6 @@ responsive_css = """
         flex-direction: column !important;
     }
 
-    /* 2. 요일 및 달력 7열 반응형 Grid (화면 폭 100% 1fr 분할) */
     [data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
@@ -69,7 +67,6 @@ responsive_css = """
         margin: 0px !important;
     }
 
-    /* 3. 요일 헤더 박스 (가로 비율 맞춤) */
     .cal-header {
         text-align: center;
         font-size: clamp(12px, 1.2vw, 16px);
@@ -91,7 +88,6 @@ responsive_css = """
     .calendar-header-sat { background-color: #1E3A8A; color: #FFFFFF; }
     .calendar-header-weekday { background-color: #475569; color: #FFFFFF; }
 
-    /* 4. 달력 버튼 셀 및 반응형 비율 조절 */
     .stButton {
         width: 100% !important;
         height: 100% !important;
@@ -109,14 +105,11 @@ responsive_css = """
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         box-sizing: border-box !important;
-
-        /* 완전 가로 쓰기 및 한 줄/비율 자동 조정 */
         writing-mode: horizontal-tb !important;
         white-space: nowrap !important;
         word-break: keep-all !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
-
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
@@ -138,7 +131,6 @@ responsive_css = """
         background-color: #F1F5F9 !important;
     }
 
-    /* 5. 다이얼로그(팝업) 세로 쓰기 방지 및 가로 화면 비율 적용 */
     [data-testid="stDialog"] *, 
     [data-testid="stDialog"] input, 
     [data-testid="stDialog"] textarea, 
@@ -147,7 +139,7 @@ responsive_css = """
     }
 
     [data-testid="stDialog"] > div:first-child {
-        width: clamp(300px, 80vw, 550px) !important;
+        width: clamp(320px, 80vw, 600px) !important;
         max-width: 95vw !important;
         max-height: 85vh !important;
         border-radius: 12px !important;
@@ -155,7 +147,6 @@ responsive_css = """
         overflow-y: auto !important;
     }
 
-    /* 오늘 근무자 카드 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
@@ -166,7 +157,6 @@ responsive_css = """
         box-sizing: border-box;
     }
 
-    /* 모바일 반응형 자동 비율 조절 */
     @media (max-width: 600px) {
         .stButton > button {
             min-height: 65px !important;
@@ -184,7 +174,7 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# DATA/data 폴더 내 기본 엑셀 파일 자동 탐색
+# 파일 탐색 및 저장 함수 (실제 엑셀 저장 동기화)
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -193,13 +183,32 @@ def get_initial_excel_file():
         + glob.glob("*.xlsx")
     )
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
-    return valid_files[0] if valid_files else None
+    return valid_files[0] if valid_files else os.path.join("DATA", "숙직근무표.xlsx")
 
 
-# ---------------------------------------------------------
-# 앱 데이터 영구 저장/로드 관리
-# ---------------------------------------------------------
+def save_to_excel_file(df, file_path):
+    """실제 .xlsx 파일로 데이터 프레임을 저장하는 함수"""
+    try:
+        save_df = df.copy()
+        if "날짜" in save_df.columns:
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+
+        # 엑셀 파일 저장
+        save_df.to_excel(file_path, index=False)
+
+        # 바이트 변환하여 세션 상태 동기화
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            save_df.to_excel(writer, index=False)
+        st.session_state.file_bytes = output.getvalue()
+        return True
+    except Exception as e:
+        st.error(f"엑셀 파일 저장 중 오류가 발생했습니다: {e}")
+        return False
+
+
 def save_app_state(df, sheet_name, memos):
+    """JSON 및 엑셀 파일 동시에 영구 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
@@ -212,6 +221,11 @@ def save_app_state(df, sheet_name, memos):
         }
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
+
+        # 실제 엑셀 파일 저장
+        target_path = st.session_state.get("file_path", get_initial_excel_file())
+        save_to_excel_file(df, target_path)
+
     except Exception as e:
         st.error(f"상태 저장 중 오류가 발생했습니다: {e}")
 
@@ -406,11 +420,29 @@ def load_excel_smart(file_input, selected_sheet=None):
 
 
 # ---------------------------------------------------------
+# 근무자 자동 검색 (엑셀 시트 내 등록된 이름 추출)
+# ---------------------------------------------------------
+def get_all_workers_list(df):
+    worker_cols = ["근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]
+    names = set()
+    for col in worker_cols:
+        if col in df.columns:
+            valid_names = df[col].dropna().astype(str).str.strip()
+            for name in valid_names:
+                if name and name not in ["미지정", "nan", "None", "NaN"]:
+                    names.add(name)
+    sorted_names = sorted(list(names))
+    return ["(선택 안함)"] + sorted_names + ["(직접 입력)"]
+
+
+# ---------------------------------------------------------
 # 세션 상태 초기화 및 파일 로드
 # ---------------------------------------------------------
 initial_file = get_initial_excel_file()
+if "file_path" not in st.session_state:
+    st.session_state.file_path = initial_file
 
-if "file_bytes" not in st.session_state and initial_file:
+if "file_bytes" not in st.session_state and os.path.exists(initial_file):
     with open(initial_file, "rb") as f:
         st.session_state.file_bytes = f.read()
     st.session_state.file_name = os.path.basename(initial_file)
@@ -463,11 +495,10 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 근무자 수정 및 메모 작성 다이얼로그 (모달)
+# 근무자 수정 및 메모 작성 다이얼로그 (시트 근무자 자동 검색)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
-    # 모바일 뒤로가기 / 이전 버튼 대응 스크립트
     st.components.v1.html(
         """
         <script>
@@ -488,66 +519,78 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
 
+    # 엑셀 시트 내 전체 근무자 목록 자동 추출
+    worker_options = get_all_workers_list(st.session_state.df)
+
     val_p1 = str(curr_row.get("근무자1", "")) if pd.notnull(curr_row.get("근무자1")) else ""
     val_p2 = str(curr_row.get("근무자2", "")) if pd.notnull(curr_row.get("근무자2")) else ""
     val_sub1 = str(curr_row.get("대직1", "")) if pd.notnull(curr_row.get("대직1")) else ""
     val_sub2 = str(curr_row.get("대직2", "")) if pd.notnull(curr_row.get("대직2")) else ""
 
-    if val_p1 == "nan": val_p1 = ""
-    if val_p2 == "nan": val_p2 = ""
-    if val_sub1 == "nan": val_sub1 = ""
-    if val_sub2 == "nan": val_sub2 = ""
+    val_p1 = "" if val_p1 in ["nan", "None"] else val_p1
+    val_p2 = "" if val_p2 in ["nan", "None"] else val_p2
+    val_sub1 = "" if val_sub1 in ["nan", "None"] else val_sub1
+    val_sub2 = "" if val_sub2 in ["nan", "None"] else val_sub2
 
     current_memo = st.session_state.memos.get(date_str, "")
 
+    # Helper function for selectbox index
+    def get_opt_idx(val):
+        return worker_options.index(val) if val in worker_options else (len(worker_options) - 1 if val else 0)
+
     with st.form(key=f"dialog_form_{date_str}"):
         col_f1, col_f2 = st.columns(2)
+
         with col_f1:
-            edit_p1 = st.text_input("근무자1 이름", value=val_p1)
-            edit_sub1 = st.text_input("대직자1 이름 (선택)", value=val_sub1)
+            st.markdown("**:blue[근무자 1 / 대직자 1]**")
+            p1_sel = st.selectbox("근무자1 선택", options=worker_options, index=get_opt_idx(val_p1), key="p1_sel")
+            p1_custom = st.text_input("근무자1 직접입력", value=val_p1 if p1_sel == "(직접 입력)" else "", key="p1_custom") if p1_sel == "(직접 입력)" else ""
+            
+            sub1_sel = st.selectbox("대직자1 선택 (선택사항)", options=worker_options, index=get_opt_idx(val_sub1), key="sub1_sel")
+            sub1_custom = st.text_input("대직자1 직접입력", value=val_sub1 if sub1_sel == "(직접 입력)" else "", key="sub1_custom") if sub1_sel == "(직접 입력)" else ""
+
         with col_f2:
-            edit_p2 = st.text_input("근무자2 이름", value=val_p2)
-            edit_sub2 = st.text_input("대직자2 이름 (선택)", value=val_sub2)
+            st.markdown("**:blue[근무자 2 / 대직자 2]**")
+            p2_sel = st.selectbox("근무자2 선택", options=worker_options, index=get_opt_idx(val_p2), key="p2_sel")
+            p2_custom = st.text_input("근무자2 직접입력", value=val_p2 if p2_sel == "(직접 입력)" else "", key="p2_custom") if p2_sel == "(직접 입력)" else ""
+
+            sub2_sel = st.selectbox("대직자2 선택 (선택사항)", options=worker_options, index=get_opt_idx(val_sub2), key="sub2_sel")
+            sub2_custom = st.text_input("대직자2 직접입력", value=val_sub2 if sub2_sel == "(직접 입력)" else "", key="sub2_custom") if sub2_sel == "(직접 입력)" else ""
 
         st.divider()
-        edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력 셀 반영)",
-            value=current_memo,
-            height=80,
-        )
+        edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=80)
 
-        submitted = st.form_submit_button("💾 저장하기", use_container_width=True)
+        submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
 
         if submitted:
-            st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
-            st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
-            st.session_state.df.at[row_idx, "대직1"] = (
-                edit_sub1.strip() if edit_sub1.strip() else None
-            )
-            st.session_state.df.at[row_idx, "대직2"] = (
-                edit_sub2.strip() if edit_sub2.strip() else None
-            )
+            # 최종 입력값 계산
+            final_p1 = p1_custom.strip() if p1_sel == "(직접 입력)" else ("" if p1_sel == "(선택 안함)" else p1_sel)
+            final_p2 = p2_custom.strip() if p2_sel == "(직접 입력)" else ("" if p2_sel == "(선택 안함)" else p2_sel)
+            final_sub1 = sub1_custom.strip() if sub1_sel == "(직접 입력)" else ("" if sub1_sel == "(선택 안함)" else sub1_sel)
+            final_sub2 = sub2_custom.strip() if sub2_sel == "(직접 입력)" else ("" if sub2_sel == "(선택 안함)" else sub2_sel)
 
-            st.session_state.df.at[row_idx, "실제근무1"] = (
-                edit_sub1.strip() if edit_sub1.strip() else edit_p1.strip()
-            )
-            st.session_state.df.at[row_idx, "실제근무2"] = (
-                edit_sub2.strip() if edit_sub2.strip() else edit_p2.strip()
-            )
+            st.session_state.df.at[row_idx, "근무자1"] = final_p1
+            st.session_state.df.at[row_idx, "근무자2"] = final_p2
+            st.session_state.df.at[row_idx, "대직1"] = final_sub1 if final_sub1 else None
+            st.session_state.df.at[row_idx, "대직2"] = final_sub2 if final_sub2 else None
+
+            st.session_state.df.at[row_idx, "실제근무1"] = final_sub1 if final_sub1 else final_p1
+            st.session_state.df.at[row_idx, "실제근무2"] = final_sub2 if final_sub2 else final_p2
 
             st.session_state.memos[date_str] = edit_memo.strip()
 
+            # 앱 데이터 동기화 및 엑셀 파일 저장
             save_app_state(
                 st.session_state.df,
                 st.session_state.selected_sheet,
                 st.session_state.memos,
             )
-            st.success("✅ 변경사항이 반영되었습니다.")
+            st.success("✅ 변경사항이 엑셀 파일 및 달력에 성공적으로 저장되었습니다.")
             st.rerun()
 
 
 # ---------------------------------------------------------
-# 사이드바 (시트 선택 부분 제거)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
@@ -559,10 +602,13 @@ with st.sidebar:
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
-        parsed_df, used_sheet, sheet_names, raw_df, f_bytes = load_excel_smart(
-            file_bytes
-        )
+        save_path = os.path.join("DATA", uploaded_file.name)
+        with open(save_path, "wb") as f:
+            f.write(file_bytes)
 
+        parsed_df, used_sheet, sheet_names, raw_df, f_bytes = load_excel_smart(file_bytes)
+
+        st.session_state.file_path = save_path
         st.session_state.file_bytes = f_bytes
         st.session_state.file_name = uploaded_file.name
         st.session_state.df = parsed_df
@@ -594,7 +640,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (반응형 비율 기반)
+# TAB 1: 달력 메인 화면
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -681,7 +727,6 @@ with tab1:
             ("토", "calendar-header-sat"),
         ]
 
-        # 요일 헤더 (가로 화면비율 7등분 정렬)
         header_cols = st.columns(7)
         for i, (h_name, h_class) in enumerate(headers):
             with header_cols[i]:
@@ -690,7 +735,6 @@ with tab1:
                     unsafe_allow_html=True,
                 )
 
-        # 주차별 7열 셀 Grid 정렬
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -712,7 +756,6 @@ with tab1:
 
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        # 가로 쓰기 전용 텍스트 생성
                         btn_label = f"{day}일\n"
                         if p1_txt and p1_txt != "미지정":
                             btn_label += f"{p1_txt}\n"
@@ -741,7 +784,7 @@ with tab2:
         use_container_width=True,
     )
 
-    if st.button("💾 변경사항 적용 및 영구 저장"):
+    if st.button("💾 변경사항 적용 및 엑셀 저장"):
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
 
@@ -775,7 +818,7 @@ with tab2:
             st.session_state.selected_sheet,
             st.session_state.memos,
         )
-        st.success("✅ 성공적으로 저장되었습니다.")
+        st.success("✅ 엑셀 파일 및 대시보드에 성공적으로 저장되었습니다.")
         st.rerun()
 
 # ---------------------------------------------------------
@@ -796,7 +839,6 @@ with tab3:
         else 0
     )
 
-    # 가로 배치 메뉴
     stat_col1, stat_col2 = st.columns([1, 2])
     with stat_col1:
         selected_stat_month = st.selectbox(
@@ -872,7 +914,6 @@ with tab3:
             by="총 근무시간(h)", ascending=False
         )
 
-        # 화면 너비 비율에 자동 조정되는 지표 박스
         m1, m2, m3 = st.columns(3)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
         m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
@@ -887,5 +928,5 @@ with tab3:
 # TAB 4: 시트 데이터 점검
 # ---------------------------------------------------------
 with tab4:
-    st.subheader(f"🔍 시트 데이터 원본 확인")
+    st.subheader("🔍 시트 데이터 원본 확인")
     st.dataframe(df, use_container_width=True)

@@ -32,45 +32,68 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (모바일 반응형, 요일 셀-날짜 셀 크기 일치)
+# CSS 스타일링 (전체 화면 맞춤 & 비례 스케일링)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 메인 컨테이너 여백 최소화 */
-    .main .block-container {
-        padding-top: 0.5rem;
-        padding-bottom: 2rem;
-        padding-left: 0.1rem;
-        padding-right: 0.1rem;
+    /* 1. 전체 루트 및 메인 레이아웃 뷰포트 고정 */
+    html, body, [data-testid="stAppViewContainer"] {
+        height: 100vh !important;
+        overflow-x: hidden !important;
     }
 
-    /* 모든 가로 컬럼 블록(st.columns) 7등분 강제 설정 */
+    .main .block-container {
+        padding: 0.5rem 0.5rem 0.5rem 0.5rem !important;
+        max-width: 100% !important;
+        height: calc(100vh - 1rem) !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* 탭 헤더 및 콘텐츠 영역 수직 자동 확장 */
+    [data-testid="stTabs"] {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    [data-testid="stTabPanel"] {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 1 auto !important;
+        height: 100% !important;
+        overflow: auto !important;
+    }
+
+    /* 2. 7열 가로 가로축 균등 분할 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important;
+        gap: 3px !important;
         width: 100% !important;
+        margin: 0 !important;
     }
 
-    /* 7개 각 컬럼의 폭을 정확히 동일하게 통일 */
     [data-testid="column"] {
-        width: 14.28% !important;
-        min-width: 0 !important;
-        max-width: 14.28% !important;
+        width: calc(100% / 7) !important;
+        min-width: calc(100% / 7) !important;
+        max-width: calc(100% / 7) !important;
         flex: 1 1 0% !important;
         padding: 0px !important;
         margin: 0px !important;
     }
 
-    /* 요일 헤더 박스 */
+    /* 3. 요일 헤더 박스 */
     .cal-header {
         text-align: center;
-        font-size: clamp(10px, 1.2vw, 13px);
+        font-size: clamp(11px, 1.1vw, 15px);
         font-weight: bold;
         padding: 6px 0;
         border-radius: 4px;
-        margin-bottom: 3px;
+        margin-bottom: 2px;
         width: 100% !important;
         box-sizing: border-box;
         white-space: nowrap;
@@ -92,27 +115,29 @@ responsive_css = """
         color: #1E293B;
     }
 
-    /* 달력 셀 버튼 스타일 및 요일 칸과 크기 단차 제거 */
+    /* 4. 달력 버튼 셀 비율 자동 조절 */
     .stButton {
         width: 100% !important;
+        height: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
     }
 
     .stButton > button {
         width: 100% !important;
-        min-height: 75px !important;
-        padding: 4px 2px !important;
+        height: 100% !important;
+        min-height: clamp(60px, 10vh, 120px) !important;
+        padding: 4px 5px !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 4px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
-        font-size: clamp(8px, 0.9vw, 11px) !important;
-        line-height: 1.25 !important;
+        font-size: clamp(9px, 0.85vw, 13px) !important;
+        line-height: 1.3 !important;
         text-align: left !important;
         box-sizing: border-box !important;
 
-        /* 줄바꿈 강제 규칙 */
+        /* 자동 줄바꿈 및 오버플로우 제어 */
         white-space: pre-wrap !important;
         white-space: break-spaces !important;
         word-break: break-all !important;
@@ -136,26 +161,27 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 강조 카드 */
+    /* 오늘 근무자 카드 반응형 레아아웃 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 10px 14px;
+        padding: 8px 14px;
         border-radius: 8px;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+        flex-shrink: 0;
     }
 
-    /* 모바일 화면 전용 높이 및 폰트 미세 조정 */
+    /* 모바일 기기 미세 조절 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 65px !important;
-            padding: 3px 1px !important;
+            min-height: 52px !important;
+            padding: 2px 2px !important;
             font-size: 8px !important;
-            line-height: 1.2 !important;
+            line-height: 1.15 !important;
         }
         .cal-header {
             font-size: 10px !important;
-            padding: 4px 0 !important;
+            padding: 3px 0 !important;
         }
     }
 </style>
@@ -589,7 +615,7 @@ with tab1:
             f"""
         <div class="today-card">
             <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:16px; font-weight:bold;">
+            <div style="font-size:15px; font-weight:bold;">
                 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span style="color:#FDE047;">{p2}</span>
                 <span style="font-size:12px; font-weight:normal;">{memo_str}</span>

@@ -540,11 +540,11 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
-# 근무자 수동 반복 등록 다이얼로그 (동적 칸수 생성 및 순서 반복 반영)
+# 근무자 수동 반복 등록 다이얼로그 (등록된 칸만 반영, 미입력 칸은 기존 데이터 유지)
 # ---------------------------------------------------------
 @st.dialog("🔄 근무자 수동 반복 등록")
 def batch_register_worker_dialog():
-    st.write("📅 **오늘 날짜 기준 앞뒤로 시작점을 이동하여 규칙적으로 순환 등록합니다.**")
+    st.write("📅 **입력된 근무자만 규칙적으로 순환 등록되며, 비워둔 칸은 기존 엑셀 데이터를 유지합니다.**")
 
     today_default = datetime.date.today()
 
@@ -617,17 +617,25 @@ def batch_register_worker_dialog():
                 if not match_idx.empty:
                     idx = match_idx[0]
 
-                    # 근무자1 순서대로 반복 매칭
+                    # 근무자1 칸에 입력값이 있는 경우에만 순서대로 반복 매칭 (미입력 시 기존 데이터 유지)
                     if valid_w1:
                         assigned_w1 = valid_w1[i % len(valid_w1)]
                         df.at[idx, "근무자1"] = assigned_w1
-                        df.at[idx, "실제근무1"] = assigned_w1
+                        
+                        # 대직자가 없는 경우 실제근무1도 함께 업데이트, 대직자가 있으면 기존 대직자 유지
+                        sub1_val = df.at[idx, "대직1"] if "대직1" in df.columns else None
+                        if pd.isna(sub1_val) or str(sub1_val).strip() in ["", "nan", "None"]:
+                            df.at[idx, "실제근무1"] = assigned_w1
 
-                    # 근무자2 순서대로 반복 매칭
+                    # 근무자2 칸에 입력값이 있는 경우에만 순서대로 반복 매칭 (미입력 시 기존 데이터 유지)
                     if valid_w2:
                         assigned_w2 = valid_w2[i % len(valid_w2)]
                         df.at[idx, "근무자2"] = assigned_w2
-                        df.at[idx, "실제근무2"] = assigned_w2
+                        
+                        # 대직자가 없는 경우 실제근무2도 함께 업데이트, 대직자가 있으면 기존 대직자 유지
+                        sub2_val = df.at[idx, "대직2"] if "대직2" in df.columns else None
+                        if pd.isna(sub2_val) or str(sub2_val).strip() in ["", "nan", "None"]:
+                            df.at[idx, "실제근무2"] = assigned_w2
 
                 current_date += datetime.timedelta(days=1)
 
@@ -637,7 +645,7 @@ def batch_register_worker_dialog():
                 st.session_state.selected_sheet,
                 st.session_state.memos,
             )
-            st.success("✅ 입력한 순서와 반복 칸수에 맞게 근무자가 정상적으로 등록되었습니다.")
+            st.success("✅ 입력된 근무자는 순서대로 등록되고, 미입력된 칸은 기존 데이터가 유지되었습니다.")
             st.rerun()
 
     with col_sub2:

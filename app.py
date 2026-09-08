@@ -84,22 +84,39 @@ responsive_css = """
         box-sizing: border-box;
     }
 
-    /* 버튼 모바일 반응형 폰트 및 패딩 조정 */
+    /* 달력 가로형 요일 헤더 균등 배치 */
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        margin-bottom: 8px;
+    }
+    
+    .calendar-header-day {
+        flex: 1;
+        text-align: center;
+        font-weight: bold;
+        font-size: clamp(12px, 2.8vw, 15px);
+        padding: 4px 0;
+    }
+
+    /* 버튼 모바일 반응형 폰트, 자동 줄바꿈 및 높이 최적화 */
     .stButton > button {
         width: 100% !important;
-        min-height: 44px !important;
-        padding: 6px 8px !important;
+        min-height: 52px !important;
+        padding: 4px 2px !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 8px !important;
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(11px, 2.5vw, 14px) !important;
+        font-size: clamp(10px, 2.2vw, 13px) !important;
         font-weight: 500 !important;
         margin-bottom: 4px !important;
-        white-space: pre-line !important;
-        line-height: 1.2 !important;
+        white-space: pre-wrap !important; /* 자동 줄바꿈 지원 */
+        word-break: break-all !important;
+        line-height: 1.25 !important;
         transition: all 0.2s ease !important;
     }
 
@@ -114,8 +131,9 @@ responsive_css = """
             padding: 0.2rem 0.2rem !important;
         }
         .stButton > button {
-            min-height: 38px !important;
-            font-size: 11px !important;
+            min-height: 48px !important;
+            font-size: 10px !important;
+            padding: 2px 1px !important;
         }
     }
 
@@ -136,7 +154,6 @@ orientation_js = """
 <script>
     function checkOrientation() {
         const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-        const currentMode = isLandscape ? "🗓️ 가로형 Grid" : "📄 세로형 리스트";
         
         // URL 쿼리 파라미터를 이용하여 자동 전환 트리거
         const urlParams = new URLSearchParams(window.location.search);
@@ -881,27 +898,26 @@ with tab1:
                         edit_worker_dialog(date_str, duty_info)
 
         # ---------------------------------------------------------
-        # 2) 가로형 Grid 보기 (가로 모드 및 넓은 화면에 최적화)
+        # 2) 가로형 Grid 보기 (자동 줄바꿈 및 비율 맞춤 적용)
         # ---------------------------------------------------------
         else:
-            headers = ["일", "월", "화", "수", "목", "금", "토"]
+            # 요일 헤더를 비율에 맞게 1:1:1:1:1:1:1 균등 가로 나열
             cols_header = st.columns(7)
-            for idx, h_name in enumerate(headers):
-                if idx == 0:
-                    cols_header[idx].markdown(
-                        f"<div style='text-align: center; color: red; font-weight: bold; font-size: 13px;'>{h_name}</div>",
-                        unsafe_allow_html=True,
-                    )
-                elif idx == 6:
-                    cols_header[idx].markdown(
-                        f"<div style='text-align: center; color: blue; font-weight: bold; font-size: 13px;'>{h_name}</div>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    cols_header[idx].markdown(
-                        f"<div style='text-align: center; font-weight: bold; font-size: 13px;'>{h_name}</div>",
-                        unsafe_allow_html=True,
-                    )
+            headers = [
+                ("일", "red"),
+                ("월", "#0F172A"),
+                ("화", "#0F172A"),
+                ("수", "#0F172A"),
+                ("목", "#0F172A"),
+                ("금", "#0F172A"),
+                ("토", "blue"),
+            ]
+
+            for idx, (h_name, color) in enumerate(headers):
+                cols_header[idx].markdown(
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(12px, 2.5vw, 15px); padding-bottom: 5px;'>{h_name}</div>",
+                    unsafe_allow_html=True,
+                )
 
             st.divider()
 
@@ -926,9 +942,12 @@ with tab1:
                         p1_txt = duty_info["p1_display"] if duty_info else "-"
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
-                        memo_icon = "📌" if day_memo else ""
 
-                        btn_text = f"{day_counter}일{memo_icon}\n1:{p1_txt}\n2:{p2_txt}"
+                        # 날짜 \n 근무자1 \n 근무자2 \n 메모 순으로 줄바꿈 구성
+                        if day_memo:
+                            btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}"
+                        else:
+                            btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}"
 
                         if grid_cols[c].button(
                             btn_text, key=f"btn_grid_card_{date_str}"

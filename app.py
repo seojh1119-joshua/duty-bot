@@ -32,10 +32,11 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (가로 7열 자동 비율 조절 레이아웃)
+# CSS 스타일링 (모바일 반응형 가로 7열 레이아웃 최적화)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
+    /* 여백 최소화 */
     .main .block-container {
         padding-top: 1rem;
         padding-bottom: 2rem;
@@ -43,6 +44,7 @@ responsive_css = """
         padding-right: 0.2rem;
     }
     
+    /* 7열 헤더 레이아웃 */
     .calendar-grid {
         display: grid;
         grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -59,16 +61,23 @@ responsive_css = """
         border-radius: 4px;
     }
 
-    /* 직접 클릭형 달력 날짜 셀 버튼 */
+    /* Streamlit 컬럼 모바일 깨짐 방지 및 가로 7열 고정 설정 */
+    [data-testid="column"] {
+        min-width: 0 !important;
+        padding: 1px !important;
+    }
+
+    /* 달력 날짜 셀 버튼 반응형 스타일 */
     .stButton > button {
         width: 100% !important;
-        min-height: 80px !important;
-        padding: 4px 3px !important;
+        min-height: 85px !important;
+        padding: 4px 2px !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 6px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
-        font-size: 10.5px !important;
+        font-size: clamp(8px, 1.1vw, 11px) !important;
+        line-height: 1.3 !important;
         text-align: left !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
@@ -92,6 +101,14 @@ responsive_css = """
         border-radius: 12px;
         margin-bottom: 16px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 모바일 기기 반응형 미세 조정 */
+    @media (max-width: 600px) {
+        .stButton > button {
+            min-height: 70px !important;
+            padding: 2px 1px !important;
+        }
     }
 </style>
 """
@@ -155,7 +172,6 @@ def load_app_state():
 # 스마트 엑셀 파서 ('숙직근무자' 시트 최우선 자동 색출 & 로드)
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
-    # 바이너리 바이트 스트림 변환 및 버퍼 보장
     if isinstance(file_input, bytes):
         file_bytes = file_input
     elif hasattr(file_input, "read"):
@@ -173,12 +189,10 @@ def load_excel_smart(file_input, selected_sheet=None):
     # 1. '숙직근무자' 시트 최우선 색출 로직
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
-        # 1순위: '숙직근무자' 완벽 일치/포함 시트
         p1 = [s for s in sheet_names if "숙직근무자" in s]
         if p1:
             target_sheet = p1[0]
         else:
-            # 2순위: '숙직', '근무자', '근무', '달력' 키워드
             p2 = [
                 s
                 for s in sheet_names
@@ -214,7 +228,6 @@ def load_excel_smart(file_input, selected_sheet=None):
         clean_cols.append(c_str)
     df.columns = clean_cols
 
-    # 날짜 컬럼 자동 식별 및 변환
     date_col = next(
         (
             col
@@ -230,7 +243,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     df = df.dropna(subset=["날짜"]).copy()
 
-    # 근무구분 컬럼 식별
     duty_type_col = next(
         (
             c
@@ -253,7 +265,6 @@ def load_excel_smart(file_input, selected_sheet=None):
         df[duty_type_col].astype(str).str.strip() if duty_type_col else "평일"
     )
 
-    # 근무자1, 근무자2, 대직자 컬럼 인식
     cols = list(df.columns)
     p1_col = next(
         (
@@ -306,7 +317,6 @@ def load_excel_smart(file_input, selected_sheet=None):
 
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 실제 적용 근무자 계산
     df["실제근무1"] = (
         df["대직1"]
         .fillna("")
@@ -365,7 +375,6 @@ if "df" not in st.session_state:
         st.session_state.raw_df = raw_df
         st.session_state.memos = {}
     else:
-        # 데이터 파일이 전혀 없을 경우 기본 샘플 자동 생성
         today_date = datetime.date.today()
         dates = pd.date_range(start=today_date.replace(day=1), periods=60, freq="D")
         sample_df = pd.DataFrame({
@@ -478,7 +487,6 @@ with st.sidebar:
         st.success(f"✅ '{used_sheet}' 시트 데이터를 성공적으로 불러왔습니다!")
         st.rerun()
 
-    # 시트 선택 드롭다운 (오류 완벽 보완)
     if "sheet_names" in st.session_state and st.session_state.sheet_names:
         sheets = st.session_state.sheet_names
         curr_sheet = st.session_state.selected_sheet
@@ -512,7 +520,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (오늘 근무자 동적 연동 & 클릭 수정)
+# TAB 1: 달력 메인 화면 (오늘 근무자 동적 연동 & 줄바꿈 출력)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -614,6 +622,7 @@ with tab1:
                         if is_today:
                             card_label += " (오늘)"
 
+                        # 숫자 접두사(1:, 2:)를 제거하고 각 줄별로 이름 표시
                         if duty_info:
                             p1_txt = duty_info["p1_real"] + (
                                 "(대)" if duty_info["sub1"] else ""
@@ -621,8 +630,9 @@ with tab1:
                             p2_txt = duty_info["p2_real"] + (
                                 "(대)" if duty_info["sub2"] else ""
                             )
-                            card_label += f"\n1: {p1_txt}\n2: {p2_txt}"
+                            card_label += f"\n{p1_txt}\n{p2_txt}"
 
+                        # 메모 줄바꿈 표시
                         day_memo = st.session_state.memos.get(date_str, "")
                         if day_memo:
                             card_label += f"\n📌 {day_memo}"

@@ -137,7 +137,6 @@ def save_to_excel_file(df, file_path):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
-        # 1열이 날짜가 되도록 컬럼 순서 조정 후 저장
         if "날짜" in save_df.columns:
             cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
             save_df = save_df[cols]
@@ -160,7 +159,6 @@ def save_app_state(df, sheet_name, memos):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
-        # 1열이 날짜가 되도록 정렬
         if "날짜" in save_df.columns:
             cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
             save_df = save_df[cols]
@@ -368,7 +366,6 @@ def load_excel_smart(file_input, selected_sheet=None):
         .fillna("미지정")
     )
 
-    # 1열에 '날짜'가 위치하도록 순서 조정
     reordered_cols = ["날짜"] + [c for c in df.columns if c != "날짜"]
     df = df[reordered_cols]
 
@@ -607,7 +604,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (실제근무자 및 (대) 표출)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -671,19 +668,23 @@ with tab1:
         for idx_row, row in month_df.iterrows():
             d_day = row["날짜"].day
             d_date_str = row["날짜"].strftime("%Y-%m-%d")
+            
+            sub1_val = str(row["대직1"]).strip() if pd.notnull(row["대직1"]) else ""
+            sub2_val = str(row["대직2"]).strip() if pd.notnull(row["대직2"]) else ""
+            
+            p1_display = str(row["실제근무1"])
+            if sub1_val and sub1_val not in ["nan", "None", ""]:
+                p1_display += "(대)"
+
+            p2_display = str(row["실제근무2"])
+            if sub2_val and sub2_val not in ["nan", "None", ""]:
+                p2_display += "(대)"
+
             duty_map[d_day] = {
                 "idx": idx_row,
                 "date_str": d_date_str,
-                "p1_orig": str(row["근무자1"]),
-                "p2_orig": str(row["근무자2"]),
-                "sub1": (
-                    str(row["대직1"]) if pd.notnull(row["대직1"]) else ""
-                ),
-                "sub2": (
-                    str(row["대직2"]) if pd.notnull(row["대직2"]) else ""
-                ),
-                "p1_real": str(row["실제근무1"]),
-                "p2_real": str(row["실제근무2"]),
+                "p1_display": p1_display,
+                "p2_display": p2_display,
             }
 
         weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
@@ -704,27 +705,20 @@ with tab1:
             else:
                 day_title = f"🗓️ {day:02d}일 ({weekday_str})"
 
-            p1_txt = duty_info["p1_real"] if duty_info else "미지정"
-            p2_txt = duty_info["p2_real"] if duty_info else "미지정"
-
-            sub_info = ""
-            if duty_info:
-                if duty_info["sub1"]:
-                    sub_info += f" (대직1: {duty_info['sub1']})"
-                if duty_info["sub2"]:
-                    sub_info += f" (대직2: {duty_info['sub2']})"
+            p1_txt = duty_info["p1_display"] if duty_info else "미지정"
+            p2_txt = duty_info["p2_display"] if duty_info else "미지정"
 
             day_memo = st.session_state.memos.get(date_str, "")
             memo_display = f" | 📌 메모: {day_memo}" if day_memo else ""
 
-            btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{sub_info}{memo_display}"
+            btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{memo_display}"
 
             if st.button(btn_label, key=f"btn_v_card_{date_str}"):
                 if duty_info:
                     edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
-# TAB 2: 근무표 전체 수정 (1열 날짜 고정 순서 및 오름차순 정렬)
+# TAB 2: 근무표 전체 수정
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
@@ -745,7 +739,6 @@ with tab2:
             key="edit_month_filter",
         )
 
-    # 데이터 필터링 시 1열을 반드시 '날짜'로 정렬하여 표출
     if selected_edit_month == "전체 기간":
         target_editor_df = st.session_state.df.copy()
     else:
@@ -812,7 +805,6 @@ with tab2:
             ]
             full_df = pd.concat([other_df, edited_df], ignore_index=True)
 
-        # 날짜 순서대로 정렬 및 1열을 날짜로 배치
         full_df = full_df.sort_values(by="날짜").reset_index(drop=True)
         cols = ["날짜"] + [c for c in full_df.columns if c != "날짜"]
         st.session_state.df = full_df[cols]

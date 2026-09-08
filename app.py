@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (반응형 비율 조절, 줄바꿈, 요일별 색상 반영)
+# CSS 스타일링 (모바일 7열 완전 고정 및 요일 헤더 비율 방지)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -40,72 +40,75 @@ responsive_css = """
     .main .block-container {
         padding-top: 0.5rem;
         padding-bottom: 2rem;
-        padding-left: 0.2rem;
-        padding-right: 0.2rem;
+        padding-left: 0.1rem;
+        padding-right: 0.1rem;
     }
 
-    /* Streamlit 컬럼 모바일 세로 스택 방지 (가로 7열 비율 완전 유지) */
+    /* 모든 가로 블록(st.columns)을 모바일에서도 무조건 가로 1줄 7열로 강제 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 2px !important;
+        gap: 1px !important;
+        width: 100% !important;
     }
 
+    /* 각 컬럼 너비를 정확히 1/7(14.28%)로 축소 지정 */
     [data-testid="column"] {
         width: 14.28% !important;
         min-width: 0 !important;
+        max-width: 14.28% !important;
         flex: 1 1 0% !important;
         padding: 0px !important;
+        margin: 0px !important;
     }
 
-    /* 7열 반응형 요일 헤더 */
-    .calendar-header-sun {
+    /* 요일 헤더 통합 스타일링 */
+    .cal-header {
         text-align: center;
-        font-size: clamp(11px, 1.2vw, 14px);
+        font-size: clamp(9px, 1.2vw, 13px);
         font-weight: bold;
-        padding: 5px 0;
+        padding: 4px 0;
+        border-radius: 4px;
+        margin-bottom: 2px;
+        width: 100% !important;
+        box-sizing: border-box;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .calendar-header-sun {
         background-color: #FEE2E2;
         color: #DC2626;
-        border-radius: 4px;
-        margin-bottom: 4px;
     }
     
     .calendar-header-sat {
-        text-align: center;
-        font-size: clamp(11px, 1.2vw, 14px);
-        font-weight: bold;
-        padding: 5px 0;
         background-color: #DBEAFE;
         color: #2563EB;
-        border-radius: 4px;
-        margin-bottom: 4px;
     }
 
     .calendar-header-weekday {
-        text-align: center;
-        font-size: clamp(11px, 1.2vw, 14px);
-        font-weight: bold;
-        padding: 5px 0;
         background-color: #F1F5F9;
         color: #1E293B;
-        border-radius: 4px;
-        margin-bottom: 4px;
     }
 
     /* 달력 셀 버튼 스타일 */
+    .stButton {
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
     .stButton > button {
         width: 100% !important;
-        min-height: 85px !important;
-        padding: 4px 3px !important;
+        min-height: 75px !important;
+        padding: 2px 1px !important;
         border: 1px solid #CBD5E1 !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
-        font-size: clamp(9px, 1.0vw, 12px) !important;
-        line-height: 1.35 !important;
+        font-size: clamp(8px, 0.9vw, 11px) !important;
+        line-height: 1.25 !important;
         text-align: left !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
 
         /* 줄바꿈 강제 규칙 */
         white-space: pre-wrap !important;
@@ -119,7 +122,6 @@ responsive_css = """
         align-items: flex-start !important;
     }
 
-    /* 버튼 내부 텍스트에도 동일한 줄바꿈 설정 */
     .stButton > button * {
         white-space: pre-wrap !important;
         white-space: break-spaces !important;
@@ -136,18 +138,22 @@ responsive_css = """
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 12px 16px;
-        border-radius: 10px;
-        margin-bottom: 12px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 10px;
     }
 
-    /* 모바일 화면 가로 비율 및 글자 크기 미세 조정 */
+    /* 모바일 화면 전용 미세 조정 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 70px !important;
+            min-height: 65px !important;
             padding: 2px 1px !important;
-            font-size: 8.5px !important;
-            line-height: 1.25 !important;
+            font-size: 8px !important;
+            line-height: 1.2 !important;
+        }
+        .cal-header {
+            font-size: 10px !important;
+            padding: 3px 0 !important;
         }
     }
 </style>
@@ -581,10 +587,10 @@ with tab1:
             f"""
         <div class="today-card">
             <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:18px; font-weight:bold;">
+            <div style="font-size:16px; font-weight:bold;">
                 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span style="color:#FDE047;">{p2}</span>
-                <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:12px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -634,21 +640,21 @@ with tab1:
             }
 
         headers = [
-            ("일", "calendar-header-sun", "🔴"),
-            ("월", "calendar-header-weekday", "⚪"),
-            ("화", "calendar-header-weekday", "⚪"),
-            ("수", "calendar-header-weekday", "⚪"),
-            ("목", "calendar-header-weekday", "⚪"),
-            ("금", "calendar-header-weekday", "⚪"),
-            ("토", "calendar-header-sat", "🔵"),
+            ("일", "calendar-header-sun"),
+            ("월", "calendar-header-weekday"),
+            ("화", "calendar-header-weekday"),
+            ("수", "calendar-header-weekday"),
+            ("목", "calendar-header-weekday"),
+            ("금", "calendar-header-weekday"),
+            ("토", "calendar-header-sat"),
         ]
 
-        # 요일 헤더 반응형 7열 배치 (비율 조절)
+        # 요일 헤더 반응형 7열 배치
         header_cols = st.columns(7)
-        for i, (h_name, h_class, h_icon) in enumerate(headers):
+        for i, (h_name, h_class) in enumerate(headers):
             with header_cols[i]:
                 st.markdown(
-                    f"<div class='{h_class}'>{h_icon} {h_name}</div>",
+                    f"<div class='cal-header {h_class}'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 
@@ -666,11 +672,10 @@ with tab1:
 
                         lines = []
                         if is_today:
-                            lines.append(f"[{day}일] (오늘)")
+                            lines.append(f"[{day}일](오늘)")
                         else:
                             lines.append(f"[{day}일]")
 
-                        # 숫자 '1: ', '2: ' 표기 제거 -> 이름만 출력
                         if duty_info:
                             p1_txt = duty_info["p1_real"] + (
                                 "(대)" if duty_info["sub1"] else ""

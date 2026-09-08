@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (7등분 격자 + 완전 가로 쓰기 및 동기화)
+# CSS 스타일링 (첨부 이미지 스타일 반영 + 완전 가로 쓰기)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -53,9 +53,9 @@ responsive_css = """
     [data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 4px !important;
+        gap: 2px !important;
         width: 100% !important;
-        margin: 0 0 4px 0 !important;
+        margin: 0 0 2px 0 !important;
     }
 
     [data-testid="column"] {
@@ -67,13 +67,13 @@ responsive_css = """
         margin: 0px !important;
     }
 
-    /* 3. 요일 헤더 박스 (달력 셀과 가로폭 perfect fit) */
+    /* 3. 요일 헤더 박스 */
     .cal-header {
         text-align: center;
-        font-size: clamp(11px, 1vw, 15px);
+        font-size: clamp(12px, 1.1vw, 16px);
         font-weight: bold;
         padding: 8px 0;
-        border-radius: 4px;
+        border-radius: 2px;
         width: 100% !important;
         box-sizing: border-box;
         white-space: nowrap !important;
@@ -84,11 +84,11 @@ responsive_css = """
         justify-content: center;
     }
 
-    .calendar-header-sun { background-color: #FEE2E2; color: #DC2626; }
-    .calendar-header-sat { background-color: #DBEAFE; color: #2563EB; }
-    .calendar-header-weekday { background-color: #F1F5F9; color: #1E293B; }
+    .calendar-header-sun { background-color: #991B1B; color: #FFFFFF; }
+    .calendar-header-sat { background-color: #1E3A8A; color: #FFFFFF; }
+    .calendar-header-weekday { background-color: #64748B; color: #FFFFFF; }
 
-    /* 4. 달력 버튼 셀 및 텍스트 줄바꿈 절대 방지 설정 */
+    /* 4. 달력 버튼 셀 및 텍스트 줄바꿈 방지 설정 */
     .stButton {
         width: 100% !important;
         height: 100% !important;
@@ -99,20 +99,15 @@ responsive_css = """
     .stButton > button {
         width: 100% !important;
         height: 100% !important;
-        min-height: clamp(85px, 12vh, 150px) !important;
-        padding: 4px 2px !important;
+        min-height: clamp(90px, 13vh, 160px) !important;
+        padding: 4px 4px !important;
         border: 1px solid #CBD5E1 !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         background-color: #FFFFFF !important;
-        color: #1E293B !important;
-
-        /* 반응형 폰트 및 텍스트 한 줄 강제 유지 설정 */
-        font-size: clamp(10px, 0.85vw, 13px) !important;
-        line-height: 1.4 !important;
-        text-align: center !important;
+        color: #0F172A !important;
         box-sizing: border-box !important;
 
-        /* 가로 쓰기 및 줄바꿈 금지 */
+        /* 가로 쓰기 및 한 줄 처리 */
         writing-mode: horizontal-tb !important;
         white-space: nowrap !important;
         word-break: keep-all !important;
@@ -122,14 +117,13 @@ responsive_css = """
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
-        align-items: center !important;
+        align-items: flex-start !important;
     }
 
     .stButton > button * {
         writing-mode: horizontal-tb !important;
         white-space: nowrap !important;
         word-break: keep-all !important;
-        text-align: center !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
@@ -139,7 +133,53 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
+    /* 달력 내부 커스텀 레이아웃 HTML 스타일 */
+    .cal-cell-box {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        text-align: left;
+    }
+    .cal-day-num {
+        font-size: clamp(12px, 1.1vw, 16px);
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .cal-worker-name {
+        font-size: clamp(13px, 1.2vw, 18px);
+        font-weight: 900;
+        color: #000000;
+        line-height: 1.2;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+    }
+    .cal-sub-worker {
+        font-size: clamp(10px, 0.85vw, 12px);
+        color: #475569;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+    }
+    .cal-memo-tag {
+        font-size: clamp(10px, 0.8vw, 11px);
+        color: #D97706;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+    }
+
     /* 5. 다이얼로그(팝업) 세로 쓰기 방지 및 가로 정렬 강제 */
+    [data-testid="stDialog"] *, 
     [data-testid="stDialog"] input, 
     [data-testid="stDialog"] textarea, 
     [data-testid="stDialog"] div {
@@ -168,12 +208,11 @@ responsive_css = """
     /* 모바일 반응형 조절 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 70px !important;
-            padding: 2px 1px !important;
-            font-size: 9px !important;
+            min-height: 75px !important;
+            padding: 2px !important;
         }
         .cal-header {
-            font-size: 10px !important;
+            font-size: 11px !important;
             padding: 4px 0 !important;
         }
     }
@@ -445,8 +484,8 @@ if "df" not in st.session_state:
         sample_df = pd.DataFrame({
             "날짜": dates,
             "근무구분_원본": ["평일", "금요일", "토요일", "일요일", "평일"] * 12,
-            "근무자1": ["서진호", "김철수", "이영희", "박민수", "정수진"] * 12,
-            "근무자2": ["김철수", "이영희", "박민수", "정수진", "서진호"] * 12,
+            "근무자1": ["우정수", "오기희", "이승헌", "유진수", "이원철"] * 12,
+            "근무자2": ["정찬웅", "서진호", "장민우", "우정수", "오기희"] * 12,
             "대직1": [None] * 60,
             "대직2": [None] * 60,
         })
@@ -462,10 +501,11 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 수정 다이얼로그 모달 (이름 정상 바인딩 및 가로 정렬 처리)
+# 근무자 수정 및 메모 작성 다이얼로그 (모달)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
+    # 모바일 뒤로가기 / 이전 버튼 대응 스크립트
     st.components.v1.html(
         """
         <script>
@@ -483,15 +523,14 @@ def edit_worker_dialog(date_str, duty_info):
 
     st.write(f"📅 **{date_str} 근무 정보 수정**")
 
-    # Session State에서 최신 Row 정보를 끌어와 바인딩 보장
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
-    
+
     val_p1 = str(curr_row.get("근무자1", "")) if pd.notnull(curr_row.get("근무자1")) else ""
     val_p2 = str(curr_row.get("근무자2", "")) if pd.notnull(curr_row.get("근무자2")) else ""
     val_sub1 = str(curr_row.get("대직1", "")) if pd.notnull(curr_row.get("대직1")) else ""
     val_sub2 = str(curr_row.get("대직2", "")) if pd.notnull(curr_row.get("대직2")) else ""
-    
+
     if val_p1 == "nan": val_p1 = ""
     if val_p2 == "nan": val_p2 = ""
     if val_sub1 == "nan": val_sub1 = ""
@@ -502,15 +541,15 @@ def edit_worker_dialog(date_str, duty_info):
     with st.form(key=f"dialog_form_{date_str}"):
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            edit_p1 = st.text_input("근무자1", value=val_p1)
-            edit_sub1 = st.text_input("대직자1", value=val_sub1)
+            edit_p1 = st.text_input("근무자1 이름", value=val_p1)
+            edit_sub1 = st.text_input("대직자1 이름 (선택)", value=val_sub1)
         with col_f2:
-            edit_p2 = st.text_input("근무자2", value=val_p2)
-            edit_sub2 = st.text_input("대직자2", value=val_sub2)
+            edit_p2 = st.text_input("근무자2 이름", value=val_p2)
+            edit_sub2 = st.text_input("대직자2 이름 (선택)", value=val_sub2)
 
         st.divider()
         edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력 셀에 반영)",
+            "📌 날짜별 메모 (달력 셀 반영)",
             value=current_memo,
             height=80,
         )
@@ -546,13 +585,13 @@ def edit_worker_dialog(date_str, duty_info):
 
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바 (요청 1: 시트선택 부분 제거)
 # ---------------------------------------------------------
 with st.sidebar:
-    st.header("📂 파일 및 시트 설정")
+    st.header("📂 근무표 파일 관리")
 
     if "file_name" in st.session_state:
-        st.info(f"📄 로드된 파일: `{st.session_state.file_name}`")
+        st.info(f"📄 현재 파일: `{st.session_state.file_name}`")
 
     uploaded_file = st.file_uploader("새 엑셀 파일 업로드", type=["xlsx"])
 
@@ -574,31 +613,14 @@ with st.sidebar:
             os.remove(PERSISTENCE_STATE_PATH)
         save_app_state(parsed_df, used_sheet, {})
 
-        st.success(f"✅ '{used_sheet}' 시트를 불러왔습니다.")
+        st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
         st.rerun()
-
-    if "sheet_names" in st.session_state and st.session_state.sheet_names:
-        sheets = st.session_state.sheet_names
-        curr_sheet = st.session_state.selected_sheet
-        curr_idx = sheets.index(curr_sheet) if curr_sheet in sheets else 0
-
-        selected_s = st.selectbox("📌 시트 선택", sheets, index=curr_idx)
-        if selected_s != st.session_state.selected_sheet:
-            st.session_state.selected_sheet = selected_s
-            if "file_bytes" in st.session_state:
-                parsed_df, used_sheet, _, raw_df, _ = load_excel_smart(
-                    st.session_state.file_bytes, selected_s
-                )
-                st.session_state.df = parsed_df
-                st.session_state.raw_df = raw_df
-                save_app_state(parsed_df, used_sheet, st.session_state.memos)
-                st.rerun()
 
 df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 탭 구성 (요청된 순서로 지정)
+# 메인 화면 - 탭 구성
 # ---------------------------------------------------------
 st.title("📋 숙직 근무 관리 대시보드")
 
@@ -610,7 +632,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (요청 2: 달력 글씨 잘 보이도록 스타일 개선)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -635,17 +657,15 @@ with tab1:
             f"""
         <div class="today-card">
             <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:15px; font-weight:bold;">
+            <div style="font-size:16px; font-weight:bold;">
                 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span style="color:#FDE047;">{p2}</span>
-                <span style="font-size:12px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
             unsafe_allow_html=True,
         )
-    else:
-        st.info(f"💡 오늘({today_str}) 지정된 숙직 근무 정보가 없습니다.")
 
     available_months = sorted(df["년월"].dropna().unique())
     current_ym = today.strftime("%Y-%m")
@@ -655,12 +675,14 @@ with tab1:
         else 0
     )
 
-    selected_month = st.selectbox(
-        "📅 조회 월 선택",
-        available_months,
-        index=default_idx,
-        key="calendar_month_select",
-    )
+    col_m1, col_m2 = st.columns([1, 3])
+    with col_m1:
+        selected_month = st.selectbox(
+            "📅 조회 월 선택",
+            available_months,
+            index=default_idx,
+            key="calendar_month_select",
+        )
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -716,38 +738,39 @@ with tab1:
                         date_str = curr_date.strftime("%Y-%m-%d")
                         duty_info = duty_map.get(day)
 
-                        is_today = curr_date == today
-
+                        # 날짜 색상 설정
                         if i == 0 or curr_date in kr_holidays:
-                            date_prefix = f"🔴 {day}일"
+                            color_style = "color: #DC2626;"
                         elif i == 6:
-                            date_prefix = f"🔵 {day}일"
+                            color_style = "color: #2563EB;"
                         else:
-                            date_prefix = f"{day}일"
+                            color_style = "color: #1E293B;"
 
-                        lines = []
-                        if is_today:
-                            lines.append(f"{date_prefix}(오늘)")
-                        else:
-                            lines.append(date_prefix)
+                        # 텍스트 형태 레이아웃 조합
+                        p1_txt = duty_info["p1_real"] if duty_info else ""
+                        p2_txt = duty_info["p2_real"] if duty_info else ""
 
+                        sub_info = ""
                         if duty_info:
-                            p1_txt = duty_info["p1_real"] + (
-                                "(대)" if duty_info["sub1"] else ""
-                            )
-                            p2_txt = duty_info["p2_real"] + (
-                                "(대)" if duty_info["sub2"] else ""
-                            )
-                            lines.append(p1_txt)
-                            lines.append(p2_txt)
+                            if duty_info["sub1"]:
+                                sub_info += f"대:{duty_info['sub1']} "
+                            if duty_info["sub2"]:
+                                sub_info += f"대:{duty_info['sub2']}"
 
                         day_memo = st.session_state.memos.get(date_str, "")
+
+                        # 버튼 레이아웃용 텍스트 생성
+                        btn_label = f"{day}일\n"
+                        if p1_txt and p1_txt != "미지정":
+                            btn_label += f"{p1_txt}\n"
+                        if p2_txt and p2_txt != "미지정":
+                            btn_label += f"{p2_txt}\n"
+                        if sub_info:
+                            btn_label += f"({sub_info.strip()})\n"
                         if day_memo:
-                            lines.append(f"📌 {day_memo}")
+                            btn_label += f"📌{day_memo}"
 
-                        card_label = "\n".join(lines)
-
-                        if st.button(card_label, key=f"btn_card_{date_str}"):
+                        if st.button(btn_label, key=f"btn_card_{date_str}"):
                             if duty_info:
                                 edit_worker_dialog(date_str, duty_info)
 
@@ -757,9 +780,12 @@ with tab1:
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
     st.caption("아래 표에서 근무자, 대직자 및 근무 구분을 직접 수정할 수 있습니다.")
-    
+
     edited_df = st.data_editor(
-        st.session_state.df, num_rows="dynamic", key="data_editor", use_container_width=True
+        st.session_state.df,
+        num_rows="dynamic",
+        key="data_editor",
+        use_container_width=True,
     )
 
     if st.button("💾 변경사항 적용 및 영구 저장"):
@@ -800,7 +826,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: 숙직근무자 월별 근무 통계
+# TAB 3: 숙직근무자 월별 근무 통계 (요청 4: 메뉴 가로 배치 & 대시보드 비율 맞춤)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -817,10 +843,11 @@ with tab3:
         else 0
     )
 
-    col_s1, _ = st.columns([1, 2])
-    with col_s1:
+    # 상단 메뉴 가로 정렬 배치
+    stat_col1, stat_col2 = st.columns([1, 2])
+    with stat_col1:
         selected_stat_month = st.selectbox(
-            "📅 통계 조회 월 선택",
+            "📅 통계조회 월선택",
             available_stat_months,
             index=default_stat_idx,
             key="stat_month_select",
@@ -892,14 +919,11 @@ with tab3:
             by="총 근무시간(h)", ascending=False
         )
 
+        # 화면 비율에 맞춘 3개 지표 메트릭 카드
         m1, m2, m3 = st.columns(3)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
-        m2.metric(
-            "총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건"
-        )
-        m3.metric(
-            "총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간"
-        )
+        m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
+        m3.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")
 
         st.markdown("---")
         st.dataframe(stats_df, use_container_width=True)
@@ -910,7 +934,5 @@ with tab3:
 # TAB 4: 시트 데이터 점검
 # ---------------------------------------------------------
 with tab4:
-    st.subheader(
-        f"🔍 [{st.session_state.selected_sheet}] 시트 데이터 원본 확인"
-    )
+    st.subheader(f"🔍 시트 데이터 원본 확인")
     st.dataframe(df, use_container_width=True)

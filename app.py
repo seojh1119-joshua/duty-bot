@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (달력 버튼 크기 및 글씨 가독성 강화)
+# CSS 스타일링 (세로형 달력 & 선택 박스 디자닝)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -46,97 +46,53 @@ responsive_css = """
         padding: 0.5rem 1rem !important;
         max-width: 100% !important;
         width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
     }
 
-    [data-testid="stHorizontalBlock"] {
-        display: grid !important;
-        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 4px !important;
-        width: 100% !important;
-        margin: 0 0 4px 0 !important;
+    /* 조회월 선택 박스 스타일 */
+    .month-select-box {
+        background-color: #F8FAFC;
+        border: 1.5px solid #E2E8F0;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
     }
 
-    [data-testid="column"] {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        flex: 1 1 0 !important;
-        padding: 0px !important;
-        margin: 0px !important;
-    }
-
-    .cal-header {
-        text-align: center;
-        font-size: clamp(14px, 1.3vw, 18px);
-        font-weight: bold;
-        padding: 10px 0;
-        border-radius: 6px;
-        width: 100% !important;
+    /* 오늘의 근무자 카드 */
+    .today-card {
+        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+        color: white;
+        padding: 14px 20px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        width: 100%;
         box-sizing: border-box;
-        white-space: nowrap !important;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        writing-mode: horizontal-tb !important;
     }
 
-    .calendar-header-sun { background-color: #991B1B; color: #FFFFFF; }
-    .calendar-header-sat { background-color: #1E3A8A; color: #FFFFFF; }
-    .calendar-header-weekday { background-color: #475569; color: #FFFFFF; }
-
-    .stButton {
-        width: 100% !important;
-        height: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* 달력 버튼 스타일 확장 */
+    /* 세로형 달력 리스트 버튼 스타일 */
     .stButton > button {
         width: 100% !important;
-        height: 100% !important;
-        min-height: clamp(110px, 15vh, 200px) !important; /* 버튼 높이 대폭 확대 */
-        padding: 8px 6px !important;
-        border: 1.5px solid #CBD5E1 !important;
+        min-height: 55px !important;
+        padding: 10px 16px !important;
+        border: 1px solid #E2E8F0 !important;
         border-radius: 8px !important;
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         box-sizing: border-box !important;
-        writing-mode: horizontal-tb !important;
-        white-space: pre-wrap !important; /* 줄바꿈 자연스럽게 반영 */
-        word-break: break-word !important;
-        overflow: hidden !important;
+        text-align: left !important;
         display: flex !important;
-        flex-direction: column !important;
         justify-content: flex-start !important;
-        align-items: flex-start !important;
-        font-size: clamp(13px, 1.1vw, 17px) !important; /* 글씨 크기 확대 */
-        font-weight: 600 !important;
-        line-height: 1.4 !important; /* 줄간격 확대 */
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-
-    .stButton > button * {
-        writing-mode: horizontal-tb !important;
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
+        align-items: center !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        margin-bottom: 6px !important;
+        transition: all 0.2s ease !important;
     }
 
     .stButton > button:hover {
         border-color: #2563EB !important;
-        background-color: #EFF6FF !important;
-        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15) !important;
-    }
-
-    [data-testid="stDialog"] *, 
-    [data-testid="stDialog"] input, 
-    [data-testid="stDialog"] textarea, 
-    [data-testid="stDialog"] div {
-        writing-mode: horizontal-tb !important;
+        background-color: #F0F6FF !important;
+        box-shadow: 0 2px 5px rgba(37, 99, 235, 0.1) !important;
     }
 
     [data-testid="stDialog"] > div:first-child {
@@ -146,28 +102,6 @@ responsive_css = """
         border-radius: 12px !important;
         padding: 1.2rem !important;
         overflow-y: auto !important;
-    }
-
-    .today-card {
-        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
-        color: white;
-        padding: 12px 18px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    @media (max-width: 600px) {
-        .stButton > button {
-            min-height: 85px !important;
-            padding: 4px 3px !important;
-            font-size: 12px !important;
-        }
-        .cal-header {
-            font-size: 12px !important;
-            padding: 6px 0 !important;
-        }
     }
 </style>
 """
@@ -188,7 +122,6 @@ def get_initial_excel_file():
 
 
 def save_to_excel_file(df, file_path):
-    """실제 .xlsx 파일로 데이터 프레임을 저장하는 함수"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
@@ -207,7 +140,6 @@ def save_to_excel_file(df, file_path):
 
 
 def save_app_state(df, sheet_name, memos):
-    """JSON 및 엑셀 파일 동시에 영구 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
@@ -624,14 +556,14 @@ today = datetime.date.today()
 st.title("📋 숙직 근무 관리 대시보드")
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📅 달력 메인 화면",
+    "📅 달력 메인 화면 (세로형)",
     "✏️ 근무표 전체 수정",
     "📊 숙직근무자 월별 근무 통계",
     "🔍 시트 데이터 점검",
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면
+# TAB 1: 달력 메인 화면 (세로 방향 리스트 레이아웃)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -674,19 +606,22 @@ with tab1:
         else 0
     )
 
-    col_m1, col_m2 = st.columns([1, 3])
-    with col_m1:
-        selected_month = st.selectbox(
-            "📅 조회 월 선택",
-            available_months,
-            index=default_idx,
-            key="calendar_month_select",
-        )
+    # Box 형태로 포장된 조회 월 선택 영역
+    with st.container():
+        st.markdown('<div class="month-select-box">', unsafe_allow_html=True)
+        col_m1, col_m2 = st.columns([1, 2])
+        with col_m1:
+            selected_month = st.selectbox(
+                "📅 조회 월 선택",
+                available_months,
+                index=default_idx,
+                key="calendar_month_select",
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
-        cal = calendar.Calendar(firstweekday=6)
-        month_days = cal.monthdayscalendar(year, month)
+        num_days = calendar.monthrange(year, month)[1]
         month_df = df[df["년월"] == selected_month].copy()
 
         duty_map = {}
@@ -708,58 +643,45 @@ with tab1:
                 "p2_real": str(row["실제근무2"]),
             }
 
-        headers = [
-            ("일", "calendar-header-sun"),
-            ("월", "calendar-header-weekday"),
-            ("화", "calendar-header-weekday"),
-            ("수", "calendar-header-weekday"),
-            ("목", "calendar-header-weekday"),
-            ("금", "calendar-header-weekday"),
-            ("토", "calendar-header-sat"),
-        ]
+        weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
 
-        header_cols = st.columns(7)
-        for i, (h_name, h_class) in enumerate(headers):
-            with header_cols[i]:
-                st.markdown(
-                    f"<div class='cal-header {h_class}'>{h_name}</div>",
-                    unsafe_allow_html=True,
-                )
+        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
 
-        for week in month_days:
-            week_cols = st.columns(7)
-            for i, day in enumerate(week):
-                with week_cols[i]:
-                    if day != 0:
-                        curr_date = datetime.date(year, month, day)
-                        date_str = curr_date.strftime("%Y-%m-%d")
-                        duty_info = duty_map.get(day)
+        # 1일부터 말일까지 세로 방향 리스트 출력
+        for day in range(1, num_days + 1):
+            curr_date = datetime.date(year, month, day)
+            date_str = curr_date.strftime("%Y-%m-%d")
+            weekday_idx = curr_date.weekday()  # 0:월, ..., 5:토, 6:일
+            weekday_str = weekdays_kr[weekday_idx]
+            duty_info = duty_map.get(day)
 
-                        p1_txt = duty_info["p1_real"] if duty_info else ""
-                        p2_txt = duty_info["p2_real"] if duty_info else ""
+            # 요일별 색상 구분 표시
+            if weekday_idx == 6 or curr_date in kr_holidays:
+                day_title = f"🔴 {day:02d}일 ({weekday_str})"
+            elif weekday_idx == 5:
+                day_title = f"🔵 {day:02d}일 ({weekday_str})"
+            else:
+                day_title = f"🗓️ {day:02d}일 ({weekday_str})"
 
-                        sub_info = ""
-                        if duty_info:
-                            if duty_info["sub1"]:
-                                sub_info += f"대:{duty_info['sub1']} "
-                            if duty_info["sub2"]:
-                                sub_info += f"대:{duty_info['sub2']}"
+            p1_txt = duty_info["p1_real"] if duty_info else "미지정"
+            p2_txt = duty_info["p2_real"] if duty_info else "미지정"
 
-                        day_memo = st.session_state.memos.get(date_str, "")
+            sub_info = ""
+            if duty_info:
+                if duty_info["sub1"]:
+                    sub_info += f" (대직1: {duty_info['sub1']})"
+                if duty_info["sub2"]:
+                    sub_info += f" (대직2: {duty_info['sub2']})"
 
-                        btn_label = f"{day}일\n"
-                        if p1_txt and p1_txt != "미지정":
-                            btn_label += f"{p1_txt}\n"
-                        if p2_txt and p2_txt != "미지정":
-                            btn_label += f"{p2_txt}\n"
-                        if sub_info:
-                            btn_label += f"({sub_info.strip()})\n"
-                        if day_memo:
-                            btn_label += f"📌{day_memo}"
+            day_memo = st.session_state.memos.get(date_str, "")
+            memo_display = f" | 📌 메모: {day_memo}" if day_memo else ""
 
-                        if st.button(btn_label, key=f"btn_card_{date_str}"):
-                            if duty_info:
-                                edit_worker_dialog(date_str, duty_info)
+            # 세로 한 줄 형태의 라벨 구성
+            btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{sub_info}{memo_display}"
+
+            if st.button(btn_label, key=f"btn_v_card_{date_str}"):
+                if duty_info:
+                    edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
 # TAB 2: 근무표 전체 수정

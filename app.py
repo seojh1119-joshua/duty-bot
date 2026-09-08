@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (전체 화면 맞춤 & 비례 스케일링)
+# CSS 스타일링 (전체 화면 맞춤 & 요일/셀 비율 고정 & 팝업 반응형)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -50,7 +50,7 @@ responsive_css = """
         flex-direction: column !important;
     }
 
-    /* 탭 헤더 및 콘텐츠 영역 수직 자동 확장 */
+    /* 탭 영역 수직 자동 확장 */
     [data-testid="stTabs"] {
         display: flex !important;
         flex-direction: column !important;
@@ -67,21 +67,20 @@ responsive_css = """
         overflow: auto !important;
     }
 
-    /* 2. 7열 가로 가로축 균등 분할 */
+    /* 2. 요일 및 달력 7열 정렬 (Grid 1fr 방식 적용하여 너비 어긋남 방지) */
     [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 3px !important;
+        display: grid !important;
+        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+        gap: 4px !important;
         width: 100% !important;
-        margin: 0 !important;
+        margin: 0 0 4px 0 !important;
     }
 
     [data-testid="column"] {
-        width: calc(100% / 7) !important;
-        min-width: calc(100% / 7) !important;
-        max-width: calc(100% / 7) !important;
-        flex: 1 1 0% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        flex: none !important;
         padding: 0px !important;
         margin: 0px !important;
     }
@@ -93,11 +92,13 @@ responsive_css = """
         font-weight: bold;
         padding: 6px 0;
         border-radius: 4px;
-        margin-bottom: 2px;
         width: 100% !important;
         box-sizing: border-box;
         white-space: nowrap;
         overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .calendar-header-sun {
@@ -126,7 +127,7 @@ responsive_css = """
     .stButton > button {
         width: 100% !important;
         height: 100% !important;
-        min-height: clamp(60px, 10vh, 120px) !important;
+        min-height: clamp(60px, 9.5vh, 120px) !important;
         padding: 4px 5px !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 4px !important;
@@ -161,7 +162,17 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 카드 반응형 레아아웃 */
+    /* 5. 수정 다이얼로그(팝업) 반응형 자동 조절 및 중앙 배치 */
+    [data-testid="stDialog"] > div:first-child {
+        width: clamp(320px, 85vw, 600px) !important;
+        max-width: 90vw !important;
+        max-height: 85vh !important;
+        border-radius: 12px !important;
+        padding: 1.2rem !important;
+        overflow-y: auto !important;
+    }
+
+    /* 오늘 근무자 카드 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
@@ -171,17 +182,17 @@ responsive_css = """
         flex-shrink: 0;
     }
 
-    /* 모바일 기기 미세 조절 */
+    /* 모바일 기기 반응형 미세 조절 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 52px !important;
+            min-height: 50px !important;
             padding: 2px 2px !important;
             font-size: 8px !important;
             line-height: 1.15 !important;
         }
         .cal-header {
             font-size: 10px !important;
-            padding: 3px 0 !important;
+            padding: 4px 0 !important;
         }
     }
 </style>
@@ -469,10 +480,29 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 수정 다이얼로그 모달
+# 수정 다이얼로그 모달 (반응형 비율 조절 & 뒤로 가기 감지)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
+    # 뒤로 가기(popstate) 이벤트 감지를 위한 스크립트
+    st.components.v1.html(
+        """
+        <script>
+            if (window.location.hash !== "#edit-dialog") {
+                window.history.pushState({dialogOpen: true}, "", "#edit-dialog");
+            }
+
+            window.addEventListener("popstate", function(event) {
+                const closeBtn = window.parent.document.querySelector('[data-testid="stDialog"] button[aria-label="Close"]');
+                if (closeBtn) {
+                    closeBtn.click();
+                }
+            }, { once: true });
+        </script>
+        """,
+        height=0,
+    )
+
     st.write(f"📅 **{date_str} 정보 수정**")
 
     current_memo = st.session_state.memos.get(date_str, "")
@@ -490,7 +520,7 @@ def edit_worker_dialog(date_str, duty_info):
         edit_memo = st.text_area(
             "📌 날짜별 메모 (달력 셀에 즉시 반영)",
             value=current_memo,
-            height=80,
+            height=90,
         )
 
         submitted = st.form_submit_button("💾 저장하기", use_container_width=True)
@@ -677,7 +707,7 @@ with tab1:
             ("토", "calendar-header-sat"),
         ]
 
-        # 요일 헤더 반응형 7열 배치
+        # 요일 헤더 7열 Grid 정렬
         header_cols = st.columns(7)
         for i, (h_name, h_class) in enumerate(headers):
             with header_cols[i]:
@@ -686,7 +716,7 @@ with tab1:
                     unsafe_allow_html=True,
                 )
 
-        # 주차별 7열 셀 배치
+        # 주차별 7열 셀 Grid 정렬
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -698,7 +728,6 @@ with tab1:
 
                         is_today = curr_date == today
 
-                        # 요일별 폰트/날짜 색상 구분 (0:일, 6:토, 그 외:평일)
                         if i == 0 or curr_date in kr_holidays:
                             date_prefix = f"🔴 [{day}일]"
                         elif i == 6:

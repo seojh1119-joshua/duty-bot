@@ -31,8 +31,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# 세션 상태 초기화 (종료 여부 플래그)
+if "is_app_closed" not in st.session_state:
+    st.session_state.is_app_closed = False
+
+# 앱이 종료된 경우 화면 표시
+if st.session_state.is_app_closed:
+    st.title("👋 시스템이 종료되었습니다.")
+    st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
+    st.stop()
+
 # ---------------------------------------------------------
-# CSS 스타일링 (세로형 달력 & 선택 박스 디자닝)
+# CSS 스타일링
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -422,25 +432,28 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그
+# 상위 메뉴용 종료 확인 다이얼로그 (팝업)
+# ---------------------------------------------------------
+@st.dialog("⚠️ 프로그램 종료 확인")
+def confirm_exit_dialog():
+    st.write("정말로 숙직 근무 관리 시스템을 종료하시겠습니까?")
+    st.write("종료 시 실행 중인 세션이 정지됩니다.")
+    
+    col_e1, col_e2 = st.columns(2)
+    with col_e1:
+        if st.button("❌ 취소", use_container_width=True):
+            st.rerun()
+    with col_e2:
+        if st.button("🔴 예 (종료)", use_container_width=True, type="primary"):
+            st.session_state.is_app_closed = True
+            st.rerun()
+
+
+# ---------------------------------------------------------
+# 하위 레이어: 근무자 수정 다이얼로그 (종료 클릭 시 상위메뉴로 이동)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
-    st.components.v1.html(
-        """
-        <script>
-            if (window.location.hash !== "#edit-dialog") {
-                window.history.pushState({dialogOpen: true}, "", "#edit-dialog");
-            }
-            window.addEventListener("popstate", function(event) {
-                const closeBtn = window.parent.document.querySelector('[data-testid="stDialog"] button[aria-label="Close"]');
-                if (closeBtn) closeBtn.click();
-            }, { once: true });
-        </script>
-        """,
-        height=0,
-    )
-
     st.write(f"📅 **{date_str} 근무 정보 수정**")
 
     row_idx = duty_info["idx"]
@@ -485,7 +498,12 @@ def edit_worker_dialog(date_str, duty_info):
         st.divider()
         edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=80)
 
-        submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
+        c_sub1, c_sub2 = st.columns([2, 1])
+        with c_sub1:
+            submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
+        with c_sub2:
+            # 하위 다이얼로그의 종료 버튼: 상위 메뉴(메인 화면)로 복귀
+            close_dialog = st.form_submit_button("🚪 창 닫기 (상위 메뉴로)", use_container_width=True)
 
         if submitted:
             final_p1 = p1_custom.strip() if p1_sel == "(직접 입력)" else ("" if p1_sel == "(선택 안함)" else p1_sel)
@@ -511,9 +529,12 @@ def edit_worker_dialog(date_str, duty_info):
             st.success("✅ 변경사항이 엑셀 파일 및 달력에 성공적으로 저장되었습니다.")
             st.rerun()
 
+        if close_dialog:
+            st.rerun()
+
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바 (상위 메뉴 - 시스템 종료 버튼 위치)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
@@ -546,6 +567,12 @@ with st.sidebar:
 
         st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
         st.rerun()
+
+    st.divider()
+    # 최상위 메뉴 영역의 시스템 종료 버튼
+    if st.button("🔴 시스템 종료", use_container_width=True):
+        confirm_exit_dialog()
+
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -651,7 +678,7 @@ with tab1:
         for day in range(1, num_days + 1):
             curr_date = datetime.date(year, month, day)
             date_str = curr_date.strftime("%Y-%m-%d")
-            weekday_idx = curr_date.weekday()  # 0:월, ..., 5:토, 6:일
+            weekday_idx = curr_date.weekday()
             weekday_str = weekdays_kr[weekday_idx]
             duty_info = duty_map.get(day)
 
@@ -676,7 +703,6 @@ with tab1:
             day_memo = st.session_state.memos.get(date_str, "")
             memo_display = f" | 📌 메모: {day_memo}" if day_memo else ""
 
-            # 세로 한 줄 형태의 라벨 구성
             btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{sub_info}{memo_display}"
 
             if st.button(btn_label, key=f"btn_v_card_{date_str}"):

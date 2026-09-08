@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (줄바꿈 강제 및 모바일 가로 7열 완전 고정)
+# CSS 스타일링 (반응형 비율 조절, 줄바꿈, 요일별 색상 반영)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -44,7 +44,7 @@ responsive_css = """
         padding-right: 0.2rem;
     }
 
-    /* Streamlit 컬럼이 모바일에서 세로로 떨어지는 현상 방지 (가로 7열 강제 유지) */
+    /* Streamlit 컬럼 모바일 세로 스택 방지 (가로 7열 비율 완전 유지) */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -59,18 +59,41 @@ responsive_css = """
         padding: 0px !important;
     }
 
-    /* 7열 달력 헤더 */
-    .calendar-header {
+    /* 7열 반응형 요일 헤더 */
+    .calendar-header-sun {
         text-align: center;
-        font-size: clamp(10px, 1.2vw, 13px);
+        font-size: clamp(11px, 1.2vw, 14px);
         font-weight: bold;
-        padding: 4px 0;
-        background-color: #F1F5F9;
+        padding: 5px 0;
+        background-color: #FEE2E2;
+        color: #DC2626;
+        border-radius: 4px;
+        margin-bottom: 4px;
+    }
+    
+    .calendar-header-sat {
+        text-align: center;
+        font-size: clamp(11px, 1.2vw, 14px);
+        font-weight: bold;
+        padding: 5px 0;
+        background-color: #DBEAFE;
+        color: #2563EB;
         border-radius: 4px;
         margin-bottom: 4px;
     }
 
-    /* 달력 셀 버튼 - 줄바꿈 및 반응형 높이 설정 */
+    .calendar-header-weekday {
+        text-align: center;
+        font-size: clamp(11px, 1.2vw, 14px);
+        font-weight: bold;
+        padding: 5px 0;
+        background-color: #F1F5F9;
+        color: #1E293B;
+        border-radius: 4px;
+        margin-bottom: 4px;
+    }
+
+    /* 달력 셀 버튼 스타일 */
     .stButton > button {
         width: 100% !important;
         min-height: 85px !important;
@@ -84,7 +107,7 @@ responsive_css = """
         text-align: left !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
 
-        /* 줄바꿈 강제 적용 규칙 */
+        /* 줄바꿈 강제 규칙 */
         white-space: pre-wrap !important;
         white-space: break-spaces !important;
         word-break: break-all !important;
@@ -96,7 +119,7 @@ responsive_css = """
         align-items: flex-start !important;
     }
 
-    /* 버튼 내부 모든 p, div, span 요소에도 줄바꿈 적용 */
+    /* 버튼 내부 텍스트에도 동일한 줄바꿈 설정 */
     .stButton > button * {
         white-space: pre-wrap !important;
         white-space: break-spaces !important;
@@ -109,7 +132,7 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 상단 카드 */
+    /* 오늘 근무자 강조 카드 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
@@ -118,7 +141,7 @@ responsive_css = """
         margin-bottom: 12px;
     }
 
-    /* 모바일 기기 화면 맞춤 미세 조정 */
+    /* 모바일 화면 가로 비율 및 글자 크기 미세 조정 */
     @media (max-width: 600px) {
         .stButton > button {
             min-height: 70px !important;
@@ -610,19 +633,26 @@ with tab1:
                 "p2_real": str(row["실제근무2"]),
             }
 
-        headers = ["일", "월", "화", "수", "목", "금", "토"]
-        colors = ["🔴", "⚪", "⚪", "⚪", "⚪", "⚪", "🔵"]
+        headers = [
+            ("일", "calendar-header-sun", "🔴"),
+            ("월", "calendar-header-weekday", "⚪"),
+            ("화", "calendar-header-weekday", "⚪"),
+            ("수", "calendar-header-weekday", "⚪"),
+            ("목", "calendar-header-weekday", "⚪"),
+            ("금", "calendar-header-weekday", "⚪"),
+            ("토", "calendar-header-sat", "🔵"),
+        ]
 
-        # 헤더 7열 배치
+        # 요일 헤더 반응형 7열 배치 (비율 조절)
         header_cols = st.columns(7)
-        for i, (h, c) in enumerate(zip(headers, colors)):
+        for i, (h_name, h_class, h_icon) in enumerate(headers):
             with header_cols[i]:
                 st.markdown(
-                    f"<div class='calendar-header'>{c} {h}</div>",
+                    f"<div class='{h_class}'>{h_icon} {h_name}</div>",
                     unsafe_allow_html=True,
                 )
 
-        # 각 주차별 7열 셀 배치
+        # 주차별 7열 셀 배치
         for week in month_days:
             week_cols = st.columns(7)
             for i, day in enumerate(week):
@@ -634,13 +664,13 @@ with tab1:
 
                         is_today = curr_date == today
 
-                        # 줄바꿈 문자(\n)가 확실하게 동작하도록 각 줄 단위 생성
                         lines = []
                         if is_today:
                             lines.append(f"[{day}일] (오늘)")
                         else:
                             lines.append(f"[{day}일]")
 
+                        # 숫자 '1: ', '2: ' 표기 제거 -> 이름만 출력
                         if duty_info:
                             p1_txt = duty_info["p1_real"] + (
                                 "(대)" if duty_info["sub1"] else ""
@@ -648,14 +678,13 @@ with tab1:
                             p2_txt = duty_info["p2_real"] + (
                                 "(대)" if duty_info["sub2"] else ""
                             )
-                            lines.append(f"1: {p1_txt}")
-                            lines.append(f"2: {p2_txt}")
+                            lines.append(p1_txt)
+                            lines.append(p2_txt)
 
                         day_memo = st.session_state.memos.get(date_str, "")
                         if day_memo:
                             lines.append(f"📌 {day_memo}")
 
-                        # \n으로 구분된 텍스트
                         card_label = "\n".join(lines)
 
                         if st.button(card_label, key=f"btn_card_{date_str}"):

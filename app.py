@@ -6,6 +6,7 @@ import json
 import os
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 # 대한민국 공휴일 라이브러리 예외 처리
 try:
@@ -31,9 +32,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# 세션 상태 초기화 (종료 여부 플래그)
+# 세션 상태 초기화 (종료 여부 및 화면 방향 플래그)
 if "is_app_closed" not in st.session_state:
     st.session_state.is_app_closed = False
+
+if "auto_view_type" not in st.session_state:
+    st.session_state.auto_view_type = "📄 세로형 리스트"
 
 # 앱이 종료된 경우 화면 표시
 if st.session_state.is_app_closed:
@@ -42,18 +46,19 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# CSS 스타일링
+# CSS 및 화면 회전 자바스크립트 감지
 # ---------------------------------------------------------
 responsive_css = """
 <style>
+    /* viewport 최적화 및 모바일 기본 방어 */
     html, body, [data-testid="stAppViewContainer"] {
         width: 100vw !important;
-        height: 100vh !important;
+        max-width: 100vw !important;
         overflow-x: hidden !important;
     }
 
     .main .block-container {
-        padding: 0.5rem 1rem !important;
+        padding: 0.5rem 0.5rem !important;
         max-width: 100% !important;
         width: 100% !important;
     }
@@ -63,8 +68,8 @@ responsive_css = """
         background-color: #F8FAFC;
         border: 1.5px solid #E2E8F0;
         border-radius: 10px;
-        padding: 16px 20px;
-        margin-bottom: 20px;
+        padding: 12px 15px;
+        margin-bottom: 15px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
     }
 
@@ -72,51 +77,80 @@ responsive_css = """
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 14px 20px;
+        padding: 12px 16px;
         border-radius: 10px;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
         width: 100%;
         box-sizing: border-box;
     }
 
-    /* 세로형 달력 리스트 버튼 스타일 */
+    /* 버튼 모바일 반응형 폰트 및 패딩 조정 */
     .stButton > button {
         width: 100% !important;
-        min-height: 50px !important;
-        padding: 8px 12px !important;
+        min-height: 44px !important;
+        padding: 6px 8px !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 8px !important;
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         box-sizing: border-box !important;
-        text-align: left !important;
-        display: flex !important;
-        justify-content: flex-start !important;
-        align-items: center !important;
-        font-size: 14px !important;
+        text-align: center !important;
+        font-size: clamp(11px, 2.5vw, 14px) !important;
         font-weight: 500 !important;
-        margin-bottom: 6px !important;
+        margin-bottom: 4px !important;
+        white-space: pre-line !important;
+        line-height: 1.2 !important;
         transition: all 0.2s ease !important;
     }
 
     .stButton > button:hover {
         border-color: #2563EB !important;
         background-color: #F0F6FF !important;
-        box-shadow: 0 2px 5px rgba(37, 99, 235, 0.1) !important;
+    }
+
+    /* 모바일 가로 모드 자동 대응 미디어 쿼리 */
+    @media screen and (max-width: 768px) and (orientation: landscape) {
+        .main .block-container {
+            padding: 0.2rem 0.2rem !important;
+        }
+        .stButton > button {
+            min-height: 38px !important;
+            font-size: 11px !important;
+        }
     }
 
     [data-testid="stDialog"] > div:first-child {
-        width: clamp(320px, 80vw, 600px) !important;
+        width: clamp(300px, 90vw, 550px) !important;
         max-width: 95vw !important;
         max-height: 85vh !important;
         border-radius: 12px !important;
-        padding: 1.2rem !important;
+        padding: 1rem !important;
         overflow-y: auto !important;
     }
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
+# 화면 회전 및 Orientation 변경 자동 감지 JS
+orientation_js = """
+<script>
+    function checkOrientation() {
+        const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+        const currentMode = isLandscape ? "🗓️ 가로형 Grid" : "📄 세로형 리스트";
+        
+        // URL 쿼리 파라미터를 이용하여 자동 전환 트리거
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') !== (isLandscape ? 'grid' : 'list')) {
+            const newUrl = window.location.pathname + '?mode=' + (isLandscape ? 'grid' : 'list');
+            window.history.replaceState(null, '', newUrl);
+        }
+    }
+
+    window.addEventListener("orientationchange", checkOrientation);
+    window.addEventListener("resize", checkOrientation);
+</script>
+"""
+components.html(orientation_js, height=0, width=0)
 
 # ---------------------------------------------------------
 # 파일 탐색 및 저장 함수
@@ -454,7 +488,7 @@ if "df" not in st.session_state:
 def confirm_exit_dialog():
     st.write("정말로 숙직 근무 관리 시스템을 종료하시겠습니까?")
     st.write("종료 시 실행 중인 세션이 정지됩니다.")
-    
+
     col_e1, col_e2 = st.columns(2)
     with col_e1:
         if st.button("❌ 취소", use_container_width=True):
@@ -477,10 +511,26 @@ def edit_worker_dialog(date_str, duty_info):
 
     worker_options = get_all_workers_list(st.session_state.df)
 
-    val_p1 = str(curr_row.get("근무자1", "")) if pd.notnull(curr_row.get("근무자1")) else ""
-    val_p2 = str(curr_row.get("근무자2", "")) if pd.notnull(curr_row.get("근무자2")) else ""
-    val_sub1 = str(curr_row.get("대직1", "")) if pd.notnull(curr_row.get("대직1")) else ""
-    val_sub2 = str(curr_row.get("대직2", "")) if pd.notnull(curr_row.get("대직2")) else ""
+    val_p1 = (
+        str(curr_row.get("근무자1", ""))
+        if pd.notnull(curr_row.get("근무자1"))
+        else ""
+    )
+    val_p2 = (
+        str(curr_row.get("근무자2", ""))
+        if pd.notnull(curr_row.get("근무자2"))
+        else ""
+    )
+    val_sub1 = (
+        str(curr_row.get("대직1", ""))
+        if pd.notnull(curr_row.get("대직1"))
+        else ""
+    )
+    val_sub2 = (
+        str(curr_row.get("대직2", ""))
+        if pd.notnull(curr_row.get("대직2"))
+        else ""
+    )
 
     val_p1 = "" if val_p1 in ["nan", "None"] else val_p1
     val_p2 = "" if val_p2 in ["nan", "None"] else val_p2
@@ -490,49 +540,135 @@ def edit_worker_dialog(date_str, duty_info):
     current_memo = st.session_state.memos.get(date_str, "")
 
     def get_opt_idx(val):
-        return worker_options.index(val) if val in worker_options else (len(worker_options) - 1 if val else 0)
+        return (
+            worker_options.index(val)
+            if val in worker_options
+            else (len(worker_options) - 1 if val else 0)
+        )
 
     with st.form(key=f"dialog_form_{date_str}"):
         col_f1, col_f2 = st.columns(2)
 
         with col_f1:
             st.markdown("**:blue[근무자 1 / 대직자 1]**")
-            p1_sel = st.selectbox("근무자1 선택", options=worker_options, index=get_opt_idx(val_p1), key="p1_sel")
-            p1_custom = st.text_input("근무자1 직접입력", value=val_p1 if p1_sel == "(직접 입력)" else "", key="p1_custom") if p1_sel == "(직접 입력)" else ""
-            
-            sub1_sel = st.selectbox("대직자1 선택 (선택사항)", options=worker_options, index=get_opt_idx(val_sub1), key="sub1_sel")
-            sub1_custom = st.text_input("대직자1 직접입력", value=val_sub1 if sub1_sel == "(직접 입력)" else "", key="sub1_custom") if sub1_sel == "(직접 입력)" else ""
+            p1_sel = st.selectbox(
+                "근무자1 선택",
+                options=worker_options,
+                index=get_opt_idx(val_p1),
+                key="p1_sel",
+            )
+            p1_custom = (
+                st.text_input(
+                    "근무자1 직접입력",
+                    value=val_p1 if p1_sel == "(직접 입력)" else "",
+                    key="p1_custom",
+                )
+                if p1_sel == "(직접 입력)"
+                else ""
+            )
+
+            sub1_sel = st.selectbox(
+                "대직자1 선택 (선택사항)",
+                options=worker_options,
+                index=get_opt_idx(val_sub1),
+                key="sub1_sel",
+            )
+            sub1_custom = (
+                st.text_input(
+                    "대직자1 직접입력",
+                    value=val_sub1 if sub1_sel == "(직접 입력)" else "",
+                    key="sub1_custom",
+                )
+                if sub1_sel == "(직접 입력)"
+                else ""
+            )
 
         with col_f2:
             st.markdown("**:blue[근무자 2 / 대직자 2]**")
-            p2_sel = st.selectbox("근무자2 선택", options=worker_options, index=get_opt_idx(val_p2), key="p2_sel")
-            p2_custom = st.text_input("근무자2 직접입력", value=val_p2 if p2_sel == "(직접 입력)" else "", key="p2_custom") if p2_sel == "(직접 입력)" else ""
+            p2_sel = st.selectbox(
+                "근무자2 선택",
+                options=worker_options,
+                index=get_opt_idx(val_p2),
+                key="p2_sel",
+            )
+            p2_custom = (
+                st.text_input(
+                    "근무자2 직접입력",
+                    value=val_p2 if p2_sel == "(직접 입력)" else "",
+                    key="p2_custom",
+                )
+                if p2_sel == "(직접 입력)"
+                else ""
+            )
 
-            sub2_sel = st.selectbox("대직자2 선택 (선택사항)", options=worker_options, index=get_opt_idx(val_sub2), key="sub2_sel")
-            sub2_custom = st.text_input("대직자2 직접입력", value=val_sub2 if sub2_sel == "(직접 입력)" else "", key="sub2_custom") if sub2_sel == "(직접 입력)" else ""
+            sub2_sel = st.selectbox(
+                "대직자2 선택 (선택사항)",
+                options=worker_options,
+                index=get_opt_idx(val_sub2),
+                key="sub2_sel",
+            )
+            sub2_custom = (
+                st.text_input(
+                    "대직자2 직접입력",
+                    value=val_sub2 if sub2_sel == "(직접 입력)" else "",
+                    key="sub2_custom",
+                )
+                if sub2_sel == "(직접 입력)"
+                else ""
+            )
 
         st.divider()
-        edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=80)
+        edit_memo = st.text_area(
+            "📌 날짜별 메모 (달력 표출)", value=current_memo, height=80
+        )
 
         c_sub1, c_sub2 = st.columns([2, 1])
         with c_sub1:
-            submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
+            submitted = st.form_submit_button(
+                "💾 엑셀 저장 및 반영", use_container_width=True
+            )
         with c_sub2:
-            close_dialog = st.form_submit_button("🚪 창 닫기 (상위 메뉴로)", use_container_width=True)
+            close_dialog = st.form_submit_button(
+                "🚪 창 닫기", use_container_width=True
+            )
 
         if submitted:
-            final_p1 = p1_custom.strip() if p1_sel == "(직접 입력)" else ("" if p1_sel == "(선택 안함)" else p1_sel)
-            final_p2 = p2_custom.strip() if p2_sel == "(직접 입력)" else ("" if p2_sel == "(선택 안함)" else p2_sel)
-            final_sub1 = sub1_custom.strip() if sub1_sel == "(직접 입력)" else ("" if sub1_sel == "(선택 안함)" else sub1_sel)
-            final_sub2 = sub2_custom.strip() if sub2_sel == "(직접 입력)" else ("" if sub2_sel == "(선택 안함)" else sub2_sel)
+            final_p1 = (
+                p1_custom.strip()
+                if p1_sel == "(직접 입력)"
+                else ("" if p1_sel == "(선택 안함)" else p1_sel)
+            )
+            final_p2 = (
+                p2_custom.strip()
+                if p2_sel == "(직접 입력)"
+                else ("" if p2_sel == "(선택 안함)" else p2_sel)
+            )
+            final_sub1 = (
+                sub1_custom.strip()
+                if sub1_sel == "(직접 입력)"
+                else ("" if sub1_sel == "(선택 안함)" else sub1_sel)
+            )
+            final_sub2 = (
+                sub2_custom.strip()
+                if sub2_sel == "(직접 입력)"
+                else ("" if sub2_sel == "(선택 안함)" else sub2_sel)
+            )
 
             st.session_state.df.at[row_idx, "근무자1"] = final_p1
             st.session_state.df.at[row_idx, "근무자2"] = final_p2
-            st.session_state.df.at[row_idx, "대직1"] = final_sub1 if final_sub1 else None
-            st.session_state.df.at[row_idx, "대직2"] = final_sub2 if final_sub2 else None
+            st.session_state.df.at[row_idx, "대직1"] = (
+                final_sub1 if final_sub1 else None
+            )
+            st.session_state.df.at[row_idx, "대직2"] = (
+                final_sub2 if final_sub2 else None
+            )
 
-            st.session_state.df.at[row_idx, "실제근무1"] = final_sub1 if final_sub1 else final_p1
-            st.session_state.df.at[row_idx, "실제근무2"] = final_sub2 if final_sub2 else final_p2
+            st.session_state.df.at[row_idx, "실제근무1"] = (
+                final_sub1 if final_sub1 else final_p1
+            )
+            st.session_state.df.at[row_idx, "실제근무2"] = (
+                final_sub2 if final_sub2 else final_p2
+            )
 
             st.session_state.memos[date_str] = edit_memo.strip()
 
@@ -541,7 +677,9 @@ def edit_worker_dialog(date_str, duty_info):
                 st.session_state.selected_sheet,
                 st.session_state.memos,
             )
-            st.success("✅ 변경사항이 엑셀 파일 및 달력에 성공적으로 저장되었습니다.")
+            st.success(
+                "✅ 변경사항이 엑셀 파일 및 달력에 성공적으로 저장되었습니다."
+            )
             st.rerun()
 
         if close_dialog:
@@ -565,7 +703,9 @@ with st.sidebar:
         with open(save_path, "wb") as f:
             f.write(file_bytes)
 
-        parsed_df, used_sheet, sheet_names, raw_df, f_bytes = load_excel_smart(file_bytes)
+        parsed_df, used_sheet, sheet_names, raw_df, f_bytes = load_excel_smart(
+            file_bytes
+        )
 
         st.session_state.file_path = save_path
         st.session_state.file_bytes = f_bytes
@@ -599,12 +739,12 @@ st.title("📋 숙직 근무 관리 대시보드")
 tab1, tab2, tab3, tab4 = st.tabs([
     "📅 달력 메인 화면",
     "✏️ 근무표 전체 수정",
-    "📊 숙직근무자 월별 근무 통계",
+    "📊 월별 근무 통계",
     "🔍 시트 데이터 점검",
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (세로형 / 가로형 레이아웃 선택)
+# TAB 1: 달력 메인 화면 (화면 회전 및 비례 자동 적용)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -628,11 +768,11 @@ with tab1:
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:13px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:17px; font-weight:bold;">
+            <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
+            <div style="font-size:15px; font-weight:bold;">
                 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span style="color:#FDE047;">{p2}</span>
-                <span style="font-size:14px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -647,6 +787,11 @@ with tab1:
         else 0
     )
 
+    # URL 쿼리 파라미터를 읽어 회전 상태에 따라 라디오 기본값 자동 동기화
+    query_params = st.query_params
+    mode_param = query_params.get("mode", "list")
+    default_radio_idx = 1 if mode_param == "grid" else 0
+
     with st.container():
         st.markdown('<div class="month-select-box">', unsafe_allow_html=True)
         col_m1, col_m2 = st.columns([1, 2])
@@ -659,12 +804,13 @@ with tab1:
             )
         with col_m2:
             calendar_view_type = st.radio(
-                "📐 달력 표시 방식 선택",
+                "📐 달력 표시 방식 선택 (회전 시 자동 전환)",
                 options=["📄 세로형 리스트", "🗓️ 가로형 Grid"],
+                index=default_radio_idx,
                 horizontal=True,
                 key="calendar_view_type",
             )
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -675,10 +821,14 @@ with tab1:
         for idx_row, row in month_df.iterrows():
             d_day = row["날짜"].day
             d_date_str = row["날짜"].strftime("%Y-%m-%d")
-            
-            sub1_val = str(row["대직1"]).strip() if pd.notnull(row["대직1"]) else ""
-            sub2_val = str(row["대직2"]).strip() if pd.notnull(row["대직2"]) else ""
-            
+
+            sub1_val = (
+                str(row["대직1"]).strip() if pd.notnull(row["대직1"]) else ""
+            )
+            sub2_val = (
+                str(row["대직2"]).strip() if pd.notnull(row["대직2"]) else ""
+            )
+
             p1_display = str(row["실제근무1"])
             if sub1_val and sub1_val not in ["nan", "None", ""]:
                 p1_display += "(대)"
@@ -694,10 +844,12 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
+        st.caption(
+            "💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다."
+        )
 
         # ---------------------------------------------------------
-        # 1) 세로형 리스트 보기
+        # 1) 세로형 리스트 보기 (세로 모드에 최적화)
         # ---------------------------------------------------------
         if calendar_view_type == "📄 세로형 리스트":
             weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
@@ -710,42 +862,49 @@ with tab1:
                 duty_info = duty_map.get(day)
 
                 if weekday_idx == 6 or curr_date in kr_holidays:
-                    day_title = f"🔴 {day:02d}일 ({weekday_str})"
+                    day_title = f"🔴 {day:02d}일({weekday_str})"
                 elif weekday_idx == 5:
-                    day_title = f"🔵 {day:02d}일 ({weekday_str})"
+                    day_title = f"🔵 {day:02d}일({weekday_str})"
                 else:
-                    day_title = f"🗓️ {day:02d}일 ({weekday_str})"
+                    day_title = f"🗓️ {day:02d}일({weekday_str})"
 
                 p1_txt = duty_info["p1_display"] if duty_info else "미지정"
                 p2_txt = duty_info["p2_display"] if duty_info else "미지정"
 
                 day_memo = st.session_state.memos.get(date_str, "")
-                memo_display = f" | 📌 메모: {day_memo}" if day_memo else ""
+                memo_display = f" | 📌 {day_memo}" if day_memo else ""
 
-                btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{memo_display}"
+                btn_label = f"{day_title} | 1:{p1_txt} | 2:{p2_txt}{memo_display}"
 
                 if st.button(btn_label, key=f"btn_v_card_{date_str}"):
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
 
         # ---------------------------------------------------------
-        # 2) 가로형 Grid 보기 (월간 7열 형태)
+        # 2) 가로형 Grid 보기 (가로 모드 및 넓은 화면에 최적화)
         # ---------------------------------------------------------
         else:
-            # 요일 헤더 (일요일 시작)
             headers = ["일", "월", "화", "수", "목", "금", "토"]
             cols_header = st.columns(7)
             for idx, h_name in enumerate(headers):
                 if idx == 0:
-                    cols_header[idx].markdown(f"<h4 style='text-align: center; color: red;'>{h_name}</h4>", unsafe_allow_html=True)
+                    cols_header[idx].markdown(
+                        f"<div style='text-align: center; color: red; font-weight: bold; font-size: 13px;'>{h_name}</div>",
+                        unsafe_allow_html=True,
+                    )
                 elif idx == 6:
-                    cols_header[idx].markdown(f"<h4 style='text-align: center; color: blue;'>{h_name}</h4>", unsafe_allow_html=True)
+                    cols_header[idx].markdown(
+                        f"<div style='text-align: center; color: blue; font-weight: bold; font-size: 13px;'>{h_name}</div>",
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    cols_header[idx].markdown(f"<h4 style='text-align: center;'>{h_name}</h4>", unsafe_allow_html=True)
+                    cols_header[idx].markdown(
+                        f"<div style='text-align: center; font-weight: bold; font-size: 13px;'>{h_name}</div>",
+                        unsafe_allow_html=True,
+                    )
 
             st.divider()
 
-            # 첫째 날의 요일 구하기 (Python calendar: 0=월, 6=일 -> 일요일 시작 기준 변환)
             first_day_weekday = calendar.monthrange(year, month)[0]
             start_offset = (first_day_weekday + 1) % 7
 
@@ -764,22 +923,16 @@ with tab1:
                         date_str = curr_date.strftime("%Y-%m-%d")
                         duty_info = duty_map.get(day_counter)
 
-                        # 날짜 색상 제어
-                        if c == 0 or curr_date in kr_holidays:
-                            d_color = "red"
-                        elif c == 6:
-                            d_color = "blue"
-                        else:
-                            d_color = "#1E293B"
-
                         p1_txt = duty_info["p1_display"] if duty_info else "-"
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
-                        memo_icon = " 📌" if day_memo else ""
+                        memo_icon = "📌" if day_memo else ""
 
-                        btn_text = f"{day_counter}일{memo_icon}\n1: {p1_txt}\n2: {p2_txt}"
+                        btn_text = f"{day_counter}일{memo_icon}\n1:{p1_txt}\n2:{p2_txt}"
 
-                        if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
+                        if grid_cols[c].button(
+                            btn_text, key=f"btn_grid_card_{date_str}"
+                        ):
                             if duty_info:
                                 edit_worker_dialog(date_str, duty_info)
 
@@ -819,7 +972,6 @@ with tab2:
         target_editor_df = target_editor_df[cols]
 
     with col_ctrl2:
-        st.write("")
         st.write("")
         save_btn_clicked = st.button(
             "💾 변경사항 적용 및 엑셀 저장",

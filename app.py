@@ -53,7 +53,7 @@ if st.session_state.is_app_closed:
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-# 테마별 색상 변수 설정 (화이트 테마 시 배경 완벽한 화이트 및 어두운 글씨 적용)
+# 테마별 색상 변수 설정 (화이트 테마 시 배경 완벽한 화이트 및 파일 관리 박스 화이트 적용)
 theme_bg = "#0F172A" if is_dark else "#FFFFFF"
 main_text_color = "#F8FAFC" if is_dark else "#0F172A"
 card_bg = "#1E293B" if is_dark else "#F8FAFC"
@@ -62,6 +62,7 @@ btn_bg = "#1E293B" if is_dark else "#FFFFFF"
 btn_text = "#F8FAFC" if is_dark else "#0F172A"
 btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
+sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 
 responsive_css = f"""
 <style>
@@ -80,6 +81,15 @@ responsive_css = f"""
         padding: 0.5rem 0.5rem !important;
         max-width: 100% !important;
         width: 100% !important;
+    }}
+
+    /* 사이드바 영역 테마 맞춤 배경 및 글자색 */
+    [data-testid="stSidebar"] {{
+        background-color: {sidebar_bg} !important;
+        color: {main_text_color} !important;
+    }}
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{
+        color: {main_text_color} !important;
     }}
 
     /* Markdown 텍스트 및 일반 레이블 어두운 글씨 보장 */
@@ -532,6 +542,94 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
+# 근무자 수동 반복 등록 다이얼로그
+# ---------------------------------------------------------
+@st.dialog("🔄 근무자 수동 반복 등록")
+def batch_register_worker_dialog():
+    st.write("📅 **오늘 날짜 기준 앞뒤로 시작점을 이동하여 규칙적으로 실제 근무자를 등록합니다.**")
+
+    today_default = datetime.date.today()
+
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        start_date_input = st.date_input(
+            "시작 날짜 선택",
+            value=today_default,
+            help="오늘 기준 앞뒤로 날짜를 선택하여 반복 등록을 시작할 지점입니다.",
+        )
+    with col_b2:
+        total_days_count = st.number_input(
+            "적용할 총 일수", min_value=1, max_value=180, value=30, step=1
+        )
+
+    st.divider()
+
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        st.markdown("**:blue[근무자 1 설정]**")
+        worker1_name = st.text_input("근무자1 이름 (또는 명단)", key="batch_w1_name")
+        interval1 = st.number_input(
+            "근무자1 반복 칸수 (주기)",
+            min_value=1,
+            max_value=30,
+            value=1,
+            step=1,
+            help="예: 1이면 매일, 2이면 격일로 배정",
+            key="batch_w1_interval",
+        )
+
+    with col_p2:
+        st.markdown("**:blue[근무자 2 설정]**")
+        worker2_name = st.text_input("근무자2 이름 (또는 명단)", key="batch_w2_name")
+        interval2 = st.number_input(
+            "근무자2 반복 칸수 (주기)",
+            min_value=1,
+            max_value=30,
+            value=1,
+            step=1,
+            help="예: 1이면 매일, 2이면 격일로 배정",
+            key="batch_w2_interval",
+        )
+
+    st.markdown("---")
+
+    col_sub1, col_sub2 = st.columns([2, 1])
+    with col_sub1:
+        if st.button("💾 반복 규칙 적용 및 저장", use_container_width=True, type="primary"):
+            df = st.session_state.df
+            # 지정된 기간 동안 순회하며 실제근무자 반영
+            current_date = start_date_input
+            for i in range(int(total_days_count)):
+                target_date_ts = pd.Timestamp(current_date)
+                match_idx = df[df["날짜"] == target_date_ts].index
+
+                if not match_idx.empty:
+                    idx = match_idx[0]
+                    # 간격 조건 확인 및 반영 (예: i % interval == 0 등 혹은 단순 순차 반복 확장 가능)
+                    if worker1_name.strip() and (i % interval1 == 0):
+                        df.at[idx, "근무자1"] = worker1_name.strip()
+                        df.at[idx, "실제근무1"] = worker1_name.strip()
+                    if worker2_name.strip() and (i % interval2 == 0):
+                        df.at[idx, "근무자2"] = worker2_name.strip()
+                        df.at[idx, "실제근무2"] = worker2_name.strip()
+
+                current_date += datetime.timedelta(days=1)
+
+            st.session_state.df = df
+            save_app_state(
+                st.session_state.df,
+                st.session_state.selected_sheet,
+                st.session_state.memos,
+            )
+            st.success("✅ 선택한 기간 동안 수동 반복 근무자가 성공적으로 등록되었습니다.")
+            st.rerun()
+
+    with col_sub2:
+        if st.button("🚪 닫기", use_container_width=True):
+            st.rerun()
+
+
+# ---------------------------------------------------------
 # 하위 레이어: 근무자 수정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
@@ -756,7 +854,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    if st.button("🔴 시스템 종료", use_container_width=True):
+    if st.button("🔴 앱종료", use_container_width=True):
         confirm_exit_dialog()
 
 
@@ -825,7 +923,7 @@ with tab1:
 
     with st.container():
         st.markdown('<div class="month-select-box">', unsafe_allow_html=True)
-        col_m1, col_m2, col_m3 = st.columns([1, 1.2, 1])
+        col_m1, col_m2, col_m3, col_m4 = st.columns([1, 1.2, 1, 0.9])
         with col_m1:
             selected_month = st.selectbox(
                 "📅 조회 월 선택",
@@ -849,10 +947,14 @@ with tab1:
                 horizontal=True,
                 key="theme_radio_select",
             )
-            # 테마 변경 시 동적 리런 적용
             if selected_theme != st.session_state.app_theme:
                 st.session_state.app_theme = selected_theme
                 st.rerun()
+        with col_m4:
+            st.write("")
+            st.write("")
+            if st.button("🔄 수동 반복 등록", use_container_width=True):
+                batch_register_worker_dialog()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -930,15 +1032,14 @@ with tab1:
         else:
             cols_header = st.columns(7)
 
-            # 테마별 요일 색상 팔레트 설정
             if is_dark:
-                color_sun = "#FF6B6B"  # 선명한 빨강/주황
-                color_sat = "#38BDF8"  # 밝은 하늘색
-                color_weekday = "#F1F5F9"  # 밝은 백색
+                color_sun = "#FF6B6B"
+                color_sat = "#38BDF8"
+                color_weekday = "#F1F5F9"
             else:
-                color_sun = "#DC2626"  # 진한 빨강
-                color_sat = "#2563EB"  # 진한 파랑
-                color_weekday = "#0F172A"  # 다크 그레이
+                color_sun = "#DC2626"
+                color_sat = "#2563EB"
+                color_weekday = "#0F172A"
 
             headers = [
                 ("일", color_sun),
@@ -980,7 +1081,6 @@ with tab1:
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        # 날짜, 근무자1, 근무자2, 메모 줄바꿈 표출
                         if day_memo:
                             btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}"
                         else:

@@ -32,42 +32,24 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (7등분 격자 + 최소 5글자 수용 가로 텍스트 자동조절)
+# CSS 스타일링 (7등분 격자 + 완전 가로 쓰기 및 동기화)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 1. 전체 루트 및 메인 레이아웃 뷰포트 고정 */
+    /* 1. 전체 루트 및 메인 레이아웃 뷰포트 설정 */
     html, body, [data-testid="stAppViewContainer"] {
         height: 100vh !important;
         overflow-x: hidden !important;
     }
 
     .main .block-container {
-        padding: 0.5rem !important;
+        padding: 0.8rem !important;
         max-width: 100% !important;
-        height: calc(100vh - 1rem) !important;
         display: flex !important;
         flex-direction: column !important;
     }
 
-    /* 탭 영역 수직 자동 확장 */
-    [data-testid="stTabs"] {
-        display: flex !important;
-        flex-direction: column !important;
-        flex: 1 1 auto !important;
-        height: 100% !important;
-        overflow: hidden !important;
-    }
-
-    [data-testid="stTabPanel"] {
-        display: flex !important;
-        flex-direction: column !important;
-        flex: 1 1 auto !important;
-        height: 100% !important;
-        overflow: auto !important;
-    }
-
-    /* 2. 요일 및 달력 7열 완벽 7등분 정렬 (Grid 1fr 적용) */
+    /* 2. 요일 및 달력 7열 동기화 Grid (1fr 분할) */
     [data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
@@ -76,7 +58,6 @@ responsive_css = """
         margin: 0 0 4px 0 !important;
     }
 
-    /* 컬럼 개별 너비 제한을 해제하여 1/7 정확한 분할 보장 */
     [data-testid="column"] {
         width: 100% !important;
         min-width: 0 !important;
@@ -86,17 +67,18 @@ responsive_css = """
         margin: 0px !important;
     }
 
-    /* 3. 요일 헤더 박스 */
+    /* 3. 요일 헤더 박스 (달력 셀과 가로폭 perfect fit) */
     .cal-header {
         text-align: center;
-        font-size: clamp(12px, 1.1vw, 16px);
+        font-size: clamp(11px, 1vw, 15px);
         font-weight: bold;
-        padding: 6px 0;
+        padding: 8px 0;
         border-radius: 4px;
         width: 100% !important;
         box-sizing: border-box;
-        white-space: nowrap;
+        white-space: nowrap !important;
         overflow: hidden;
+        text-overflow: ellipsis;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -106,7 +88,7 @@ responsive_css = """
     .calendar-header-sat { background-color: #DBEAFE; color: #2563EB; }
     .calendar-header-weekday { background-color: #F1F5F9; color: #1E293B; }
 
-    /* 4. 달력 버튼 셀 크기 및 가로 5글자 수용 자동폰트 조절 */
+    /* 4. 달력 버튼 셀 및 텍스트 줄바꿈 절대 방지 설정 */
     .stButton {
         width: 100% !important;
         height: 100% !important;
@@ -117,26 +99,25 @@ responsive_css = """
     .stButton > button {
         width: 100% !important;
         height: 100% !important;
-        /* 최소 5줄 내용 표시 가능한 높이 확보 */
-        min-height: clamp(90px, 13vh, 160px) !important;
-        padding: 6px 4px !important;
+        min-height: clamp(85px, 12vh, 150px) !important;
+        padding: 4px 2px !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 6px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
 
-        /* 최소 5글자(예: 홍길동(대)) 가로 배치가 짤리지 않도록 반응형 폰트 조절 */
-        font-size: clamp(10px, 0.9vw, 14px) !important;
-        line-height: 1.35 !important;
+        /* 반응형 폰트 및 텍스트 한 줄 강제 유지 설정 */
+        font-size: clamp(10px, 0.85vw, 13px) !important;
+        line-height: 1.4 !important;
         text-align: center !important;
         box-sizing: border-box !important;
 
-        /* 가로 쓰기 및 자연스러운 단어 줄바꿈 설정 */
+        /* 가로 쓰기 및 줄바꿈 금지 */
         writing-mode: horizontal-tb !important;
-        white-space: pre-wrap !important;
-        white-space: break-spaces !important;
-        word-break: break-all !important;
-        overflow-wrap: break-word !important;
+        white-space: nowrap !important;
+        word-break: keep-all !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
 
         display: flex !important;
         flex-direction: column !important;
@@ -146,10 +127,11 @@ responsive_css = """
 
     .stButton > button * {
         writing-mode: horizontal-tb !important;
-        white-space: pre-wrap !important;
-        white-space: break-spaces !important;
-        word-break: break-all !important;
+        white-space: nowrap !important;
+        word-break: keep-all !important;
         text-align: center !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 
     .stButton > button:hover {
@@ -157,9 +139,15 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
-    /* 5. 수정 다이얼로그(팝업) 반응형 자동 조절 및 중앙 배치 */
+    /* 5. 다이얼로그(팝업) 세로 쓰기 방지 및 가로 정렬 강제 */
+    [data-testid="stDialog"] input, 
+    [data-testid="stDialog"] textarea, 
+    [data-testid="stDialog"] div {
+        writing-mode: horizontal-tb !important;
+    }
+
     [data-testid="stDialog"] > div:first-child {
-        width: clamp(320px, 85vw, 600px) !important;
+        width: clamp(320px, 85vw, 550px) !important;
         max-width: 90vw !important;
         max-height: 85vh !important;
         border-radius: 12px !important;
@@ -171,19 +159,18 @@ responsive_css = """
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 8px 14px;
+        padding: 10px 16px;
         border-radius: 8px;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         flex-shrink: 0;
     }
 
-    /* 모바일 기기 감지 시 셀 스케일 조정 */
+    /* 모바일 반응형 조절 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 75px !important;
-            padding: 3px 2px !important;
+            min-height: 70px !important;
+            padding: 2px 1px !important;
             font-size: 9px !important;
-            line-height: 1.2 !important;
         }
         .cal-header {
             font-size: 10px !important;
@@ -475,7 +462,7 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 수정 다이얼로그 모달 (뒤로가기 감지 자동 닫기 기능 포함)
+# 수정 다이얼로그 모달 (이름 정상 바인딩 및 가로 정렬 처리)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -485,43 +472,52 @@ def edit_worker_dialog(date_str, duty_info):
             if (window.location.hash !== "#edit-dialog") {
                 window.history.pushState({dialogOpen: true}, "", "#edit-dialog");
             }
-
             window.addEventListener("popstate", function(event) {
                 const closeBtn = window.parent.document.querySelector('[data-testid="stDialog"] button[aria-label="Close"]');
-                if (closeBtn) {
-                    closeBtn.click();
-                }
+                if (closeBtn) closeBtn.click();
             }, { once: true });
         </script>
         """,
         height=0,
     )
 
-    st.write(f"📅 **{date_str} 정보 수정**")
+    st.write(f"📅 **{date_str} 근무 정보 수정**")
+
+    # Session State에서 최신 Row 정보를 끌어와 바인딩 보장
+    row_idx = duty_info["idx"]
+    curr_row = st.session_state.df.loc[row_idx]
+    
+    val_p1 = str(curr_row.get("근무자1", "")) if pd.notnull(curr_row.get("근무자1")) else ""
+    val_p2 = str(curr_row.get("근무자2", "")) if pd.notnull(curr_row.get("근무자2")) else ""
+    val_sub1 = str(curr_row.get("대직1", "")) if pd.notnull(curr_row.get("대직1")) else ""
+    val_sub2 = str(curr_row.get("대직2", "")) if pd.notnull(curr_row.get("대직2")) else ""
+    
+    if val_p1 == "nan": val_p1 = ""
+    if val_p2 == "nan": val_p2 = ""
+    if val_sub1 == "nan": val_sub1 = ""
+    if val_sub2 == "nan": val_sub2 = ""
 
     current_memo = st.session_state.memos.get(date_str, "")
 
     with st.form(key=f"dialog_form_{date_str}"):
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            edit_p1 = st.text_input("근무자1", value=duty_info["p1_orig"])
-            edit_sub1 = st.text_input("대직자1", value=duty_info["sub1"])
+            edit_p1 = st.text_input("근무자1", value=val_p1)
+            edit_sub1 = st.text_input("대직자1", value=val_sub1)
         with col_f2:
-            edit_p2 = st.text_input("근무자2", value=duty_info["p2_orig"])
-            edit_sub2 = st.text_input("대직자2", value=duty_info["sub2"])
+            edit_p2 = st.text_input("근무자2", value=val_p2)
+            edit_sub2 = st.text_input("대직자2", value=val_sub2)
 
         st.divider()
         edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력 셀에 즉시 반영)",
+            "📌 날짜별 메모 (달력 셀에 반영)",
             value=current_memo,
-            height=90,
+            height=80,
         )
 
         submitted = st.form_submit_button("💾 저장하기", use_container_width=True)
 
         if submitted:
-            row_idx = duty_info["idx"]
-
             st.session_state.df.at[row_idx, "근무자1"] = edit_p1.strip()
             st.session_state.df.at[row_idx, "근무자2"] = edit_p2.strip()
             st.session_state.df.at[row_idx, "대직1"] = (
@@ -602,15 +598,15 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면
+# 메인 화면 - 탭 구성 (요청된 순서로 지정)
 # ---------------------------------------------------------
-st.title("📋 야근/숙직 근무 현황 및 통계")
+st.title("📋 숙직 근무 관리 대시보드")
 
-tab1, tab_sheet, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📅 달력 메인 화면",
-    "📊 시트 데이터 점검",
     "✏️ 근무표 전체 수정",
     "📊 숙직근무자 월별 근무 통계",
+    "🔍 시트 데이터 점검",
 ])
 
 # ---------------------------------------------------------
@@ -723,11 +719,11 @@ with tab1:
                         is_today = curr_date == today
 
                         if i == 0 or curr_date in kr_holidays:
-                            date_prefix = f"🔴 [{day}일]"
+                            date_prefix = f"🔴 {day}일"
                         elif i == 6:
-                            date_prefix = f"🔵 [{day}일]"
+                            date_prefix = f"🔵 {day}일"
                         else:
-                            date_prefix = f"[{day}일]"
+                            date_prefix = f"{day}일"
 
                         lines = []
                         if is_today:
@@ -756,21 +752,14 @@ with tab1:
                                 edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
-# TAB 2: 시트 데이터 점검
-# ---------------------------------------------------------
-with tab_sheet:
-    st.subheader(
-        f"🔍 [{st.session_state.selected_sheet}] 시트 데이터 확인"
-    )
-    st.dataframe(df, use_container_width=True)
-
-# ---------------------------------------------------------
-# TAB 3: 전체 근무표 수정
+# TAB 2: 근무표 전체 수정
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
+    st.caption("아래 표에서 근무자, 대직자 및 근무 구분을 직접 수정할 수 있습니다.")
+    
     edited_df = st.data_editor(
-        st.session_state.df, num_rows="dynamic", key="data_editor"
+        st.session_state.df, num_rows="dynamic", key="data_editor", use_container_width=True
     )
 
     if st.button("💾 변경사항 적용 및 영구 저장"):
@@ -811,7 +800,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 4: 월별 근무 통계
+# TAB 3: 숙직근무자 월별 근무 통계
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -916,3 +905,12 @@ with tab3:
         st.dataframe(stats_df, use_container_width=True)
     else:
         st.info("조회할 근무 정보가 없습니다.")
+
+# ---------------------------------------------------------
+# TAB 4: 시트 데이터 점검
+# ---------------------------------------------------------
+with tab4:
+    st.subheader(
+        f"🔍 [{st.session_state.selected_sheet}] 시트 데이터 원본 확인"
+    )
+    st.dataframe(df, use_container_width=True)

@@ -36,7 +36,7 @@ st.set_page_config(
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 여백 최소화 */
+    /* 전체 여백 최소화 */
     .main .block-container {
         padding-top: 1rem;
         padding-bottom: 2rem;
@@ -70,14 +70,14 @@ responsive_css = """
     /* 달력 날짜 셀 버튼 반응형 스타일 */
     .stButton > button {
         width: 100% !important;
-        min-height: 85px !important;
+        min-height: 75px !important;
         padding: 4px 2px !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 6px !important;
         background-color: #FFFFFF !important;
         color: #1E293B !important;
         font-size: clamp(8px, 1.1vw, 11px) !important;
-        line-height: 1.3 !important;
+        line-height: 1.35 !important;
         text-align: left !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
@@ -106,7 +106,7 @@ responsive_css = """
     /* 모바일 기기 반응형 미세 조정 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 70px !important;
+            min-height: 65px !important;
             padding: 2px 1px !important;
         }
     }
@@ -520,7 +520,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (오늘 근무자 동적 연동 & 줄바꿈 출력)
+# TAB 1: 달력 메인 화면
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -622,7 +622,6 @@ with tab1:
                         if is_today:
                             card_label += " (오늘)"
 
-                        # 숫자 접두사(1:, 2:)를 제거하고 각 줄별로 이름 표시
                         if duty_info:
                             p1_txt = duty_info["p1_real"] + (
                                 "(대)" if duty_info["sub1"] else ""
@@ -632,7 +631,6 @@ with tab1:
                             )
                             card_label += f"\n{p1_txt}\n{p2_txt}"
 
-                        # 메모 줄바꿈 표시
                         day_memo = st.session_state.memos.get(date_str, "")
                         if day_memo:
                             card_label += f"\n📌 {day_memo}"

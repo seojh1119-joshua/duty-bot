@@ -53,28 +53,38 @@ if st.session_state.is_app_closed:
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-# 테마별 색상 변수 설정
+# 테마별 색상 변수 설정 (화이트 테마 시 배경 완벽한 화이트 및 어두운 글씨 적용)
 theme_bg = "#0F172A" if is_dark else "#FFFFFF"
+main_text_color = "#F8FAFC" if is_dark else "#0F172A"
 card_bg = "#1E293B" if is_dark else "#F8FAFC"
-border_color = "#334155" if is_dark else "#E2E8F0"
+border_color = "#334155" if is_dark else "#CBD5E1"
 btn_bg = "#1E293B" if is_dark else "#FFFFFF"
 btn_text = "#F8FAFC" if is_dark else "#0F172A"
-btn_hover_bg = "#334155" if is_dark else "#F0F6FF"
+btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 
 responsive_css = f"""
 <style>
-    /* viewport 최적화 및 모바일 기본 방어 */
-    html, body, [data-testid="stAppViewContainer"] {{
+    /* 전체 앱 배경 및 기본 글자색 지정 */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+        background-color: {theme_bg} !important;
+        color: {main_text_color} !important;
         width: 100vw !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
     }}
 
     .main .block-container {{
+        background-color: {theme_bg} !important;
+        color: {main_text_color} !important;
         padding: 0.5rem 0.5rem !important;
         max-width: 100% !important;
         width: 100% !important;
+    }}
+
+    /* Markdown 텍스트 및 일반 레이블 어두운 글씨 보장 */
+    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{
+        color: {main_text_color} !important;
     }}
 
     /* 조회월/테마 선택 박스 스타일 */
@@ -89,14 +99,19 @@ responsive_css = f"""
 
     /* 오늘의 근무자 카드 */
     .today-card {{
-        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)" };
-        color: white;
+        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
+        color: {"white" if is_dark else "#0F172A"};
         padding: 12px 16px;
         border-radius: 10px;
         border: 1px solid {border_color};
         margin-bottom: 12px;
         width: 100%;
         box-sizing: border-box;
+    }}
+    
+    .today-card span {{
+        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
+        font-weight: bold;
     }}
 
     /* 달력 버튼 테마 맞춤 및 자동 높이 조절 */
@@ -124,6 +139,7 @@ responsive_css = f"""
     .stButton > button:hover {{
         border-color: {btn_hover_border} !important;
         background-color: {btn_hover_bg} !important;
+        color: {btn_text} !important;
     }}
 
     /* 모바일 가로 모드 대응 미디어 쿼리 */
@@ -786,8 +802,8 @@ with tab1:
         <div class="today-card">
             <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
             <div style="font-size:15px; font-weight:bold;">
-                근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
-                근무자 2: <span style="color:#FDE047;">{p2}</span>
+                근무자 1: <span>{p1}</span> &nbsp;|&nbsp; 
+                근무자 2: <span>{p2}</span>
                 <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>

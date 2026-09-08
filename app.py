@@ -163,14 +163,10 @@ responsive_css = f"""
         border: 1px solid {border_color} !important;
     }}
 
-    /* 입력창 및 셀렉트박스 테마 대응 (날짜 선택 위젯 포함) */
-    input, select, textarea, [data-baseweb="input"] input, [data-baseweb="select"] {{
+    /* 입력창, 셀렉트박스 및 날짜 선택 위젯(st.date_input) 배경 및 글자색 정밀 대응 */
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], div[data-baseweb="input"] > div {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
-    }}
-    
-    [data-baseweb="input"] {{
-        background-color: {input_bg} !important;
         border-color: {border_color} !important;
     }}
 
@@ -626,7 +622,6 @@ def batch_register_worker_dialog():
     col_sub1, col_sub2 = st.columns([2, 1])
     with col_sub1:
         if st.button("💾 반복 순서 규칙 적용 및 저장", use_container_width=True, type="primary"):
-            # 현재 입력된 패턴을 세션 및 영구 상태에 저장
             st.session_state.batch_patterns = {
                 "interval1": int(interval1),
                 "w1_names": w1_names,
@@ -637,7 +632,6 @@ def batch_register_worker_dialog():
             df = st.session_state.df
             current_date = start_date_input
 
-            # 유효한 이름 목록 필터링 (빈 칸 제외)
             valid_w1 = [n for n in w1_names if n]
             valid_w2 = [n for n in w2_names if n]
 
@@ -648,22 +642,18 @@ def batch_register_worker_dialog():
                 if not match_idx.empty:
                     idx = match_idx[0]
 
-                    # 근무자1 칸에 입력값이 있는 경우에만 순서대로 반복 매칭 (미입력 시 기존 데이터 유지)
                     if valid_w1:
                         assigned_w1 = valid_w1[i % len(valid_w1)]
                         df.at[idx, "근무자1"] = assigned_w1
                         
-                        # 대직자가 없는 경우 실제근무1도 함께 업데이트, 대직자가 있으면 기존 대직자 유지
                         sub1_val = df.at[idx, "대직1"] if "대직1" in df.columns else None
                         if pd.isna(sub1_val) or str(sub1_val).strip() in ["", "nan", "None"]:
                             df.at[idx, "실제근무1"] = assigned_w1
 
-                    # 근무자2 칸에 입력값이 있는 경우에만 순서대로 반복 매칭 (미입력 시 기존 데이터 유지)
                     if valid_w2:
                         assigned_w2 = valid_w2[i % len(valid_w2)]
                         df.at[idx, "근무자2"] = assigned_w2
                         
-                        # 대직자가 없는 경우 실제근무2도 함께 업데이트, 대직자가 있으면 기존 대직자 유지
                         sub2_val = df.at[idx, "대직2"] if "대직2" in df.columns else None
                         if pd.isna(sub2_val) or str(sub2_val).strip() in ["", "nan", "None"]:
                             df.at[idx, "실제근무2"] = assigned_w2
@@ -792,7 +782,6 @@ with st.sidebar:
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-        # 새 파일이 업로드되어도 기존 반복 패턴(batch_patterns)과 메모는 유지됨
 
         save_app_state(parsed_df, used_sheet, st.session_state.get("memos", {}), st.session_state.get("batch_patterns", {}))
 

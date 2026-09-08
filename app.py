@@ -32,12 +32,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# 세션 상태 초기화 (종료 여부 및 화면 방향 플래그)
+# 세션 상태 초기화 (종료 여부 및 화면 방향/테마 플래그)
 if "is_app_closed" not in st.session_state:
     st.session_state.is_app_closed = False
 
 if "auto_view_type" not in st.session_state:
     st.session_state.auto_view_type = "📄 세로형 리스트"
+
+if "app_theme" not in st.session_state:
+    st.session_state.app_theme = "☀️ 화이트 테마"
 
 # 앱이 종료된 경우 화면 표시
 if st.session_state.is_app_closed:
@@ -46,105 +49,102 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# CSS 및 화면 회전 자바스크립트 감지
+# 동적 CSS (테마별 스타일 정의)
 # ---------------------------------------------------------
-responsive_css = """
+is_dark = st.session_state.app_theme == "🌙 블랙 테마"
+
+# 테마별 색상 변수 설정
+theme_bg = "#0F172A" if is_dark else "#FFFFFF"
+card_bg = "#1E293B" if is_dark else "#F8FAFC"
+border_color = "#334155" if is_dark else "#E2E8F0"
+btn_bg = "#1E293B" if is_dark else "#FFFFFF"
+btn_text = "#F8FAFC" if is_dark else "#0F172A"
+btn_hover_bg = "#334155" if is_dark else "#F0F6FF"
+btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
+
+responsive_css = f"""
 <style>
     /* viewport 최적화 및 모바일 기본 방어 */
-    html, body, [data-testid="stAppViewContainer"] {
+    html, body, [data-testid="stAppViewContainer"] {{
         width: 100vw !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
-    }
+    }}
 
-    .main .block-container {
+    .main .block-container {{
         padding: 0.5rem 0.5rem !important;
         max-width: 100% !important;
         width: 100% !important;
-    }
+    }}
 
-    /* 조회월 선택 박스 스타일 */
-    .month-select-box {
-        background-color: #F8FAFC;
-        border: 1.5px solid #E2E8F0;
+    /* 조회월/테마 선택 박스 스타일 */
+    .month-select-box {{
+        background-color: {card_bg};
+        border: 1.5px solid {border_color};
         border-radius: 10px;
         padding: 12px 15px;
         margin-bottom: 15px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-    }
+    }}
 
     /* 오늘의 근무자 카드 */
-    .today-card {
-        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+    .today-card {{
+        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)" };
         color: white;
         padding: 12px 16px;
         border-radius: 10px;
+        border: 1px solid {border_color};
         margin-bottom: 12px;
         width: 100%;
         box-sizing: border-box;
-    }
+    }}
 
-    /* 달력 가로형 요일 헤더 균등 배치 */
-    .calendar-header {
-        display: flex;
-        justify-content: space-between;
-        width: 100%;
-        margin-bottom: 8px;
-    }
-    
-    .calendar-header-day {
-        flex: 1;
-        text-align: center;
-        font-weight: bold;
-        font-size: clamp(12px, 2.8vw, 15px);
-        padding: 4px 0;
-    }
-
-    /* 버튼 모바일 반응형 폰트, 자동 줄바꿈 및 높이 최적화 */
-    .stButton > button {
+    /* 달력 버튼 테마 맞춤 및 자동 높이 조절 */
+    .stButton > button {{
         width: 100% !important;
+        height: auto !important;
         min-height: 52px !important;
-        padding: 4px 2px !important;
-        border: 1px solid #E2E8F0 !important;
+        padding: 6px 4px !important;
+        border: 1px solid {border_color} !important;
         border-radius: 8px !important;
-        background-color: #FFFFFF !important;
-        color: #0F172A !important;
+        background-color: {btn_bg} !important;
+        color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
         font-size: clamp(10px, 2.2vw, 13px) !important;
         font-weight: 500 !important;
         margin-bottom: 4px !important;
-        white-space: pre-wrap !important; /* 자동 줄바꿈 지원 */
-        word-break: break-all !important;
-        line-height: 1.25 !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.35 !important;
         transition: all 0.2s ease !important;
-    }
+    }}
 
-    .stButton > button:hover {
-        border-color: #2563EB !important;
-        background-color: #F0F6FF !important;
-    }
+    .stButton > button:hover {{
+        border-color: {btn_hover_border} !important;
+        background-color: {btn_hover_bg} !important;
+    }}
 
-    /* 모바일 가로 모드 자동 대응 미디어 쿼리 */
-    @media screen and (max-width: 768px) and (orientation: landscape) {
-        .main .block-container {
+    /* 모바일 가로 모드 대응 미디어 쿼리 */
+    @media screen and (max-width: 768px) and (orientation: landscape) {{
+        .main .block-container {{
             padding: 0.2rem 0.2rem !important;
-        }
-        .stButton > button {
-            min-height: 48px !important;
+        }}
+        .stButton > button {{
             font-size: 10px !important;
-            padding: 2px 1px !important;
-        }
-    }
+            padding: 4px 2px !important;
+        }}
+    }}
 
-    [data-testid="stDialog"] > div:first-child {
+    [data-testid="stDialog"] > div:first-child {{
         width: clamp(300px, 90vw, 550px) !important;
         max-width: 95vw !important;
         max-height: 85vh !important;
         border-radius: 12px !important;
         padding: 1rem !important;
         overflow-y: auto !important;
-    }
+    }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -155,7 +155,6 @@ orientation_js = """
     function checkOrientation() {
         const isLandscape = window.matchMedia("(orientation: landscape)").matches;
         
-        // URL 쿼리 파라미터를 이용하여 자동 전환 트리거
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('mode') !== (isLandscape ? 'grid' : 'list')) {
             const newUrl = window.location.pathname + '?mode=' + (isLandscape ? 'grid' : 'list');
@@ -761,7 +760,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (화면 회전 및 비례 자동 적용)
+# TAB 1: 달력 메인 화면 (화면 회전, 테마 선택 적용)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -804,14 +803,13 @@ with tab1:
         else 0
     )
 
-    # URL 쿼리 파라미터를 읽어 회전 상태에 따라 라디오 기본값 자동 동기화
     query_params = st.query_params
     mode_param = query_params.get("mode", "list")
     default_radio_idx = 1 if mode_param == "grid" else 0
 
     with st.container():
         st.markdown('<div class="month-select-box">', unsafe_allow_html=True)
-        col_m1, col_m2 = st.columns([1, 2])
+        col_m1, col_m2, col_m3 = st.columns([1, 1.2, 1])
         with col_m1:
             selected_month = st.selectbox(
                 "📅 조회 월 선택",
@@ -821,12 +819,25 @@ with tab1:
             )
         with col_m2:
             calendar_view_type = st.radio(
-                "📐 달력 표시 방식 선택 (회전 시 자동 전환)",
+                "📐 달력 표시 방식",
                 options=["📄 세로형 리스트", "🗓️ 가로형 Grid"],
                 index=default_radio_idx,
                 horizontal=True,
                 key="calendar_view_type",
             )
+        with col_m3:
+            selected_theme = st.radio(
+                "🎨 테마 선택",
+                options=["☀️ 화이트 테마", "🌙 블랙 테마"],
+                index=1 if st.session_state.app_theme == "🌙 블랙 테마" else 0,
+                horizontal=True,
+                key="theme_radio_select",
+            )
+            # 테마 변경 시 동적 리런 적용
+            if selected_theme != st.session_state.app_theme:
+                st.session_state.app_theme = selected_theme
+                st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     if selected_month in available_months:
@@ -866,7 +877,7 @@ with tab1:
         )
 
         # ---------------------------------------------------------
-        # 1) 세로형 리스트 보기 (세로 모드에 최적화)
+        # 1) 세로형 리스트 보기
         # ---------------------------------------------------------
         if calendar_view_type == "📄 세로형 리스트":
             weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
@@ -898,19 +909,29 @@ with tab1:
                         edit_worker_dialog(date_str, duty_info)
 
         # ---------------------------------------------------------
-        # 2) 가로형 Grid 보기 (자동 줄바꿈 및 비율 맞춤 적용)
+        # 2) 가로형 Grid 보기 (테마별 가독성 요일 색상 조정)
         # ---------------------------------------------------------
         else:
-            # 요일 헤더를 비율에 맞게 1:1:1:1:1:1:1 균등 가로 나열
             cols_header = st.columns(7)
+
+            # 테마별 요일 색상 팔레트 설정
+            if is_dark:
+                color_sun = "#FF6B6B"  # 선명한 빨강/주황
+                color_sat = "#38BDF8"  # 밝은 하늘색
+                color_weekday = "#F1F5F9"  # 밝은 백색
+            else:
+                color_sun = "#DC2626"  # 진한 빨강
+                color_sat = "#2563EB"  # 진한 파랑
+                color_weekday = "#0F172A"  # 다크 그레이
+
             headers = [
-                ("일", "red"),
-                ("월", "#0F172A"),
-                ("화", "#0F172A"),
-                ("수", "#0F172A"),
-                ("목", "#0F172A"),
-                ("금", "#0F172A"),
-                ("토", "blue"),
+                ("일", color_sun),
+                ("월", color_weekday),
+                ("화", color_weekday),
+                ("수", color_weekday),
+                ("목", color_weekday),
+                ("금", color_weekday),
+                ("토", color_sat),
             ]
 
             for idx, (h_name, color) in enumerate(headers):
@@ -943,7 +964,7 @@ with tab1:
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        # 날짜 \n 근무자1 \n 근무자2 \n 메모 순으로 줄바꿈 구성
+                        # 날짜, 근무자1, 근무자2, 메모 줄바꿈 표출
                         if day_memo:
                             btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}"
                         else:

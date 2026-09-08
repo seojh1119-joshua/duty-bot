@@ -502,7 +502,6 @@ def edit_worker_dialog(date_str, duty_info):
         with c_sub1:
             submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
         with c_sub2:
-            # 하위 다이얼로그의 종료 버튼: 상위 메뉴(메인 화면)로 복귀
             close_dialog = st.form_submit_button("🚪 창 닫기 (상위 메뉴로)", use_container_width=True)
 
         if submitted:
@@ -534,7 +533,7 @@ def edit_worker_dialog(date_str, duty_info):
 
 
 # ---------------------------------------------------------
-# 사이드바 (상위 메뉴 - 시스템 종료 버튼 위치)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
@@ -569,7 +568,6 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    # 최상위 메뉴 영역의 시스템 종료 버튼
     if st.button("🔴 시스템 종료", use_container_width=True):
         confirm_exit_dialog()
 
@@ -633,7 +631,6 @@ with tab1:
         else 0
     )
 
-    # Box 형태로 포장된 조회 월 선택 영역
     with st.container():
         st.markdown('<div class="month-select-box">', unsafe_allow_html=True)
         col_m1, col_m2 = st.columns([1, 2])
@@ -674,7 +671,6 @@ with tab1:
 
         st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
 
-        # 1일부터 말일까지 세로 방향 리스트 출력
         for day in range(1, num_days + 1):
             curr_date = datetime.date(year, month, day)
             date_str = curr_date.strftime("%Y-%m-%d")
@@ -682,7 +678,6 @@ with tab1:
             weekday_str = weekdays_kr[weekday_idx]
             duty_info = duty_map.get(day)
 
-            # 요일별 색상 구분 표시
             if weekday_idx == 6 or curr_date in kr_holidays:
                 day_title = f"🔴 {day:02d}일 ({weekday_str})"
             elif weekday_idx == 5:
@@ -710,20 +705,58 @@ with tab1:
                     edit_worker_dialog(date_str, duty_info)
 
 # ---------------------------------------------------------
-# TAB 2: 근무표 전체 수정
+# TAB 2: 근무표 전체 수정 (상단 저장 버튼 & 월별 검색 추가)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
+
+    # 상단 컨트롤 레이아웃: 조회 월 검색 및 상단 고정 저장 버튼
+    edit_months = ["전체 기간"] + sorted(df["년월"].dropna().unique())
+    current_ym = today.strftime("%Y-%m")
+    default_edit_idx = (
+        edit_months.index(current_ym) if current_ym in edit_months else 0
+    )
+
+    col_ctrl1, col_ctrl2 = st.columns([1, 1])
+
+    with col_ctrl1:
+        selected_edit_month = st.selectbox(
+            "📅 근무 월 선택 검색",
+            edit_months,
+            index=default_edit_idx,
+            key="edit_month_filter",
+        )
+
+    # 선택된 월 데이터 필터링
+    if selected_edit_month == "전체 기간":
+        target_editor_df = st.session_state.df.copy()
+    else:
+        target_editor_df = st.session_state.df[
+            st.session_state.df["년월"] == selected_edit_month
+        ].copy()
+
+    with col_ctrl2:
+        st.write("")  # 수평 위치 맞춤용 공백
+        st.write("")
+        save_btn_clicked = st.button(
+            "💾 변경사항 적용 및 엑셀 저장",
+            key="top_save_btn",
+            use_container_width=True,
+            type="primary",
+        )
+
     st.caption("아래 표에서 근무자, 대직자 및 근무 구분을 직접 수정할 수 있습니다.")
 
+    # 데이터 에디터 출력
     edited_df = st.data_editor(
-        st.session_state.df,
+        target_editor_df,
         num_rows="dynamic",
-        key="data_editor",
+        key=f"data_editor_{selected_edit_month}",
         use_container_width=True,
     )
 
-    if st.button("💾 변경사항 적용 및 엑셀 저장"):
+    # 상단 저장 버튼 클릭 처리
+    if save_btn_clicked:
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
         edited_df = edited_df.dropna(subset=["날짜"]).copy()
 
@@ -751,9 +784,22 @@ with tab2:
             .fillna("미지정")
         )
 
-        st.session_state.df = edited_df
+        # 필터링된 부분 데이터가 수정된 경우, 전체 session_state.df에 반영
+        if selected_edit_month == "전체 기간":
+            st.session_state.df = edited_df
+        else:
+            other_df = st.session_state.df[
+                st.session_state.df["년월"] != selected_edit_month
+            ]
+            merged_df = (
+                pd.concat([other_df, edited_df], ignore_index=True)
+                .sort_values(by="날짜")
+                .reset_index(drop=True)
+            )
+            st.session_state.df = merged_df
+
         save_app_state(
-            edited_df,
+            st.session_state.df,
             st.session_state.selected_sheet,
             st.session_state.memos,
         )

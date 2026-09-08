@@ -163,10 +163,15 @@ responsive_css = f"""
         border: 1px solid {border_color} !important;
     }}
 
-    /* 입력창 및 셀렉트박스 테마 대응 */
-    input, select, textarea {{
+    /* 입력창 및 셀렉트박스 테마 대응 (날짜 선택 위젯 포함) */
+    input, select, textarea, [data-baseweb="input"] input, [data-baseweb="select"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
+    }}
+    
+    [data-baseweb="input"] {{
+        background-color: {input_bg} !important;
+        border-color: {border_color} !important;
     }}
 
     @media screen and (max-width: 768px) and (orientation: landscape) {{
@@ -233,7 +238,7 @@ def save_to_excel_file(df, file_path):
         return False
 
 
-def save_app_state(df, sheet_name, memos):
+def save_app_state(df, sheet_name, memos, batch_patterns=None):
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
@@ -243,9 +248,13 @@ def save_app_state(df, sheet_name, memos):
             cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
             save_df = save_df[cols]
 
+        if batch_patterns is None:
+            batch_patterns = st.session_state.get("batch_patterns", {})
+
         state_data = {
             "selected_sheet": sheet_name,
             "memos": memos,
+            "batch_patterns": batch_patterns,
             "df_dict": save_df.to_dict(orient="records"),
         }
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
@@ -273,10 +282,11 @@ def load_app_state():
                 df,
                 state_data.get("selected_sheet", "숙직근무자"),
                 state_data.get("memos", {}),
+                state_data.get("batch_patterns", {}),
             )
         except Exception:
-            return None, None, None
-    return None, None, None
+            return None, None, None, None
+    return None, None, None, None
 
 
 # ---------------------------------------------------------
@@ -474,12 +484,13 @@ if "file_bytes" not in st.session_state and os.path.exists(initial_file):
     st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
-    saved_df, saved_sheet, saved_memos = load_app_state()
+    saved_df, saved_sheet, saved_memos, saved_patterns = load_app_state()
 
     if saved_df is not None:
         st.session_state.df = saved_df
         st.session_state.selected_sheet = saved_sheet
         st.session_state.memos = saved_memos
+        st.session_state.batch_patterns = saved_patterns if saved_patterns else {}
         if "file_bytes" in st.session_state:
             _, _, sheet_names, raw_df, _ = load_excel_smart(
                 st.session_state.file_bytes, saved_sheet
@@ -498,6 +509,7 @@ if "df" not in st.session_state:
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
         st.session_state.memos = {}
+        st.session_state.batch_patterns = {}
     else:
         today_date = datetime.date.today()
         dates = pd.date_range(start=today_date.replace(day=1), periods=60, freq="D")
@@ -519,6 +531,10 @@ if "df" not in st.session_state:
         st.session_state.selected_sheet = "숙직근무자"
         st.session_state.raw_df = pd.DataFrame()
         st.session_state.memos = {}
+        st.session_state.batch_patterns = {}
+
+if "batch_patterns" not in st.session_state:
+    st.session_state.batch_patterns = {}
 
 
 # ---------------------------------------------------------
@@ -540,13 +556,14 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
-# 근무자 수동 반복 등록 다이얼로그 (등록된 칸만 반영, 미입력 칸은 기존 데이터 유지)
+# 근무자 수동 반복 등록 다이얼로그 (패턴 영구 보존 및 저장 적용)
 # ---------------------------------------------------------
 @st.dialog("🔄 근무자 수동 반복 등록")
 def batch_register_worker_dialog():
     st.write("📅 **입력된 근무자만 규칙적으로 순환 등록되며, 비워둔 칸은 기존 엑셀 데이터를 유지합니다.**")
 
     today_default = datetime.date.today()
+    saved_pat = st.session_state.get("batch_patterns", {})
 
     col_b1, col_b2 = st.columns(2)
     with col_b1:
@@ -566,36 +583,42 @@ def batch_register_worker_dialog():
     
     with col_p1:
         st.markdown("**:blue[근무자 1 패턴 설정]**")
+        default_w1_int = saved_pat.get("interval1", 3)
         interval1 = st.number_input(
             "근무자1 반복 칸수 (주기)",
             min_value=1,
             max_value=30,
-            value=3,
+            value=int(default_w1_int),
             step=1,
             key="batch_w1_interval",
         )
         st.caption(f"💡 설정된 주기({interval1}개)만큼 아래에 이름 입력 칸이 생성됩니다.")
         
+        default_w1_slots = saved_pat.get("w1_names", [])
         w1_names = []
         for i in range(int(interval1)):
-            name_val = st.text_input(f"근무자1 - 순번 {i+1}", key=f"w1_slot_{i}")
+            default_val = default_w1_slots[i] if i < len(default_w1_slots) else ""
+            name_val = st.text_input(f"근무자1 - 순번 {i+1}", value=default_val, key=f"w1_slot_{i}")
             w1_names.append(name_val.strip())
 
     with col_p2:
         st.markdown("**:blue[근무자 2 패턴 설정]**")
+        default_w2_int = saved_pat.get("interval2", 3)
         interval2 = st.number_input(
             "근무자2 반복 칸수 (주기)",
             min_value=1,
             max_value=30,
-            value=3,
+            value=int(default_w2_int),
             step=1,
             key="batch_w2_interval",
         )
         st.caption(f"💡 설정된 주기({interval2}개)만큼 아래에 이름 입력 칸이 생성됩니다.")
         
+        default_w2_slots = saved_pat.get("w2_names", [])
         w2_names = []
         for i in range(int(interval2)):
-            name_val = st.text_input(f"근무자2 - 순번 {i+1}", key=f"w2_slot_{i}")
+            default_val = default_w2_slots[i] if i < len(default_w2_slots) else ""
+            name_val = st.text_input(f"근무자2 - 순번 {i+1}", value=default_val, key=f"w2_slot_{i}")
             w2_names.append(name_val.strip())
 
     st.markdown("---")
@@ -603,6 +626,14 @@ def batch_register_worker_dialog():
     col_sub1, col_sub2 = st.columns([2, 1])
     with col_sub1:
         if st.button("💾 반복 순서 규칙 적용 및 저장", use_container_width=True, type="primary"):
+            # 현재 입력된 패턴을 세션 및 영구 상태에 저장
+            st.session_state.batch_patterns = {
+                "interval1": int(interval1),
+                "w1_names": w1_names,
+                "interval2": int(interval2),
+                "w2_names": w2_names,
+            }
+
             df = st.session_state.df
             current_date = start_date_input
 
@@ -644,8 +675,9 @@ def batch_register_worker_dialog():
                 st.session_state.df,
                 st.session_state.selected_sheet,
                 st.session_state.memos,
+                st.session_state.batch_patterns,
             )
-            st.success("✅ 입력된 근무자는 순서대로 등록되고, 미입력된 칸은 기존 데이터가 유지되었습니다.")
+            st.success("✅ 반복 패턴이 저장되었으며, 규칙에 따라 근무표에 성공적으로 반영되었습니다.")
             st.rerun()
 
     with col_sub2:
@@ -726,7 +758,7 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.df.at[row_idx, "실제근무2"] = final_sub2 if final_sub2 else final_p2
             st.session_state.memos[date_str] = edit_memo.strip()
 
-            save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
+            save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
             st.success("✅ 변경사항이 성공적으로 저장되었습니다.")
             st.rerun()
 
@@ -760,13 +792,11 @@ with st.sidebar:
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-        st.session_state.memos = {}
+        # 새 파일이 업로드되어도 기존 반복 패턴(batch_patterns)과 메모는 유지됨
 
-        if os.path.exists(PERSISTENCE_STATE_PATH):
-            os.remove(PERSISTENCE_STATE_PATH)
-        save_app_state(parsed_df, used_sheet, {})
+        save_app_state(parsed_df, used_sheet, st.session_state.get("memos", {}), st.session_state.get("batch_patterns", {}))
 
-        st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
+        st.success(f"✅ '{used_sheet}' 데이터 로드 완료 (기존 반복 패턴 유지됨)")
         st.rerun()
 
     st.divider()
@@ -1002,7 +1032,7 @@ with tab2:
         cols = ["날짜"] + [c for c in full_df.columns if c != "날짜"]
         st.session_state.df = full_df[cols]
 
-        save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
+        save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
         st.success("✅ 엑셀 파일 및 대시보드에 성공적으로 저장되었습니다.")
         st.rerun()
 

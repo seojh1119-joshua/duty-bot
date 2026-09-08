@@ -32,11 +32,11 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (모바일 7열 완전 고정 및 요일 헤더 비율 방지)
+# CSS 스타일링 (모바일 반응형, 요일 셀-날짜 셀 크기 일치)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 여백 및 패딩 최적화 */
+    /* 메인 컨테이너 여백 최소화 */
     .main .block-container {
         padding-top: 0.5rem;
         padding-bottom: 2rem;
@@ -44,16 +44,16 @@ responsive_css = """
         padding-right: 0.1rem;
     }
 
-    /* 모든 가로 블록(st.columns)을 모바일에서도 무조건 가로 1줄 7열로 강제 */
+    /* 모든 가로 컬럼 블록(st.columns) 7등분 강제 설정 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 1px !important;
+        gap: 2px !important;
         width: 100% !important;
     }
 
-    /* 각 컬럼 너비를 정확히 1/7(14.28%)로 축소 지정 */
+    /* 7개 각 컬럼의 폭을 정확히 동일하게 통일 */
     [data-testid="column"] {
         width: 14.28% !important;
         min-width: 0 !important;
@@ -63,14 +63,14 @@ responsive_css = """
         margin: 0px !important;
     }
 
-    /* 요일 헤더 통합 스타일링 */
+    /* 요일 헤더 박스 */
     .cal-header {
         text-align: center;
-        font-size: clamp(9px, 1.2vw, 13px);
+        font-size: clamp(10px, 1.2vw, 13px);
         font-weight: bold;
-        padding: 4px 0;
+        padding: 6px 0;
         border-radius: 4px;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
         width: 100% !important;
         box-sizing: border-box;
         white-space: nowrap;
@@ -92,16 +92,17 @@ responsive_css = """
         color: #1E293B;
     }
 
-    /* 달력 셀 버튼 스타일 */
+    /* 달력 셀 버튼 스타일 및 요일 칸과 크기 단차 제거 */
     .stButton {
         width: 100% !important;
         margin: 0 !important;
+        padding: 0 !important;
     }
 
     .stButton > button {
         width: 100% !important;
         min-height: 75px !important;
-        padding: 2px 1px !important;
+        padding: 4px 2px !important;
         border: 1px solid #CBD5E1 !important;
         border-radius: 4px !important;
         background-color: #FFFFFF !important;
@@ -109,6 +110,7 @@ responsive_css = """
         font-size: clamp(8px, 0.9vw, 11px) !important;
         line-height: 1.25 !important;
         text-align: left !important;
+        box-sizing: border-box !important;
 
         /* 줄바꿈 강제 규칙 */
         white-space: pre-wrap !important;
@@ -143,17 +145,17 @@ responsive_css = """
         margin-bottom: 10px;
     }
 
-    /* 모바일 화면 전용 미세 조정 */
+    /* 모바일 화면 전용 높이 및 폰트 미세 조정 */
     @media (max-width: 600px) {
         .stButton > button {
             min-height: 65px !important;
-            padding: 2px 1px !important;
+            padding: 3px 1px !important;
             font-size: 8px !important;
             line-height: 1.2 !important;
         }
         .cal-header {
             font-size: 10px !important;
-            padding: 3px 0 !important;
+            padding: 4px 0 !important;
         }
     }
 </style>
@@ -670,11 +672,19 @@ with tab1:
 
                         is_today = curr_date == today
 
+                        # 요일별 폰트/날짜 색상 구분 (0:일, 6:토, 그 외:평일)
+                        if i == 0 or curr_date in kr_holidays:
+                            date_prefix = f"🔴 [{day}일]"
+                        elif i == 6:
+                            date_prefix = f"🔵 [{day}일]"
+                        else:
+                            date_prefix = f"[{day}일]"
+
                         lines = []
                         if is_today:
-                            lines.append(f"[{day}일](오늘)")
+                            lines.append(f"{date_prefix}(오늘)")
                         else:
-                            lines.append(f"[{day}일]")
+                            lines.append(date_prefix)
 
                         if duty_info:
                             p1_txt = duty_info["p1_real"] + (

@@ -59,7 +59,7 @@ responsive_css = """
         border-radius: 4px;
     }
 
-    /* 달력 내부 버튼 (클릭 시 모달) */
+    /* 직접 클릭형 달력 날짜 셀 버튼 */
     .stButton > button {
         width: 100% !important;
         min-height: 80px !important;
@@ -84,7 +84,7 @@ responsive_css = """
         background-color: #F8FAFC !important;
     }
 
-    /* 오늘 근무자 상단 강조 배너 */
+    /* 오늘 근무자 상단 강조 카드 */
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
@@ -99,7 +99,7 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 폴더 내 엑셀 파일 탐색 함수
+# DATA/data 폴더 내 기본 엑셀 파일 자동 탐색
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -112,7 +112,7 @@ def get_initial_excel_file():
 
 
 # ---------------------------------------------------------
-# 상태 저장 및 로드 함수 (Persistence)
+# 앱 데이터 영구 저장/로드 관리 (Persistence)
 # ---------------------------------------------------------
 def save_app_state(df, sheet_name, memos):
     try:
@@ -152,37 +152,44 @@ def load_app_state():
 
 
 # ---------------------------------------------------------
-# 스마트 엑셀 파서 (시트 선택 오류 완벽 보완)
+# 스마트 엑셀 파서 ('숙직근무자' 시트 최우선 자동 색출 & 로드)
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
+    # 바이너리 바이트 스트림 변환 및 버퍼 보장
     if isinstance(file_input, bytes):
-        file_obj = io.BytesIO(file_input)
+        file_bytes = file_input
     elif hasattr(file_input, "read"):
-        file_obj = io.BytesIO(file_input.read())
+        file_bytes = file_input.read()
     else:
         with open(file_input, "rb") as f:
-            file_obj = io.BytesIO(f.read())
+            file_bytes = f.read()
 
+    file_obj = io.BytesIO(file_bytes)
     file_obj.seek(0)
+
     excel_file = pd.ExcelFile(file_obj)
     sheet_names = excel_file.sheet_names
 
-    # 유연한 시트 탐색 로직 (우선순위 적용)
+    # 1. '숙직근무자' 시트 최우선 색출 로직
     target_sheet = selected_sheet
     if not target_sheet or target_sheet not in sheet_names:
-        priority_keywords = ["숙직근무자", "숙직", "근무자", "근무", "달력", "의료과", "야근"]
-        priority_sheets = []
-        for kw in priority_keywords:
-            for s in sheet_names:
-                if kw in s and s not in priority_sheets:
-                    priority_sheets.append(s)
-
-        target_sheet = priority_sheets[0] if priority_sheets else sheet_names[0]
+        # 1순위: '숙직근무자' 완벽 일치/포함 시트
+        p1 = [s for s in sheet_names if "숙직근무자" in s]
+        if p1:
+            target_sheet = p1[0]
+        else:
+            # 2순위: '숙직', '근무자', '근무', '달력' 키워드
+            p2 = [
+                s
+                for s in sheet_names
+                if any(k in s for k in ["숙직", "근무자", "근무", "달력", "야근"])
+            ]
+            target_sheet = p2[0] if p2 else sheet_names[0]
 
     file_obj.seek(0)
     df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
 
-    # 표 헤더 시작 행 탐색
+    # 2. 표 헤더(시작 행) 자동 탐색
     header_idx = 0
     for idx in range(min(25, len(df_raw))):
         row_values = [str(val).strip() for val in df_raw.iloc[idx].values]
@@ -207,6 +214,7 @@ def load_excel_smart(file_input, selected_sheet=None):
         clean_cols.append(c_str)
     df.columns = clean_cols
 
+    # 날짜 컬럼 자동 식별 및 변환
     date_col = next(
         (
             col
@@ -222,6 +230,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     df = df.dropna(subset=["날짜"]).copy()
 
+    # 근무구분 컬럼 식별
     duty_type_col = next(
         (
             c
@@ -244,6 +253,7 @@ def load_excel_smart(file_input, selected_sheet=None):
         df[duty_type_col].astype(str).str.strip() if duty_type_col else "평일"
     )
 
+    # 근무자1, 근무자2, 대직자 컬럼 인식
     cols = list(df.columns)
     p1_col = next(
         (
@@ -296,6 +306,7 @@ def load_excel_smart(file_input, selected_sheet=None):
 
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
+    # 실제 적용 근무자 계산
     df["실제근무1"] = (
         df["대직1"]
         .fillna("")
@@ -315,16 +326,18 @@ def load_excel_smart(file_input, selected_sheet=None):
         .fillna("미지정")
     )
 
-    return df, target_sheet, sheet_names, df_raw
+    return df, target_sheet, sheet_names, df_raw, file_bytes
 
 
 # ---------------------------------------------------------
-# 초기 세션 설정 및 데이터 로드
+# 세션 상태 초기화 및 기본 파일 로드
 # ---------------------------------------------------------
 initial_file = get_initial_excel_file()
 
-if "file_path" not in st.session_state:
-    st.session_state.file_path = initial_file
+if "file_bytes" not in st.session_state and initial_file:
+    with open(initial_file, "rb") as f:
+        st.session_state.file_bytes = f.read()
+    st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
     saved_df, saved_sheet, saved_memos = load_app_state()
@@ -333,22 +346,26 @@ if "df" not in st.session_state:
         st.session_state.df = saved_df
         st.session_state.selected_sheet = saved_sheet
         st.session_state.memos = saved_memos
-        if initial_file and os.path.exists(initial_file):
-            _, _, sheet_names, raw_df = load_excel_smart(initial_file)
+        if "file_bytes" in st.session_state:
+            _, _, sheet_names, raw_df, _ = load_excel_smart(
+                st.session_state.file_bytes, saved_sheet
+            )
             st.session_state.sheet_names = sheet_names
             st.session_state.raw_df = raw_df
         else:
             st.session_state.sheet_names = [saved_sheet]
             st.session_state.raw_df = pd.DataFrame()
-    elif initial_file and os.path.exists(initial_file):
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(initial_file)
+    elif "file_bytes" in st.session_state:
+        parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(
+            st.session_state.file_bytes
+        )
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
         st.session_state.memos = {}
     else:
-        # 데이터 파일이 없을 경우 기본 샘플 생성
+        # 데이터 파일이 전혀 없을 경우 기본 샘플 자동 생성
         today_date = datetime.date.today()
         dates = pd.date_range(start=today_date.replace(day=1), periods=60, freq="D")
         sample_df = pd.DataFrame({
@@ -390,7 +407,7 @@ def edit_worker_dialog(date_str, duty_info):
 
         st.divider()
         edit_memo = st.text_area(
-            "📌 날짜별 메모 (달력 셀에 바로 반응)",
+            "📌 날짜별 메모 (달력 셀에 즉시 반영)",
             value=current_memo,
             height=80,
         )
@@ -423,27 +440,31 @@ def edit_worker_dialog(date_str, duty_info):
                 st.session_state.selected_sheet,
                 st.session_state.memos,
             )
-            st.success("✅ 변경사항이 반영되었습니다.")
+            st.success("✅ 변경사항이 성공적으로 반영되었습니다.")
             st.rerun()
 
 
 # ---------------------------------------------------------
-# 사이드바 (시트 선택 오류 수정 반영)
+# 사이드바 (파일 업로드 및 시트 선택 오류 방지 처리)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 및 시트 설정")
 
-    if initial_file:
-        st.info(f"📄 기본 파일: `{os.path.basename(initial_file)}`")
+    if "file_name" in st.session_state:
+        st.info(f"📄 현재 로드된 파일: `{st.session_state.file_name}`")
 
     uploaded_file = st.file_uploader(
-        "새 엑셀 파일 업로드 (데이터 교체)", type=["xlsx"]
+        "새 엑셀 파일 업로드 (DATA 데이터 교체)", type=["xlsx"]
     )
 
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
-        parsed_df, used_sheet, sheet_names, raw_df = load_excel_smart(file_bytes)
+        parsed_df, used_sheet, sheet_names, raw_df, f_bytes = load_excel_smart(
+            file_bytes
+        )
 
+        st.session_state.file_bytes = f_bytes
+        st.session_state.file_name = uploaded_file.name
         st.session_state.df = parsed_df
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
@@ -454,10 +475,10 @@ with st.sidebar:
             os.remove(PERSISTENCE_STATE_PATH)
         save_app_state(parsed_df, used_sheet, {})
 
-        st.success(f"✅ '{used_sheet}' 시트를 성공적으로 불러왔습니다!")
+        st.success(f"✅ '{used_sheet}' 시트 데이터를 성공적으로 불러왔습니다!")
         st.rerun()
 
-    # 시트 선택 드롭다운 (오류 수정)
+    # 시트 선택 드롭다운 (오류 완벽 보완)
     if "sheet_names" in st.session_state and st.session_state.sheet_names:
         sheets = st.session_state.sheet_names
         curr_sheet = st.session_state.selected_sheet
@@ -466,13 +487,14 @@ with st.sidebar:
         selected_s = st.selectbox("📌 시트 선택", sheets, index=curr_idx)
         if selected_s != st.session_state.selected_sheet:
             st.session_state.selected_sheet = selected_s
-            parsed_df, used_sheet, _, raw_df = load_excel_smart(
-                st.session_state.file_path, selected_s
-            )
-            st.session_state.df = parsed_df
-            st.session_state.raw_df = raw_df
-            save_app_state(parsed_df, used_sheet, st.session_state.memos)
-            st.rerun()
+            if "file_bytes" in st.session_state:
+                parsed_df, used_sheet, _, raw_df, _ = load_excel_smart(
+                    st.session_state.file_bytes, selected_s
+                )
+                st.session_state.df = parsed_df
+                st.session_state.raw_df = raw_df
+                save_app_state(parsed_df, used_sheet, st.session_state.memos)
+                st.rerun()
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -490,7 +512,7 @@ tab1, tab_sheet, tab2, tab3 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (오늘 근무자 연동 및 셀 클릭 수정)
+# TAB 1: 달력 메인 화면 (오늘 근무자 동적 연동 & 클릭 수정)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -542,7 +564,7 @@ with tab1:
         key="calendar_month_select",
     )
 
-    st.caption("💡 **달력 날짜 셀을 직접 클릭하면** 정보 수정 창이 바로 호출됩니다.")
+    st.caption("💡 **달력 날짜 셀을 직접 클릭하면** 정보 수정 팝업 창이 표시됩니다.")
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))

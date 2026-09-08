@@ -82,8 +82,8 @@ responsive_css = """
     /* 세로형 달력 리스트 버튼 스타일 */
     .stButton > button {
         width: 100% !important;
-        min-height: 55px !important;
-        padding: 10px 16px !important;
+        min-height: 50px !important;
+        padding: 8px 12px !important;
         border: 1px solid #E2E8F0 !important;
         border-radius: 8px !important;
         background-color: #FFFFFF !important;
@@ -93,7 +93,7 @@ responsive_css = """
         display: flex !important;
         justify-content: flex-start !important;
         align-items: center !important;
-        font-size: 15px !important;
+        font-size: 14px !important;
         font-weight: 500 !important;
         margin-bottom: 6px !important;
         transition: all 0.2s ease !important;
@@ -597,14 +597,14 @@ today = datetime.date.today()
 st.title("📋 숙직 근무 관리 대시보드")
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📅 달력 메인 화면 (세로형)",
+    "📅 달력 메인 화면",
     "✏️ 근무표 전체 수정",
     "📊 숙직근무자 월별 근무 통계",
     "🔍 시트 데이터 점검",
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (실제근무자 및 (대) 표출)
+# TAB 1: 달력 메인 화면 (세로형 / 가로형 레이아웃 선택)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -657,6 +657,13 @@ with tab1:
                 index=default_idx,
                 key="calendar_month_select",
             )
+        with col_m2:
+            calendar_view_type = st.radio(
+                "📐 달력 표시 방식 선택",
+                options=["📄 세로형 리스트", "🗓️ 가로형 Grid"],
+                horizontal=True,
+                key="calendar_view_type",
+            )
         st.markdown('</div>', unsafe_allow_html=True)
 
     if selected_month in available_months:
@@ -687,35 +694,96 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
-
         st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
 
-        for day in range(1, num_days + 1):
-            curr_date = datetime.date(year, month, day)
-            date_str = curr_date.strftime("%Y-%m-%d")
-            weekday_idx = curr_date.weekday()
-            weekday_str = weekdays_kr[weekday_idx]
-            duty_info = duty_map.get(day)
+        # ---------------------------------------------------------
+        # 1) 세로형 리스트 보기
+        # ---------------------------------------------------------
+        if calendar_view_type == "📄 세로형 리스트":
+            weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
 
-            if weekday_idx == 6 or curr_date in kr_holidays:
-                day_title = f"🔴 {day:02d}일 ({weekday_str})"
-            elif weekday_idx == 5:
-                day_title = f"🔵 {day:02d}일 ({weekday_str})"
-            else:
-                day_title = f"🗓️ {day:02d}일 ({weekday_str})"
+            for day in range(1, num_days + 1):
+                curr_date = datetime.date(year, month, day)
+                date_str = curr_date.strftime("%Y-%m-%d")
+                weekday_idx = curr_date.weekday()
+                weekday_str = weekdays_kr[weekday_idx]
+                duty_info = duty_map.get(day)
 
-            p1_txt = duty_info["p1_display"] if duty_info else "미지정"
-            p2_txt = duty_info["p2_display"] if duty_info else "미지정"
+                if weekday_idx == 6 or curr_date in kr_holidays:
+                    day_title = f"🔴 {day:02d}일 ({weekday_str})"
+                elif weekday_idx == 5:
+                    day_title = f"🔵 {day:02d}일 ({weekday_str})"
+                else:
+                    day_title = f"🗓️ {day:02d}일 ({weekday_str})"
 
-            day_memo = st.session_state.memos.get(date_str, "")
-            memo_display = f" | 📌 메모: {day_memo}" if day_memo else ""
+                p1_txt = duty_info["p1_display"] if duty_info else "미지정"
+                p2_txt = duty_info["p2_display"] if duty_info else "미지정"
 
-            btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{memo_display}"
+                day_memo = st.session_state.memos.get(date_str, "")
+                memo_display = f" | 📌 메모: {day_memo}" if day_memo else ""
 
-            if st.button(btn_label, key=f"btn_v_card_{date_str}"):
-                if duty_info:
-                    edit_worker_dialog(date_str, duty_info)
+                btn_label = f"{day_title}   |   👤 근무자1: {p1_txt}   |   👤 근무자2: {p2_txt}{memo_display}"
+
+                if st.button(btn_label, key=f"btn_v_card_{date_str}"):
+                    if duty_info:
+                        edit_worker_dialog(date_str, duty_info)
+
+        # ---------------------------------------------------------
+        # 2) 가로형 Grid 보기 (월간 7열 형태)
+        # ---------------------------------------------------------
+        else:
+            # 요일 헤더 (일요일 시작)
+            headers = ["일", "월", "화", "수", "목", "금", "토"]
+            cols_header = st.columns(7)
+            for idx, h_name in enumerate(headers):
+                if idx == 0:
+                    cols_header[idx].markdown(f"<h4 style='text-align: center; color: red;'>{h_name}</h4>", unsafe_allow_html=True)
+                elif idx == 6:
+                    cols_header[idx].markdown(f"<h4 style='text-align: center; color: blue;'>{h_name}</h4>", unsafe_allow_html=True)
+                else:
+                    cols_header[idx].markdown(f"<h4 style='text-align: center;'>{h_name}</h4>", unsafe_allow_html=True)
+
+            st.divider()
+
+            # 첫째 날의 요일 구하기 (Python calendar: 0=월, 6=일 -> 일요일 시작 기준 변환)
+            first_day_weekday = calendar.monthrange(year, month)[0]
+            start_offset = (first_day_weekday + 1) % 7
+
+            day_counter = 1
+            total_cells = start_offset + num_days
+            num_rows = (total_cells + 6) // 7
+
+            for r in range(num_rows):
+                grid_cols = st.columns(7)
+                for c in range(7):
+                    cell_index = r * 7 + c
+                    if cell_index < start_offset or day_counter > num_days:
+                        grid_cols[c].write("")
+                    else:
+                        curr_date = datetime.date(year, month, day_counter)
+                        date_str = curr_date.strftime("%Y-%m-%d")
+                        duty_info = duty_map.get(day_counter)
+
+                        # 날짜 색상 제어
+                        if c == 0 or curr_date in kr_holidays:
+                            d_color = "red"
+                        elif c == 6:
+                            d_color = "blue"
+                        else:
+                            d_color = "#1E293B"
+
+                        p1_txt = duty_info["p1_display"] if duty_info else "-"
+                        p2_txt = duty_info["p2_display"] if duty_info else "-"
+                        day_memo = st.session_state.memos.get(date_str, "")
+                        memo_icon = " 📌" if day_memo else ""
+
+                        btn_text = f"{day_counter}일{memo_icon}\n1: {p1_txt}\n2: {p2_txt}"
+
+                        if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
+                            if duty_info:
+                                edit_worker_dialog(date_str, duty_info)
+
+                        day_counter += 1
 
 # ---------------------------------------------------------
 # TAB 2: 근무표 전체 수정

@@ -22,7 +22,7 @@ os.makedirs("data", exist_ok=True)
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 
 # ---------------------------------------------------------
-# 페이지 기본 설정
+# 페이지 기본 설정 (가로 너비 전체 활용)
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="숙직 근무표 대시보드",
@@ -32,30 +32,32 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (첨부 이미지 스타일 반영 + 완전 가로 쓰기)
+# CSS 스타일링 (화면 비율 맞춤 자동 조절 + 가로 쓰기 강제)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
-    /* 1. 전체 루트 및 메인 레이아웃 뷰포트 설정 */
+    /* 1. 전체 루트 및 메인 레이아웃 상대 비율 적용 */
     html, body, [data-testid="stAppViewContainer"] {
+        width: 100vw !important;
         height: 100vh !important;
         overflow-x: hidden !important;
     }
 
     .main .block-container {
-        padding: 0.8rem !important;
+        padding: 0.5rem 1rem !important;
         max-width: 100% !important;
+        width: 100% !important;
         display: flex !important;
         flex-direction: column !important;
     }
 
-    /* 2. 요일 및 달력 7열 동기화 Grid (1fr 분할) */
+    /* 2. 요일 및 달력 7열 반응형 Grid (화면 폭 100% 1fr 분할) */
     [data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 2px !important;
+        gap: 3px !important;
         width: 100% !important;
-        margin: 0 0 2px 0 !important;
+        margin: 0 0 3px 0 !important;
     }
 
     [data-testid="column"] {
@@ -67,13 +69,13 @@ responsive_css = """
         margin: 0px !important;
     }
 
-    /* 3. 요일 헤더 박스 */
+    /* 3. 요일 헤더 박스 (가로 비율 맞춤) */
     .cal-header {
         text-align: center;
-        font-size: clamp(12px, 1.1vw, 16px);
+        font-size: clamp(12px, 1.2vw, 16px);
         font-weight: bold;
         padding: 8px 0;
-        border-radius: 2px;
+        border-radius: 4px;
         width: 100% !important;
         box-sizing: border-box;
         white-space: nowrap !important;
@@ -82,13 +84,14 @@ responsive_css = """
         display: flex;
         align-items: center;
         justify-content: center;
+        writing-mode: horizontal-tb !important;
     }
 
     .calendar-header-sun { background-color: #991B1B; color: #FFFFFF; }
     .calendar-header-sat { background-color: #1E3A8A; color: #FFFFFF; }
-    .calendar-header-weekday { background-color: #64748B; color: #FFFFFF; }
+    .calendar-header-weekday { background-color: #475569; color: #FFFFFF; }
 
-    /* 4. 달력 버튼 셀 및 텍스트 줄바꿈 방지 설정 */
+    /* 4. 달력 버튼 셀 및 반응형 비율 조절 */
     .stButton {
         width: 100% !important;
         height: 100% !important;
@@ -99,15 +102,15 @@ responsive_css = """
     .stButton > button {
         width: 100% !important;
         height: 100% !important;
-        min-height: clamp(90px, 13vh, 160px) !important;
-        padding: 4px 4px !important;
+        min-height: clamp(80px, 12vh, 150px) !important;
+        padding: 6px 4px !important;
         border: 1px solid #CBD5E1 !important;
-        border-radius: 4px !important;
+        border-radius: 6px !important;
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         box-sizing: border-box !important;
 
-        /* 가로 쓰기 및 한 줄 처리 */
+        /* 완전 가로 쓰기 및 한 줄/비율 자동 조정 */
         writing-mode: horizontal-tb !important;
         white-space: nowrap !important;
         word-break: keep-all !important;
@@ -118,6 +121,8 @@ responsive_css = """
         flex-direction: column !important;
         justify-content: flex-start !important;
         align-items: flex-start !important;
+        font-size: clamp(11px, 1vw, 15px) !important;
+        line-height: 1.3 !important;
     }
 
     .stButton > button * {
@@ -130,55 +135,10 @@ responsive_css = """
 
     .stButton > button:hover {
         border-color: #2563EB !important;
-        background-color: #F8FAFC !important;
+        background-color: #F1F5F9 !important;
     }
 
-    /* 달력 내부 커스텀 레이아웃 HTML 스타일 */
-    .cal-cell-box {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: flex-start;
-        text-align: left;
-    }
-    .cal-day-num {
-        font-size: clamp(12px, 1.1vw, 16px);
-        font-weight: 800;
-        margin-bottom: 4px;
-    }
-    .cal-worker-name {
-        font-size: clamp(13px, 1.2vw, 18px);
-        font-weight: 900;
-        color: #000000;
-        line-height: 1.2;
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
-    }
-    .cal-sub-worker {
-        font-size: clamp(10px, 0.85vw, 12px);
-        color: #475569;
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
-    }
-    .cal-memo-tag {
-        font-size: clamp(10px, 0.8vw, 11px);
-        color: #D97706;
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
-    }
-
-    /* 5. 다이얼로그(팝업) 세로 쓰기 방지 및 가로 정렬 강제 */
+    /* 5. 다이얼로그(팝업) 세로 쓰기 방지 및 가로 화면 비율 적용 */
     [data-testid="stDialog"] *, 
     [data-testid="stDialog"] input, 
     [data-testid="stDialog"] textarea, 
@@ -187,8 +147,8 @@ responsive_css = """
     }
 
     [data-testid="stDialog"] > div:first-child {
-        width: clamp(320px, 85vw, 550px) !important;
-        max-width: 90vw !important;
+        width: clamp(300px, 80vw, 550px) !important;
+        max-width: 95vw !important;
         max-height: 85vh !important;
         border-radius: 12px !important;
         padding: 1.2rem !important;
@@ -202,14 +162,16 @@ responsive_css = """
         padding: 10px 16px;
         border-radius: 8px;
         margin-bottom: 10px;
-        flex-shrink: 0;
+        width: 100%;
+        box-sizing: border-box;
     }
 
-    /* 모바일 반응형 조절 */
+    /* 모바일 반응형 자동 비율 조절 */
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 75px !important;
-            padding: 2px !important;
+            min-height: 65px !important;
+            padding: 3px 2px !important;
+            font-size: 10px !important;
         }
         .cal-header {
             font-size: 11px !important;
@@ -585,7 +547,7 @@ def edit_worker_dialog(date_str, duty_info):
 
 
 # ---------------------------------------------------------
-# 사이드바 (요청 1: 시트선택 부분 제거)
+# 사이드바 (시트 선택 부분 제거)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
@@ -632,7 +594,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ---------------------------------------------------------
-# TAB 1: 달력 메인 화면 (요청 2: 달력 글씨 잘 보이도록 스타일 개선)
+# TAB 1: 달력 메인 화면 (반응형 비율 기반)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -719,7 +681,7 @@ with tab1:
             ("토", "calendar-header-sat"),
         ]
 
-        # 요일 헤더 7열 Grid 정렬
+        # 요일 헤더 (가로 화면비율 7등분 정렬)
         header_cols = st.columns(7)
         for i, (h_name, h_class) in enumerate(headers):
             with header_cols[i]:
@@ -738,15 +700,6 @@ with tab1:
                         date_str = curr_date.strftime("%Y-%m-%d")
                         duty_info = duty_map.get(day)
 
-                        # 날짜 색상 설정
-                        if i == 0 or curr_date in kr_holidays:
-                            color_style = "color: #DC2626;"
-                        elif i == 6:
-                            color_style = "color: #2563EB;"
-                        else:
-                            color_style = "color: #1E293B;"
-
-                        # 텍스트 형태 레이아웃 조합
                         p1_txt = duty_info["p1_real"] if duty_info else ""
                         p2_txt = duty_info["p2_real"] if duty_info else ""
 
@@ -759,7 +712,7 @@ with tab1:
 
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        # 버튼 레이아웃용 텍스트 생성
+                        # 가로 쓰기 전용 텍스트 생성
                         btn_label = f"{day}일\n"
                         if p1_txt and p1_txt != "미지정":
                             btn_label += f"{p1_txt}\n"
@@ -826,7 +779,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: 숙직근무자 월별 근무 통계 (요청 4: 메뉴 가로 배치 & 대시보드 비율 맞춤)
+# TAB 3: 숙직근무자 월별 근무 통계
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -843,7 +796,7 @@ with tab3:
         else 0
     )
 
-    # 상단 메뉴 가로 정렬 배치
+    # 가로 배치 메뉴
     stat_col1, stat_col2 = st.columns([1, 2])
     with stat_col1:
         selected_stat_month = st.selectbox(
@@ -919,7 +872,7 @@ with tab3:
             by="총 근무시간(h)", ascending=False
         )
 
-        # 화면 비율에 맞춘 3개 지표 메트릭 카드
+        # 화면 너비 비율에 자동 조정되는 지표 박스
         m1, m2, m3 = st.columns(3)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
         m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")

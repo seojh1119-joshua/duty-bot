@@ -32,7 +32,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# CSS 스타일링 (가로 비율 자동 조절 + 가로 쓰기 강제)
+# CSS 스타일링 (달력 버튼 크기 및 글씨 가독성 강화)
 # ---------------------------------------------------------
 responsive_css = """
 <style>
@@ -53,9 +53,9 @@ responsive_css = """
     [data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
-        gap: 3px !important;
+        gap: 4px !important;
         width: 100% !important;
-        margin: 0 0 3px 0 !important;
+        margin: 0 0 4px 0 !important;
     }
 
     [data-testid="column"] {
@@ -69,10 +69,10 @@ responsive_css = """
 
     .cal-header {
         text-align: center;
-        font-size: clamp(12px, 1.2vw, 16px);
+        font-size: clamp(14px, 1.3vw, 18px);
         font-weight: bold;
-        padding: 8px 0;
-        border-radius: 4px;
+        padding: 10px 0;
+        border-radius: 6px;
         width: 100% !important;
         box-sizing: border-box;
         white-space: nowrap !important;
@@ -95,40 +95,41 @@ responsive_css = """
         padding: 0 !important;
     }
 
+    /* 달력 버튼 스타일 확장 */
     .stButton > button {
         width: 100% !important;
         height: 100% !important;
-        min-height: clamp(80px, 12vh, 150px) !important;
-        padding: 6px 4px !important;
-        border: 1px solid #CBD5E1 !important;
-        border-radius: 6px !important;
+        min-height: clamp(110px, 15vh, 200px) !important; /* 버튼 높이 대폭 확대 */
+        padding: 8px 6px !important;
+        border: 1.5px solid #CBD5E1 !important;
+        border-radius: 8px !important;
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         box-sizing: border-box !important;
         writing-mode: horizontal-tb !important;
-        white-space: nowrap !important;
-        word-break: keep-all !important;
+        white-space: pre-wrap !important; /* 줄바꿈 자연스럽게 반영 */
+        word-break: break-word !important;
         overflow: hidden !important;
-        text-overflow: ellipsis !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
         align-items: flex-start !important;
-        font-size: clamp(11px, 1vw, 15px) !important;
-        line-height: 1.3 !important;
+        font-size: clamp(13px, 1.1vw, 17px) !important; /* 글씨 크기 확대 */
+        font-weight: 600 !important;
+        line-height: 1.4 !important; /* 줄간격 확대 */
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
     .stButton > button * {
         writing-mode: horizontal-tb !important;
-        white-space: nowrap !important;
-        word-break: keep-all !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
     }
 
     .stButton > button:hover {
         border-color: #2563EB !important;
-        background-color: #F1F5F9 !important;
+        background-color: #EFF6FF !important;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.15) !important;
     }
 
     [data-testid="stDialog"] *, 
@@ -150,22 +151,22 @@ responsive_css = """
     .today-card {
         background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
         color: white;
-        padding: 10px 16px;
+        padding: 12px 18px;
         border-radius: 8px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         width: 100%;
         box-sizing: border-box;
     }
 
     @media (max-width: 600px) {
         .stButton > button {
-            min-height: 65px !important;
-            padding: 3px 2px !important;
-            font-size: 10px !important;
+            min-height: 85px !important;
+            padding: 4px 3px !important;
+            font-size: 12px !important;
         }
         .cal-header {
-            font-size: 11px !important;
-            padding: 4px 0 !important;
+            font-size: 12px !important;
+            padding: 6px 0 !important;
         }
     }
 </style>
@@ -174,7 +175,7 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 파일 탐색 및 저장 함수 (실제 엑셀 저장 동기화)
+# 파일 탐색 및 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -193,10 +194,8 @@ def save_to_excel_file(df, file_path):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
-        # 엑셀 파일 저장
         save_df.to_excel(file_path, index=False)
 
-        # 바이트 변환하여 세션 상태 동기화
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             save_df.to_excel(writer, index=False)
@@ -222,7 +221,6 @@ def save_app_state(df, sheet_name, memos):
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
 
-        # 실제 엑셀 파일 저장
         target_path = st.session_state.get("file_path", get_initial_excel_file())
         save_to_excel_file(df, target_path)
 
@@ -419,9 +417,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     return df, target_sheet, sheet_names, df_raw, file_bytes
 
 
-# ---------------------------------------------------------
-# 근무자 자동 검색 (엑셀 시트 내 등록된 이름 추출)
-# ---------------------------------------------------------
 def get_all_workers_list(df):
     worker_cols = ["근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]
     names = set()
@@ -495,7 +490,7 @@ if "df" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 근무자 수정 및 메모 작성 다이얼로그 (시트 근무자 자동 검색)
+# 근무자 수정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -519,7 +514,6 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
 
-    # 엑셀 시트 내 전체 근무자 목록 자동 추출
     worker_options = get_all_workers_list(st.session_state.df)
 
     val_p1 = str(curr_row.get("근무자1", "")) if pd.notnull(curr_row.get("근무자1")) else ""
@@ -534,7 +528,6 @@ def edit_worker_dialog(date_str, duty_info):
 
     current_memo = st.session_state.memos.get(date_str, "")
 
-    # Helper function for selectbox index
     def get_opt_idx(val):
         return worker_options.index(val) if val in worker_options else (len(worker_options) - 1 if val else 0)
 
@@ -563,7 +556,6 @@ def edit_worker_dialog(date_str, duty_info):
         submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
 
         if submitted:
-            # 최종 입력값 계산
             final_p1 = p1_custom.strip() if p1_sel == "(직접 입력)" else ("" if p1_sel == "(선택 안함)" else p1_sel)
             final_p2 = p2_custom.strip() if p2_sel == "(직접 입력)" else ("" if p2_sel == "(선택 안함)" else p2_sel)
             final_sub1 = sub1_custom.strip() if sub1_sel == "(직접 입력)" else ("" if sub1_sel == "(선택 안함)" else sub1_sel)
@@ -579,7 +571,6 @@ def edit_worker_dialog(date_str, duty_info):
 
             st.session_state.memos[date_str] = edit_memo.strip()
 
-            # 앱 데이터 동기화 및 엑셀 파일 저장
             save_app_state(
                 st.session_state.df,
                 st.session_state.selected_sheet,
@@ -664,11 +655,11 @@ with tab1:
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:16px; font-weight:bold;">
+            <div style="font-size:13px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
+            <div style="font-size:17px; font-weight:bold;">
                 근무자 1: <span style="color:#FDE047;">{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span style="color:#FDE047;">{p2}</span>
-                <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:14px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,

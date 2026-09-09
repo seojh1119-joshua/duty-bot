@@ -163,7 +163,7 @@ responsive_css = f"""
         border: 1px solid {border_color} !important;
     }}
 
-    /* 입력창, 셀렉트박스 및 날짜 선택 위젯(st.date_input) 배경 및 글자색 정밀 대응 */
+    /* 입력창, 셀렉트박스 및 날짜 선택 위젯(st.date_input 등) 배경 및 글자색 강제 화이트 테마 대응 */
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], div[data-baseweb="input"] > div {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
@@ -661,6 +661,12 @@ def batch_register_worker_dialog():
                 current_date += datetime.timedelta(days=1)
 
             st.session_state.df = df
+            
+            # 날짜 형식 및 정렬 상태 철저 보증
+            st.session_state.df["날짜"] = pd.to_datetime(st.session_state.df["날짜"], errors="coerce")
+            st.session_state.df["년월"] = st.session_state.df["날짜"].dt.strftime("%Y-%m")
+            st.session_state.df = st.session_state.df.sort_values(by="날짜").reset_index(drop=True)
+
             save_app_state(
                 st.session_state.df,
                 st.session_state.selected_sheet,
@@ -676,7 +682,7 @@ def batch_register_worker_dialog():
 
 
 # ---------------------------------------------------------
-# 하위 레이어: 근무자 수정 다이얼로그
+# 하위 레이어: 근무자 수정 다이얼로그 (날짜 타입 및 정렬 보완 적용)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -747,6 +753,11 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.df.at[row_idx, "실제근무1"] = final_sub1 if final_sub1 else final_p1
             st.session_state.df.at[row_idx, "실제근무2"] = final_sub2 if final_sub2 else final_p2
             st.session_state.memos[date_str] = edit_memo.strip()
+
+            # [핵심 보완] 수정 후 날짜 형식 및 정렬 상태 무결성 보장
+            st.session_state.df["날짜"] = pd.to_datetime(st.session_state.df["날짜"], errors="coerce")
+            st.session_state.df["년월"] = st.session_state.df["날짜"].dt.strftime("%Y-%m")
+            st.session_state.df = st.session_state.df.sort_values(by="날짜").reset_index(drop=True)
 
             save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
             st.success("✅ 변경사항이 성공적으로 저장되었습니다.")
@@ -1017,7 +1028,10 @@ with tab2:
         edited_df["실제근무2"] = edited_df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(edited_df["근무자2"]).fillna("미지정")
 
         full_df = edited_df if selected_edit_month == "전체 기간" else pd.concat([st.session_state.df[st.session_state.df["년월"] != selected_edit_month], edited_df], ignore_index=True)
+        full_df["날짜"] = pd.to_datetime(full_df["날짜"], errors="coerce")
+        full_df["년월"] = full_df["날짜"].dt.strftime("%Y-%m")
         full_df = full_df.sort_values(by="날짜").reset_index(drop=True)
+        
         cols = ["날짜"] + [c for c in full_df.columns if c != "날짜"]
         st.session_state.df = full_df[cols]
 

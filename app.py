@@ -83,7 +83,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 가로형 달력 회전/스크롤 대응)
+# 동적 CSS (테마별 스타일 & 오늘 날짜 강조 음영 & 가로형 달력 회전 대응)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -192,6 +192,22 @@ responsive_css = f"""
         color: {btn_text} !important;
     }}
 
+    /* 오늘 날짜 달력 항목 예쁜 음영 및 글로우 효과 */
+    .stButton > button[aria-label*="[오늘]"], 
+    .stButton > button:has(p:contains("오늘")), 
+    .stButton > button:has(div:contains("오늘")) {{
+        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+        color: #FFFFFF !important;
+        border: 2px solid #93C5FD !important;
+        font-weight: 800 !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45) !important;
+        border-radius: 10px !important;
+    }}
+    .stButton > button[aria-label*="[오늘]"]:hover {{
+        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%) !important;
+        border-color: #FFFFFF !important;
+    }}
+
     /* 팝업 창 테마 대응 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
@@ -211,7 +227,7 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
 
-    /* 5. 모바일 가로형 달력 자동 회전 및 가로 스크롤 보장 레이아웃 */
+    /* 모바일 가로형 달력 레이아웃 컨테이너 */
     .grid-calendar-wrapper {{
         width: 100%;
         overflow-x: auto;
@@ -220,7 +236,7 @@ responsive_css = f"""
     
     @media screen and (max-width: 768px) and (orientation: portrait) {{
         .grid-calendar-inner {{
-            min-width: 650px !important; /* 모바일 세로에서도 가로 행이 축소되지 않고 보존 */
+            min-width: 650px !important;
         }}
     }}
 </style>
@@ -228,41 +244,97 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 4. 모바일 터치 스와이프(좌:다음달, 우:이전달) 감지 JS
+# 드래그 감지 (좌/우 드래그 횟수/거리만큼 달력 월 이동) JS
 # ---------------------------------------------------------
-swipe_js = """
+drag_js = """
 <script>
-    let touchstartX = 0;
-    let touchendX = 0;
-    
-    function handleGesture() {
-        const threshold = 60; // 스와이프 최소 거리
-        if (touchendX < touchstartX - threshold) {
-            // 왼쪽 스와이프 -> 다음달
-            const nextBtn = window.parent.document.querySelector('button[kind="secondary"][aria-label="next_month"]');
-            if (nextBtn) nextBtn.click();
+(function() {
+    let startX = 0;
+    let startY = 0;
+    let isDragging = false;
+    const threshold = 100; // 약 100px 이동당 1개월 이동
+
+    let badge = window.parent.document.getElementById('drag-month-badge');
+    if (!badge) {
+        badge = window.parent.document.createElement('div');
+        badge.id = 'drag-month-badge';
+        badge.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); padding:14px 24px; background:rgba(15, 23, 42, 0.92); color:#FFFFFF; font-size:18px; font-weight:bold; border-radius:30px; border:2px solid #60A5FA; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:999999; display:none; pointer-events:none; transition:opacity 0.15s ease; text-align:center;';
+        window.parent.document.body.appendChild(badge);
+    }
+
+    function getX(e) {
+        return e.touches ? e.touches[0].clientX : e.clientX;
+    }
+    function getY(e) {
+        return e.touches ? e.touches[0].clientY : e.clientY;
+    }
+
+    function onStart(e) {
+        const target = e.target;
+        if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.closest('button')) {
+            return;
         }
-        if (touchendX > touchstartX + threshold) {
-            // 오른쪽 스와이프 -> 이전달
-            const prevBtn = window.parent.document.querySelector('button[kind="secondary"][aria-label="prev_month"]');
-            if (prevBtn) prevBtn.click();
+        isDragging = true;
+        startX = getX(e);
+        startY = getY(e);
+    }
+
+    function onMove(e) {
+        if (!isDragging) return;
+        const currentX = getX(e);
+        const currentY = getY(e);
+        const deltaX = startX - currentX;
+        const deltaY = startY - currentY;
+
+        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaX) < 40) {
+            badge.style.display = 'none';
+            return;
+        }
+
+        const steps = Math.round(deltaX / threshold);
+        if (Math.abs(deltaX) >= 40) {
+            badge.style.display = 'block';
+            if (steps > 0) {
+                badge.innerHTML = `➡️ ${steps}개월 다음으로 이동`;
+            } else if (steps < 0) {
+                badge.innerHTML = `⬅️ ${Math.abs(steps)}개월 이전으로 이동`;
+            } else {
+                badge.innerHTML = `↔️ 좌우로 드래그하여 월 이동`;
+            }
+        } else {
+            badge.style.display = 'none';
         }
     }
 
-    const appContainer = window.parent.document.querySelector('.main');
-    if (appContainer) {
-        appContainer.addEventListener('touchstart', e => {
-            touchstartX = e.changedTouches[0].screenX;
-        }, {passive: true});
+    function onEnd(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        if (badge) badge.style.display = 'none';
 
-        appContainer.addEventListener('touchend', e => {
-            touchendX = e.changedTouches[0].screenX;
-            handleGesture();
-        }, {passive: true});
+        const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+        const deltaX = startX - endX;
+        const steps = Math.round(deltaX / threshold);
+
+        if (steps !== 0 && Math.abs(deltaX) >= 60) {
+            const url = new URL(window.parent.location.href);
+            url.searchParams.set('m_shift', steps);
+            window.parent.location.href = url.href;
+        }
     }
+
+    const appContainer = window.parent.document.querySelector('.main') || window.parent.document.body;
+
+    appContainer.addEventListener('touchstart', onStart, {passive: true});
+    appContainer.addEventListener('touchmove', onMove, {passive: true});
+    appContainer.addEventListener('touchend', onEnd, {passive: true});
+
+    appContainer.addEventListener('mousedown', onStart);
+    window.parent.document.addEventListener('mousemove', onMove);
+    window.parent.document.addEventListener('mouseup', onEnd);
+})();
 </script>
 """
-components.html(swipe_js, height=0, width=0)
+components.html(drag_js, height=0, width=0)
 
 # ---------------------------------------------------------
 # 파일 탐색 및 저장 함수
@@ -616,7 +688,7 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
-# 3. 설정 다이얼로그 (달력표시 방식, 테마 선택, 수동 반복등록, 카카오 센더)
+# 설정 다이얼로그 (달력표시 방식, 테마 선택, 수동 반복등록, 카카오 센더)
 # ---------------------------------------------------------
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
@@ -626,7 +698,7 @@ def settings_dialog():
         "💬 카카오 센더 기능",
     ])
 
-    # 탭 1: 화면 및 테마 설정 (하드웨어 저장)
+    # 탭 1: 화면 및 테마 설정
     with tab_s1:
         st.markdown("**:blue[1. 달력 표시 방식 선택]**")
         new_view_type = st.radio(
@@ -773,7 +845,6 @@ def settings_dialog():
                     except Exception as ex:
                         st.error(f"전송 예외 오류: {ex}")
         with col_k2:
-            # 카카오톡 공유 링크 생성 버튼
             encoded_msg = requests.utils.quote(msg_content)
             st.markdown(
                 f'<a href="https://sharer.kakao.com/talk/friends/picker/easylink?app_key=sample&message={encoded_msg}" target="_blank"><button style="width:100%; min-height:48px; border-radius:8px; background-color:#FEE500; color:#000; font-weight:bold; border:none; cursor:pointer;">💛 카카오톡 외부 공유창 열기</button></a>',
@@ -953,18 +1024,22 @@ with tab1:
     if "selected_month_idx" not in st.session_state:
         st.session_state.selected_month_idx = default_idx
 
-    # 월 이동 및 설정 상단 툴바
-    col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([0.6, 2.2, 0.6, 1.2])
-    
-    with col_nav1:
-        if st.button("◀ 이전달", key="prev_month_btn", help="이전 달로 이동 (스와이프 가능)"):
-            if st.session_state.selected_month_idx > 0:
-                st.session_state.selected_month_idx -= 1
-                st.rerun()
+    # JS 드래그 이동 수치(m_shift) 파라미터 수신 처리
+    if "m_shift" in st.query_params:
+        try:
+            shift_val = int(st.query_params.get("m_shift", 0))
+            st.query_params.clear()
+            target_idx = st.session_state.selected_month_idx + shift_val
+            st.session_state.selected_month_idx = max(0, min(len(available_months) - 1, target_idx))
+        except Exception:
+            pass
 
-    with col_nav2:
+    # 월 선택 및 설정 상단 툴바 (스와이프 버튼을 없애고 선택창 및 드래그 안내 적용)
+    col_nav1, col_nav2 = st.columns([3.2, 1.0])
+
+    with col_nav1:
         selected_month = st.selectbox(
-            "📅 조회 월 선택",
+            "📅 조회 월 선택 (화면을 좌우로 드래그하여 월 이동 가능)",
             available_months,
             index=st.session_state.selected_month_idx,
             key="calendar_month_select",
@@ -972,18 +1047,11 @@ with tab1:
         )
         st.session_state.selected_month_idx = available_months.index(selected_month)
 
-    with col_nav3:
-        if st.button("다음달 ▶", key="next_month_btn", help="다음 달로 이동 (스와이프 가능)"):
-            if st.session_state.selected_month_idx < len(available_months) - 1:
-                st.session_state.selected_month_idx += 1
-                st.rerun()
-
-    with col_nav4:
-        # 3. 설정버튼 (달력표시 방식, 테마 선택, 근무자 수동 반복등록, 카카오 센더기능 포함)
+    with col_nav2:
         if st.button("⚙️ 설정", use_container_width=True, type="secondary"):
             settings_dialog()
 
-    # 2. 달력버튼 위에 조회 년월이 잘 보이도록 시각적 헤더 강조
+    # 조회 년월 강조 헤더
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
         st.markdown(
@@ -1021,7 +1089,7 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
+        st.caption("💡 화면 좌우를 드래그하여 월 이동이 가능하며, 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
 
         # 설정된 달력 표시 방식 적용
         calendar_view_type = st.session_state.auto_view_type
@@ -1035,7 +1103,9 @@ with tab1:
                 weekday_str = weekdays_kr[weekday_idx]
                 duty_info = duty_map.get(day)
 
-                if weekday_idx == 6 or curr_date in kr_holidays:
+                if curr_date == today:
+                    day_title = f"⭐ [오늘] {day:02d}일({weekday_str})"
+                elif weekday_idx == 6 or curr_date in kr_holidays:
                     day_title = f"🔴 {day:02d}일({weekday_str})"
                 elif weekday_idx == 5:
                     day_title = f"🔵 {day:02d}일({weekday_str})"
@@ -1053,7 +1123,7 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 5. 가로형 Grid 달력 (모바일 세로화면 자동 대응 레이아웃 컨테이너)
+            # 가로형 Grid 달력
             st.markdown('<div class="grid-calendar-wrapper"><div class="grid-calendar-inner">', unsafe_allow_html=True)
             
             cols_header = st.columns(7)
@@ -1094,7 +1164,10 @@ with tab1:
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_counter}일\n{p1_txt}\n{p2_txt}"
+                        if curr_date == today:
+                            btn_text = f"⭐[오늘] {day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"⭐[오늘] {day_counter}일\n{p1_txt}\n{p2_txt}"
+                        else:
+                            btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_counter}일\n{p1_txt}\n{p2_txt}"
 
                         if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
                             if duty_info:

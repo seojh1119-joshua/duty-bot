@@ -170,10 +170,21 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
     
-    /* st.date_input 및 st.number_input 입력 박스 내부 텍스트 색상 보정 */
-    input[type="text"], input[type="number"], input[readonly] {{
+    /* st.date_input 및 st.number_input 입력 박스 내부 텍스트 색상 보정 및 흰색 하이라이트(선택 상자) 제거 */
+    input[type="text"], input[type="number"], input[readonly], [data-baseweb="input"] input {{
         color: {input_text} !important;
         background-color: {input_bg} !important;
+        -webkit-text-fill-color: {input_text} !important;
+    }}
+
+    /* 글자 선택(Selection) 시 하얗게 뜨는 배경 강제 오버라이드 */
+    ::selection {{
+        background-color: #3b82f6 !important;
+        color: #ffffff !important;
+    }}
+    ::-moz-selection {{
+        background-color: #3b82f6 !important;
+        color: #ffffff !important;
     }}
 
     @media screen and (max-width: 768px) and (orientation: landscape) {{

@@ -163,11 +163,17 @@ responsive_css = f"""
         border: 1px solid {border_color} !important;
     }}
 
-    /* 입력창, 셀렉트박스 및 날짜 선택 위젯(st.date_input 등) 배경 및 글자색 강제 화이트 테마 대응 */
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], div[data-baseweb="input"] > div {{
+    /* 입력창, 셀렉트박스 및 날짜/숫자 선택 위젯 내부 배경 및 글자색 강제 테마 대응 */
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], div[data-baseweb="input"] > div, [data-baseweb="base-input"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border-color: {border_color} !important;
+    }}
+    
+    /* st.date_input 및 st.number_input 입력 박스 내부 텍스트 색상 보정 */
+    input[type="text"], input[type="number"], input[readonly] {{
+        color: {input_text} !important;
+        background-color: {input_bg} !important;
     }}
 
     @media screen and (max-width: 768px) and (orientation: landscape) {{

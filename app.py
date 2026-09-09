@@ -68,11 +68,6 @@ dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
-# 요청하신 팝업창 버튼 밝은 회색 테마 색상 적용 (#E2E8F0 : 밝은 회색, 글자는 어두운 색으로 가독성 확보)
-dialog_btn_bg = "#E2E8F0" if is_dark else "#FFFFFF"
-dialog_btn_text = "#0F172A" if is_dark else "#0F172A"
-dialog_btn_hover = "#CBD5E1" if is_dark else "#F1F5F9"
-
 responsive_css = f"""
 <style>
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
@@ -168,17 +163,6 @@ responsive_css = f"""
         border: 1px solid {border_color} !important;
     }}
 
-    /* 팝업창 내부 버튼 스타일 별도 오버라이드 (밝은 회색 적용) */
-    [data-testid="stDialog"] .stButton > button {{
-        background-color: {dialog_btn_bg} !important;
-        color: {dialog_btn_text} !important;
-        border-color: {border_color} !important;
-    }}
-    [data-testid="stDialog"] .stButton > button:hover {{
-        background-color: {dialog_btn_hover} !important;
-        color: {dialog_btn_text} !important;
-    }}
-
     /* 입력창, 셀렉트박스 및 날짜/숫자 선택 위젯 내부 배경 및 글자색 강제 테마 대응 */
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], div[data-baseweb="input"] > div, [data-baseweb="base-input"] {{
         background-color: {input_bg} !important;
@@ -186,20 +170,43 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
     
-    /* st.date_input 및 st.number_input 입력 박스 내부 텍스트 색상 보정 및 흰색 하이라이트(선택 상자) 철저 제거 */
+    /* st.date_input 및 st.number_input 입력 박스 내부 텍스트 색상 보정 및 흰색 배경 원천 차단 */
     input[type="text"], input[type="number"], input[readonly], [data-baseweb="input"] input, [data-baseweb="calendar"] input {{
         color: {input_text} !important;
         background-color: {input_bg} !important;
         -webkit-text-fill-color: {input_text} !important;
     }}
 
-    /* 날짜 선택 위젯 내부 컨테이너 배경색 강제 어둡게 처리 */
-    div[data-baseweb="input"], div[data-baseweb="base-input"], div[data-baseweb="select"] > div {{
+    /* 입력창 포커스 또는 글자 선택 시 발생하는 흰색 배경/박스 오류 차단 */
+    input:focus, select:focus, textarea:focus, [data-baseweb="input"] input:focus, [data-baseweb="base-input"] input:focus {{
+        outline: none !important;
+        box-shadow: none !important;
+        border-color: {btn_hover_border} !important;
         background-color: {input_bg} !important;
-        color: {input_text} !important;
     }}
 
-    /* 글자 선택(Selection) 시 하얗게 뜨는 배경 강제 오버라이드 (블랙 테마 시 가독성 개선) */
+    /* 팝업창 내부 또는 외부에서 띄워지는 BaseWeb 캘린더, 드롭다운 팝오버 및 메뉴 레이어 전체 블랙 테마 적용 */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], div[data-baseweb="calendar"], div[data-baseweb="select"] ul, ul[data-baseweb="menu"] {{
+        background-color: {card_bg} !important;
+        color: {main_text_color} !important;
+        border-color: {border_color} !important;
+    }}
+    div[data-baseweb="calendar"] button, div[data-baseweb="calendar"] div, div[data-baseweb="calendar"] span {{
+        color: {main_text_color} !important;
+    }}
+    div[data-baseweb="calendar"] button:hover {{
+        background-color: {btn_hover_bg} !important;
+    }}
+    li[role="option"], div[role="option"] {{
+        background-color: {card_bg} !important;
+        color: {main_text_color} !important;
+    }}
+    li[role="option"]:hover, div[role="option"]:hover {{
+        background-color: {btn_hover_bg} !important;
+        color: {main_text_color} !important;
+    }}
+
+    /* 글자 선택(Selection) 시 하얗게 뜨는 배경 강제 오버라이드 */
     ::selection {{
         background-color: #3b82f6 !important;
         color: #ffffff !important;

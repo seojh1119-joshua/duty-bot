@@ -4,6 +4,7 @@ import glob
 import io
 import json
 import os
+import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -21,6 +22,7 @@ os.makedirs("DATA", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
+CONFIG_PATH = os.path.join("DATA", "local_config.json")
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -32,15 +34,47 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# 세션 상태 초기화 (종료 여부 및 화면 방향/테마 플래그)
+# ---------------------------------------------------------
+# 1. 하드웨어/기기 개별 설정 저장 및 로드 함수 (웹 공유 방지)
+# ---------------------------------------------------------
+def load_local_config():
+    default_config = {
+        "auto_view_type": "📄 세로형 리스트",
+        "app_theme": "☀️ 화이트 테마",
+        "kakao_api_key": "",
+    }
+    if os.path.exists(CONFIG_PATH):
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                default_config.update(saved)
+        except Exception:
+            pass
+    return default_config
+
+def save_local_config(key, value):
+    config = load_local_config()
+    config[key] = value
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+local_cfg = load_local_config()
+
+# 세션 상태 초기화
 if "is_app_closed" not in st.session_state:
     st.session_state.is_app_closed = False
 
 if "auto_view_type" not in st.session_state:
-    st.session_state.auto_view_type = "📄 세로형 리스트"
+    st.session_state.auto_view_type = local_cfg["auto_view_type"]
 
 if "app_theme" not in st.session_state:
-    st.session_state.app_theme = "☀️ 화이트 테마"
+    st.session_state.app_theme = local_cfg["app_theme"]
+
+if "kakao_api_key" not in st.session_state:
+    st.session_state.kakao_api_key = local_cfg["kakao_api_key"]
 
 # 앱이 종료된 경우 화면 표시
 if st.session_state.is_app_closed:
@@ -49,7 +83,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 정의)
+# 동적 CSS (테마별 스타일 & 가로형 달력 회전/스크롤 대응)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -63,7 +97,6 @@ btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 
-# 팝업(Dialog) 내부 배경 및 입력창 테마 대응 CSS 추가
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
@@ -98,13 +131,22 @@ responsive_css = f"""
         color: {main_text_color} !important;
     }}
 
-    .month-select-box {{
-        background-color: {card_bg};
-        border: 1.5px solid {border_color};
-        border-radius: 10px;
-        padding: 12px 15px;
+    /* 조회 년월 강조 헤더 카드 */
+    .month-header-card {{
+        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
+        border: 2px solid {border_color};
+        border-radius: 12px;
+        padding: 12px 20px;
+        margin-top: 10px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        text-align: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }}
+    .month-header-card h2 {{
+        margin: 0 !important;
+        font-size: clamp(20px, 4vw, 28px) !important;
+        font-weight: 800 !important;
+        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
     }}
 
     .today-card {{
@@ -126,7 +168,7 @@ responsive_css = f"""
     .stButton > button {{
         width: 100% !important;
         height: auto !important;
-        min-height: 52px !important;
+        min-height: 48px !important;
         padding: 6px 4px !important;
         border: 1px solid {border_color} !important;
         border-radius: 8px !important;
@@ -154,115 +196,73 @@ responsive_css = f"""
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(300px, 90vw, 600px) !important;
+        width: clamp(320px, 92vw, 680px) !important;
         max-width: 95vw !important;
-        max-height: 85vh !important;
+        max-height: 88vh !important;
         border-radius: 12px !important;
         padding: 1.5rem !important;
         overflow-y: auto !important;
         border: 1px solid {border_color} !important;
     }}
 
-    /* 입력창, 셀렉트박스 및 날짜/숫자 선택 위젯 내부 배경 및 글자색 강제 테마 대응 */
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], div[data-baseweb="input"] > div, [data-baseweb="base-input"] {{
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border-color: {border_color} !important;
     }}
-    
-    /* st.date_input 및 st.number_input 입력 박스 내부 텍스트 색상 보정 및 흰색 배경 원천 차단 */
-    input[type="text"], input[type="number"], input[readonly], [data-baseweb="input"] input, [data-baseweb="calendar"] input {{
-        color: {input_text} !important;
-        background-color: {input_bg} !important;
-        -webkit-text-fill-color: {input_text} !important;
-    }}
 
-    /* 입력창 포커스 또는 글자 선택 시 발생하는 흰색 배경/박스 오류 차단 */
-    input:focus, select:focus, textarea:focus, [data-baseweb="input"] input:focus, [data-baseweb="base-input"] input:focus {{
-        outline: none !important;
-        box-shadow: none !important;
-        border-color: {btn_hover_border} !important;
-        background-color: {input_bg} !important;
-    }}
-
-    /* 팝업창 내부 또는 외부에서 띄워지는 BaseWeb 캘린더, 드롭다운 팝오버 및 메뉴 레이어 전체 블랙 테마 적용 */
-    div[data-baseweb="popover"], div[data-baseweb="menu"], div[data-baseweb="calendar"], div[data-baseweb="select"] ul, ul[data-baseweb="menu"] {{
-        background-color: {card_bg} !important;
-        color: {main_text_color} !important;
-        border-color: {border_color} !important;
+    /* 5. 모바일 가로형 달력 자동 회전 및 가로 스크롤 보장 레이아웃 */
+    .grid-calendar-wrapper {{
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }}
     
-    /* 달력(Calendar) 내부 컴포넌트 전체 배경 및 글자색 강제 어둡게 지정 */
-    div[data-baseweb="calendar"], 
-    div[data-baseweb="calendar"] > div, 
-    div[data-baseweb="calendar"] section, 
-    div[data-baseweb="calendar"] ul, 
-    div[data-baseweb="calendar"] li,
-    div[data-baseweb="calendar"] div[role="grid"],
-    div[data-baseweb="calendar"] div[role="row"],
-    div[data-baseweb="calendar"] div[role="gridcell"] {{
-        background-color: {card_bg} !important;
-        color: {main_text_color} !important;
-    }}
-
-    div[data-baseweb="calendar"] button, 
-    div[data-baseweb="calendar"] span,
-    div[data-baseweb="calendar"] div {{
-        color: {main_text_color} !important;
-    }}
-    
-    div[data-baseweb="calendar"] button:hover {{
-        background-color: {btn_hover_bg} !important;
-    }}
-
-    li[role="option"], div[role="option"] {{
-        background-color: {card_bg} !important;
-        color: {main_text_color} !important;
-    }}
-    li[role="option"]:hover, div[role="option"]:hover {{
-        background-color: {btn_hover_bg} !important;
-        color: {main_text_color} !important;
-    }}
-
-    /* 글자 선택(Selection) 시 하얗게 뜨는 배경 강제 오버라이드 */
-    ::selection {{
-        background-color: #3b82f6 !important;
-        color: #ffffff !important;
-    }}
-    ::-moz-selection {{
-        background-color: #3b82f6 !important;
-        color: #ffffff !important;
-    }}
-
-    @media screen and (max-width: 768px) and (orientation: landscape) {{
-        .main .block-container {{
-            padding: 0.2rem 0.2rem !important;
-        }}
-        .stButton > button {{
-            font-size: 10px !important;
-            padding: 4px 2px !important;
+    @media screen and (max-width: 768px) and (orientation: portrait) {{
+        .grid-calendar-inner {{
+            min-width: 650px !important; /* 모바일 세로에서도 가로 행이 축소되지 않고 보존 */
         }}
     }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
-# 화면 회전 및 Orientation 변경 자동 감지 JS
-orientation_js = """
+# ---------------------------------------------------------
+# 4. 모바일 터치 스와이프(좌:다음달, 우:이전달) 감지 JS
+# ---------------------------------------------------------
+swipe_js = """
 <script>
-    function checkOrientation() {
-        const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('mode') !== (isLandscape ? 'grid' : 'list')) {
-            const newUrl = window.location.pathname + '?mode=' + (isLandscape ? 'grid' : 'list');
-            window.history.replaceState(null, '', newUrl);
+    let touchstartX = 0;
+    let touchendX = 0;
+    
+    function handleGesture() {
+        const threshold = 60; // 스와이프 최소 거리
+        if (touchendX < touchstartX - threshold) {
+            // 왼쪽 스와이프 -> 다음달
+            const nextBtn = window.parent.document.querySelector('button[kind="secondary"][aria-label="next_month"]');
+            if (nextBtn) nextBtn.click();
+        }
+        if (touchendX > touchstartX + threshold) {
+            // 오른쪽 스와이프 -> 이전달
+            const prevBtn = window.parent.document.querySelector('button[kind="secondary"][aria-label="prev_month"]');
+            if (prevBtn) prevBtn.click();
         }
     }
-    window.addEventListener("orientationchange", checkOrientation);
-    window.addEventListener("resize", checkOrientation);
+
+    const appContainer = window.parent.document.querySelector('.main');
+    if (appContainer) {
+        appContainer.addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+        }, {passive: true});
+
+        appContainer.addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            handleGesture();
+        }, {passive: true});
+    }
 </script>
 """
-components.html(orientation_js, height=0, width=0)
+components.html(swipe_js, height=0, width=0)
 
 # ---------------------------------------------------------
 # 파일 탐색 및 저장 함수
@@ -616,137 +616,173 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
-# 근무자 수동 반복 등록 다이얼로그 (패턴 영구 보존 및 저장 적용)
+# 3. 설정 다이얼로그 (달력표시 방식, 테마 선택, 수동 반복등록, 카카오 센더)
 # ---------------------------------------------------------
-@st.dialog("🔄 근무자 수동 반복 등록")
-def batch_register_worker_dialog():
-    st.write("📅 **입력된 근무자만 규칙적으로 순환 등록되며, 비워둔 칸은 기존 엑셀 데이터를 유지합니다.**")
+@st.dialog("⚙️ 대시보드 및 근무 관리 설정")
+def settings_dialog():
+    tab_s1, tab_s2, tab_s3 = st.tabs([
+        "🎨 화면 및 테마 설정",
+        "🔄 근무자 수동 반복등록",
+        "💬 카카오 센더 기능",
+    ])
 
-    today_default = datetime.date.today()
-    saved_pat = st.session_state.get("batch_patterns", {})
-
-    col_b1, col_b2 = st.columns(2)
-    with col_b1:
-        start_date_input = st.date_input(
-            "시작 날짜 선택",
-            value=today_default,
-            help="오늘 기준 앞뒤로 날짜를 선택하여 반복 등록을 시작할 지점입니다.",
+    # 탭 1: 화면 및 테마 설정 (하드웨어 저장)
+    with tab_s1:
+        st.markdown("**:blue[1. 달력 표시 방식 선택]**")
+        new_view_type = st.radio(
+            "달력 표출 형식",
+            options=["📄 세로형 리스트", "🗓️ 가로형 Grid"],
+            index=0 if st.session_state.auto_view_type == "📄 세로형 리스트" else 1,
+            key="cfg_view_type_radio",
         )
-    with col_b2:
-        total_days_count = st.number_input(
-            "적용할 총 일수", min_value=1, max_value=180, value=30, step=1
+
+        st.markdown("---")
+        st.markdown("**:blue[2. 테마 모드 선택]**")
+        new_theme = st.radio(
+            "대시보드 테마",
+            options=["☀️ 화이트 테마", "🌙 블랙 테마"],
+            index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1,
+            key="cfg_theme_radio",
         )
 
-    st.divider()
+        st.caption("💡 선택한 화면 방식과 테마는 하드웨어(사용자 기기)에 저장되어 이후 접속 시에도 유지됩니다.")
 
-    col_p1, col_p2 = st.columns(2)
-    
-    with col_p1:
-        st.markdown("**:blue[근무자 1 패턴 설정]**")
-        default_w1_int = saved_pat.get("interval1", 3)
-        interval1 = st.number_input(
-            "근무자1 반복 칸수 (주기)",
-            min_value=1,
-            max_value=30,
-            value=int(default_w1_int),
-            step=1,
-            key="batch_w1_interval",
-        )
-        st.caption(f"💡 설정된 주기({interval1}개)만큼 아래에 이름 입력 칸이 생성됩니다.")
-        
-        default_w1_slots = saved_pat.get("w1_names", [])
-        w1_names = []
-        for i in range(int(interval1)):
-            default_val = default_w1_slots[i] if i < len(default_w1_slots) else ""
-            name_val = st.text_input(f"근무자1 - 순번 {i+1}", value=default_val, key=f"w1_slot_{i}")
-            w1_names.append(name_val.strip())
+        if st.button("💾 화면 설정 적용하기", use_container_width=True, type="primary"):
+            st.session_state.auto_view_type = new_view_type
+            st.session_state.app_theme = new_theme
+            save_local_config("auto_view_type", new_view_type)
+            save_local_config("app_theme", new_theme)
+            st.success("✅ 화면 설정이 이 기기에 저장되었습니다.")
+            st.rerun()
 
-    with col_p2:
-        st.markdown("**:blue[근무자 2 패턴 설정]**")
-        default_w2_int = saved_pat.get("interval2", 3)
-        interval2 = st.number_input(
-            "근무자2 반복 칸수 (주기)",
-            min_value=1,
-            max_value=30,
-            value=int(default_w2_int),
-            step=1,
-            key="batch_w2_interval",
-        )
-        st.caption(f"💡 설정된 주기({interval2}개)만큼 아래에 이름 입력 칸이 생성됩니다.")
-        
-        default_w2_slots = saved_pat.get("w2_names", [])
-        w2_names = []
-        for i in range(int(interval2)):
-            default_val = default_w2_slots[i] if i < len(default_w2_slots) else ""
-            name_val = st.text_input(f"근무자2 - 순번 {i+1}", value=default_val, key=f"w2_slot_{i}")
-            w2_names.append(name_val.strip())
+    # 탭 2: 근무자 수동 반복등록
+    with tab_s2:
+        st.markdown("📅 **입력된 근무자만 규칙적으로 순환 등록되며, 비워둔 칸은 기존 데이터를 유지합니다.**")
 
-    st.markdown("---")
+        today_default = datetime.date.today()
+        saved_pat = st.session_state.get("batch_patterns", {})
 
-    col_sub1, col_sub2 = st.columns([2, 1])
-    with col_sub1:
-        if st.button("💾 반복 순서 규칙 적용 및 저장", use_container_width=True, type="primary"):
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            start_date_input = st.date_input(
+                "시작 날짜", value=today_default, key="dlg_batch_start"
+            )
+        with col_b2:
+            total_days_count = st.number_input(
+                "적용 총 일수", min_value=1, max_value=180, value=30, step=1, key="dlg_batch_days"
+            )
+
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            st.markdown("**:blue[근무자 1 패턴]**")
+            default_w1_int = saved_pat.get("interval1", 3)
+            interval1 = st.number_input("주기(일)", min_value=1, max_value=30, value=int(default_w1_int), key="dlg_w1_int")
+            default_w1_slots = saved_pat.get("w1_names", [])
+            w1_names = [st.text_input(f"근무자1 순번 {i+1}", value=default_w1_slots[i] if i < len(default_w1_slots) else "", key=f"dlg_w1_{i}").strip() for i in range(int(interval1))]
+
+        with col_p2:
+            st.markdown("**:blue[근무자 2 패턴]**")
+            default_w2_int = saved_pat.get("interval2", 3)
+            interval2 = st.number_input("주기(일)", min_value=1, max_value=30, value=int(default_w2_int), key="dlg_w2_int")
+            default_w2_slots = saved_pat.get("w2_names", [])
+            w2_names = [st.text_input(f"근무자2 순번 {i+1}", value=default_w2_slots[i] if i < len(default_w2_slots) else "", key=f"dlg_w2_{i}").strip() for i in range(int(interval2))]
+
+        if st.button("💾 반복 순서 저장 및 근무표 반영", use_container_width=True, type="primary"):
             st.session_state.batch_patterns = {
                 "interval1": int(interval1),
                 "w1_names": w1_names,
                 "interval2": int(interval2),
                 "w2_names": w2_names,
             }
-
             df = st.session_state.df
             current_date = start_date_input
-
             valid_w1 = [n for n in w1_names if n]
             valid_w2 = [n for n in w2_names if n]
 
             for i in range(int(total_days_count)):
                 target_date_ts = pd.Timestamp(current_date)
                 match_idx = df[df["날짜"] == target_date_ts].index
-
                 if not match_idx.empty:
                     idx = match_idx[0]
-
                     if valid_w1:
                         assigned_w1 = valid_w1[i % len(valid_w1)]
                         df.at[idx, "근무자1"] = assigned_w1
-                        
-                        sub1_val = df.at[idx, "대직1"] if "대직1" in df.columns else None
-                        if pd.isna(sub1_val) or str(sub1_val).strip() in ["", "nan", "None"]:
+                        if pd.isna(df.at[idx, "대직1"]) or str(df.at[idx, "대직1"]).strip() in ["", "nan", "None"]:
                             df.at[idx, "실제근무1"] = assigned_w1
-
                     if valid_w2:
                         assigned_w2 = valid_w2[i % len(valid_w2)]
                         df.at[idx, "근무자2"] = assigned_w2
-                        
-                        sub2_val = df.at[idx, "대직2"] if "대직2" in df.columns else None
-                        if pd.isna(sub2_val) or str(sub2_val).strip() in ["", "nan", "None"]:
+                        if pd.isna(df.at[idx, "대직2"]) or str(df.at[idx, "대직2"]).strip() in ["", "nan", "None"]:
                             df.at[idx, "실제근무2"] = assigned_w2
-
                 current_date += datetime.timedelta(days=1)
 
             st.session_state.df = df
-            
-            # 날짜 형식 및 정렬 상태 철저 보증
-            st.session_state.df["날짜"] = pd.to_datetime(st.session_state.df["날짜"], errors="coerce")
-            st.session_state.df["년월"] = st.session_state.df["날짜"].dt.strftime("%Y-%m")
-            st.session_state.df = st.session_state.df.sort_values(by="날짜").reset_index(drop=True)
+            save_app_state(df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
+            st.success("✅ 순환 반복 패턴이 저장 및 적용되었습니다.")
+            st.rerun()
 
-            save_app_state(
-                st.session_state.df,
-                st.session_state.selected_sheet,
-                st.session_state.memos,
-                st.session_state.batch_patterns,
+    # 탭 3: 카카오 센더 기능
+    with tab_s3:
+        st.markdown("📱 **오늘 또는 지정 날짜의 숙직 근무 안내 메시지를 카카오톡으로 발송합니다.**")
+
+        kakao_key = st.text_input(
+            "카카오 REST API 키 (또는 Access Token)",
+            value=st.session_state.kakao_api_key,
+            type="password",
+            key="kakao_key_input",
+        )
+        if kakao_key != st.session_state.kakao_api_key:
+            st.session_state.kakao_api_key = kakao_key
+            save_local_config("kakao_api_key", kakao_key)
+
+        send_date = st.date_input("발송 대상 근무 날짜", value=datetime.date.today(), key="kakao_send_date")
+        send_date_ts = pd.Timestamp(send_date)
+        match_row = st.session_state.df[st.session_state.df["날짜"] == send_date_ts]
+
+        if not match_row.empty:
+            r = match_row.iloc[0]
+            p1 = r["실제근무1"]
+            p2 = r["실제근무2"]
+            memo = st.session_state.memos.get(send_date.strftime("%Y-%m-%d"), "없음")
+            msg_content = f"📢 [{send_date.strftime('%Y-%m-%d')} 숙직근무 안내]\n- 근무자 1: {p1}\n- 근무자 2: {p2}\n- 메모: {memo}"
+        else:
+            msg_content = f"📢 [{send_date.strftime('%Y-%m-%d')} 숙직근무 안내]\n해당 날짜의 근무 정보가 등록되지 않았습니다."
+
+        st.text_area("전송될 메시지 미리보기", value=msg_content, height=110)
+
+        col_k1, col_k2 = st.columns(2)
+        with col_k1:
+            if st.button("💬 나에게 카카오톡 메시지 전송", use_container_width=True, type="primary"):
+                if not kakao_key:
+                    st.warning("⚠️ 카카오 API 키 또는 Access Token을 입력해주세요.")
+                else:
+                    try:
+                        headers = {"Authorization": f"Bearer {kakao_key}"}
+                        payload = {
+                            "template_object": json.dumps({
+                                "object_type": "text",
+                                "text": msg_content,
+                                "link": {"web_url": "https://streamlit.io", "mobile_web_url": "https://streamlit.io"},
+                            })
+                        }
+                        res = requests.post("https://kapi.kakao.com/v2/api/talk/memo/default/send", headers=headers, data=payload)
+                        if res.status_code == 200:
+                            st.success("✅ 카카오톡 메시지 전송 성공!")
+                        else:
+                            st.error(f"❌ 전송 실패 (코드: {res.status_code}): {res.text}")
+                    except Exception as ex:
+                        st.error(f"전송 예외 오류: {ex}")
+        with col_k2:
+            # 카카오톡 공유 링크 생성 버튼
+            encoded_msg = requests.utils.quote(msg_content)
+            st.markdown(
+                f'<a href="https://sharer.kakao.com/talk/friends/picker/easylink?app_key=sample&message={encoded_msg}" target="_blank"><button style="width:100%; min-height:48px; border-radius:8px; background-color:#FEE500; color:#000; font-weight:bold; border:none; cursor:pointer;">💛 카카오톡 외부 공유창 열기</button></a>',
+                unsafe_allow_html=True,
             )
-            st.success("✅ 반복 패턴이 저장되었으며, 규칙에 따라 근무표에 성공적으로 반영되었습니다.")
-            st.rerun()
-
-    with col_sub2:
-        if st.button("🚪 닫기", use_container_width=True):
-            st.rerun()
 
 
 # ---------------------------------------------------------
-# 하위 레이어: 근무자 수정 다이얼로그 (날짜 타입 및 정렬 보완 적용)
+# 근무자 수정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -783,7 +819,7 @@ def edit_worker_dialog(date_str, duty_info):
             p1_sel = st.selectbox("근무자1 선택", options=worker_options, index=get_opt_idx(val_p1), key="p1_sel")
             p1_custom = st.text_input("근무자1 직접입력", value=val_p1 if p1_sel == "(직접 입력)" else "", key="p1_custom") if p1_sel == "(직접 입력)" else ""
 
-            sub1_sel = st.selectbox("대직자1 선택 (선택사항)", options=worker_options, index=get_opt_idx(val_sub1), key="sub1_sel")
+            sub1_sel = st.selectbox("대직자1 선택", options=worker_options, index=get_opt_idx(val_sub1), key="sub1_sel")
             sub1_custom = st.text_input("대직자1 직접입력", value=val_sub1 if sub1_sel == "(직접 입력)" else "", key="sub1_custom") if sub1_sel == "(직접 입력)" else ""
 
         with col_f2:
@@ -791,7 +827,7 @@ def edit_worker_dialog(date_str, duty_info):
             p2_sel = st.selectbox("근무자2 선택", options=worker_options, index=get_opt_idx(val_p2), key="p2_sel")
             p2_custom = st.text_input("근무자2 직접입력", value=val_p2 if p2_sel == "(직접 입력)" else "", key="p2_custom") if p2_sel == "(직접 입력)" else ""
 
-            sub2_sel = st.selectbox("대직자2 선택 (선택사항)", options=worker_options, index=get_opt_idx(val_sub2), key="sub2_sel")
+            sub2_sel = st.selectbox("대직자2 선택", options=worker_options, index=get_opt_idx(val_sub2), key="sub2_sel")
             sub2_custom = st.text_input("대직자2 직접입력", value=val_sub2 if sub2_sel == "(직접 입력)" else "", key="sub2_custom") if sub2_sel == "(직접 입력)" else ""
 
         st.divider()
@@ -818,13 +854,12 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.df.at[row_idx, "실제근무2"] = final_sub2 if final_sub2 else final_p2
             st.session_state.memos[date_str] = edit_memo.strip()
 
-            # [핵심 보완] 수정 후 날짜 형식 및 정렬 상태 무결성 보장
             st.session_state.df["날짜"] = pd.to_datetime(st.session_state.df["날짜"], errors="coerce")
             st.session_state.df["년월"] = st.session_state.df["날짜"].dt.strftime("%Y-%m")
             st.session_state.df = st.session_state.df.sort_values(by="날짜").reset_index(drop=True)
 
             save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
-            st.success("✅ 변경사항이 성공적으로 저장되었습니다.")
+            st.success("✅ 변경사항이 저장되었습니다.")
             st.rerun()
 
         if close_dialog:
@@ -860,7 +895,7 @@ with st.sidebar:
 
         save_app_state(parsed_df, used_sheet, st.session_state.get("memos", {}), st.session_state.get("batch_patterns", {}))
 
-        st.success(f"✅ '{used_sheet}' 데이터 로드 완료 (기존 반복 패턴 유지됨)")
+        st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
         st.rerun()
 
     st.divider()
@@ -915,49 +950,51 @@ with tab1:
     current_ym = today.strftime("%Y-%m")
     default_idx = available_months.index(current_ym) if current_ym in available_months else 0
 
-    query_params = st.query_params
-    mode_param = query_params.get("mode", "list")
-    default_radio_idx = 1 if mode_param == "grid" else 0
+    if "selected_month_idx" not in st.session_state:
+        st.session_state.selected_month_idx = default_idx
 
-    with st.container():
-        st.markdown('<div class="month-select-box">', unsafe_allow_html=True)
-        col_m1, col_m2, col_m3, col_m4 = st.columns([1, 1.2, 1, 0.9])
-        with col_m1:
-            selected_month = st.selectbox(
-                "📅 조회 월 선택",
-                available_months,
-                index=default_idx,
-                key="calendar_month_select",
-            )
-        with col_m2:
-            calendar_view_type = st.radio(
-                "📐 달력 표시 방식",
-                options=["📄 세로형 리스트", "🗓️ 가로형 Grid"],
-                index=default_radio_idx,
-                horizontal=True,
-                key="calendar_view_type",
-            )
-        with col_m3:
-            selected_theme = st.radio(
-                "🎨 테마 선택",
-                options=["☀️ 화이트 테마", "🌙 블랙 테마"],
-                index=1 if st.session_state.app_theme == "🌙 블랙 테마" else 0,
-                horizontal=True,
-                key="theme_radio_select",
-            )
-            if selected_theme != st.session_state.app_theme:
-                st.session_state.app_theme = selected_theme
+    # 월 이동 및 설정 상단 툴바
+    col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([0.6, 2.2, 0.6, 1.2])
+    
+    with col_nav1:
+        if st.button("◀ 이전달", key="prev_month_btn", help="이전 달로 이동 (스와이프 가능)"):
+            if st.session_state.selected_month_idx > 0:
+                st.session_state.selected_month_idx -= 1
                 st.rerun()
-        with col_m4:
-            st.write("")
-            st.write("")
-            if st.button("🔄 수동 반복 등록", use_container_width=True):
-                batch_register_worker_dialog()
 
-        st.markdown("</div>", unsafe_allow_html=True)
+    with col_nav2:
+        selected_month = st.selectbox(
+            "📅 조회 월 선택",
+            available_months,
+            index=st.session_state.selected_month_idx,
+            key="calendar_month_select",
+            label_visibility="collapsed",
+        )
+        st.session_state.selected_month_idx = available_months.index(selected_month)
 
+    with col_nav3:
+        if st.button("다음달 ▶", key="next_month_btn", help="다음 달로 이동 (스와이프 가능)"):
+            if st.session_state.selected_month_idx < len(available_months) - 1:
+                st.session_state.selected_month_idx += 1
+                st.rerun()
+
+    with col_nav4:
+        # 3. 설정버튼 (달력표시 방식, 테마 선택, 근무자 수동 반복등록, 카카오 센더기능 포함)
+        if st.button("⚙️ 설정", use_container_width=True, type="secondary"):
+            settings_dialog()
+
+    # 2. 달력버튼 위에 조회 년월이 잘 보이도록 시각적 헤더 강조
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
+        st.markdown(
+            f"""
+            <div class="month-header-card">
+                <h2>🗓️ {year}년 {month}월 숙직 근무표</h2>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         num_days = calendar.monthrange(year, month)[1]
         month_df = df[df["년월"] == selected_month].copy()
 
@@ -986,6 +1023,9 @@ with tab1:
 
         st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
 
+        # 설정된 달력 표시 방식 적용
+        calendar_view_type = st.session_state.auto_view_type
+
         if calendar_view_type == "📄 세로형 리스트":
             weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
             for day in range(1, num_days + 1):
@@ -1013,6 +1053,9 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
+            # 5. 가로형 Grid 달력 (모바일 세로화면 자동 대응 레이아웃 컨테이너)
+            st.markdown('<div class="grid-calendar-wrapper"><div class="grid-calendar-inner">', unsafe_allow_html=True)
+            
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1058,6 +1101,8 @@ with tab1:
                                 edit_worker_dialog(date_str, duty_info)
                         day_counter += 1
 
+            st.markdown('</div></div>', unsafe_allow_html=True)
+
 # ---------------------------------------------------------
 # TAB 2: 근무표 전체 수정
 # ---------------------------------------------------------
@@ -1100,7 +1145,7 @@ with tab2:
         st.session_state.df = full_df[cols]
 
         save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
-        st.success("✅ 엑셀 파일 및 대시보드에 성공적으로 저장되었습니다.")
+        st.success("✅ 엑셀 파일 및 대시보드에 저장되었습니다.")
         st.rerun()
 
 # ---------------------------------------------------------

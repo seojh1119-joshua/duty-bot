@@ -191,12 +191,30 @@ responsive_css = f"""
         color: {main_text_color} !important;
         border-color: {border_color} !important;
     }}
-    div[data-baseweb="calendar"] button, div[data-baseweb="calendar"] div, div[data-baseweb="calendar"] span {{
+    
+    /* 달력(Calendar) 내부 컴포넌트 전체 배경 및 글자색 강제 어둡게 지정 */
+    div[data-baseweb="calendar"], 
+    div[data-baseweb="calendar"] > div, 
+    div[data-baseweb="calendar"] section, 
+    div[data-baseweb="calendar"] ul, 
+    div[data-baseweb="calendar"] li,
+    div[data-baseweb="calendar"] div[role="grid"],
+    div[data-baseweb="calendar"] div[role="row"],
+    div[data-baseweb="calendar"] div[role="gridcell"] {{
+        background-color: {card_bg} !important;
         color: {main_text_color} !important;
     }}
+
+    div[data-baseweb="calendar"] button, 
+    div[data-baseweb="calendar"] span,
+    div[data-baseweb="calendar"] div {{
+        color: {main_text_color} !important;
+    }}
+    
     div[data-baseweb="calendar"] button:hover {{
         background-color: {btn_hover_bg} !important;
     }}
+
     li[role="option"], div[role="option"] {{
         background-color: {card_bg} !important;
         color: {main_text_color} !important;

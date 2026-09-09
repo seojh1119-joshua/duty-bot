@@ -83,7 +83,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 오늘 날짜 강조 음영 & 가로형 달력 회전 대응)
+# 동적 CSS (테마별 스타일 & 가로형 달력 회전/스크롤 대응)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -131,7 +131,6 @@ responsive_css = f"""
         color: {main_text_color} !important;
     }}
 
-    /* 조회 년월 강조 헤더 카드 */
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 2px solid {border_color};
@@ -192,23 +191,6 @@ responsive_css = f"""
         color: {btn_text} !important;
     }}
 
-    /* 오늘 날짜 달력 항목 예쁜 음영 및 글로우 효과 */
-    .stButton > button[aria-label*="[오늘]"], 
-    .stButton > button:has(p:contains("오늘")), 
-    .stButton > button:has(div:contains("오늘")) {{
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
-        color: #FFFFFF !important;
-        border: 2px solid #93C5FD !important;
-        font-weight: 800 !important;
-        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45) !important;
-        border-radius: 10px !important;
-    }}
-    .stButton > button[aria-label*="[오늘]"]:hover {{
-        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%) !important;
-        border-color: #FFFFFF !important;
-    }}
-
-    /* 팝업 창 테마 대응 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -227,7 +209,6 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
 
-    /* 모바일 가로형 달력 레이아웃 컨테이너 */
     .grid-calendar-wrapper {{
         width: 100%;
         overflow-x: auto;
@@ -244,100 +225,61 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 드래그 감지 (좌/우 드래그 횟수/거리만큼 달력 월 이동) JS
+# 4. 모바일 터치 스와이프(좌:다음달, 우:이전달) 감지 JS (오류 수정)
 # ---------------------------------------------------------
-drag_js = """
+swipe_js = """
 <script>
 (function() {
-    let startX = 0;
-    let startY = 0;
-    let isDragging = false;
-    const threshold = 100; // 약 100px 이동당 1개월 이동
+    let touchstartX = 0;
+    let touchstartY = 0;
+    let touchendX = 0;
+    let touchendY = 0;
 
-    let badge = window.parent.document.getElementById('drag-month-badge');
-    if (!badge) {
-        badge = window.parent.document.createElement('div');
-        badge.id = 'drag-month-badge';
-        badge.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); padding:14px 24px; background:rgba(15, 23, 42, 0.92); color:#FFFFFF; font-size:18px; font-weight:bold; border-radius:30px; border:2px solid #60A5FA; box-shadow:0 10px 25px rgba(0,0,0,0.5); z-index:999999; display:none; pointer-events:none; transition:opacity 0.15s ease; text-align:center;';
-        window.parent.document.body.appendChild(badge);
-    }
-
-    function getX(e) {
-        return e.touches ? e.touches[0].clientX : e.clientX;
-    }
-    function getY(e) {
-        return e.touches ? e.touches[0].clientY : e.clientY;
-    }
-
-    function onStart(e) {
-        const target = e.target;
-        if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.closest('button')) {
-            return;
+    function triggerMonthChange(dir) {
+        const doc = window.parent.document;
+        const buttons = Array.from(doc.querySelectorAll('button'));
+        const targetText = dir === 'next' ? '다음달' : '이전달';
+        const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
+        if (targetBtn) {
+            targetBtn.click();
         }
-        isDragging = true;
-        startX = getX(e);
-        startY = getY(e);
     }
 
-    function onMove(e) {
-        if (!isDragging) return;
-        const currentX = getX(e);
-        const currentY = getY(e);
-        const deltaX = startX - currentX;
-        const deltaY = startY - currentY;
-
-        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaX) < 40) {
-            badge.style.display = 'none';
-            return;
-        }
-
-        const steps = Math.round(deltaX / threshold);
-        if (Math.abs(deltaX) >= 40) {
-            badge.style.display = 'block';
-            if (steps > 0) {
-                badge.innerHTML = `➡️ ${steps}개월 다음으로 이동`;
-            } else if (steps < 0) {
-                badge.innerHTML = `⬅️ ${Math.abs(steps)}개월 이전으로 이동`;
+    function handleGesture() {
+        const diffX = touchendX - touchstartX;
+        const diffY = touchendY - touchstartY;
+        
+        // 수평 드래그 여부(X축 이동 > Y축 이동) 및 50px 이상 이동 감지
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+            if (diffX < 0) {
+                triggerMonthChange('next');
             } else {
-                badge.innerHTML = `↔️ 좌우로 드래그하여 월 이동`;
+                triggerMonthChange('prev');
             }
-        } else {
-            badge.style.display = 'none';
         }
     }
 
-    function onEnd(e) {
-        if (!isDragging) return;
-        isDragging = false;
-        if (badge) badge.style.display = 'none';
+    const doc = window.parent.document;
+    if (doc._swipeAttached) return;
+    doc._swipeAttached = true;
 
-        const endX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-        const deltaX = startX - endX;
-        const steps = Math.round(deltaX / threshold);
+    doc.addEventListener('touchstart', function(e) {
+        touchstartX = e.changedTouches[0].screenX;
+        touchstartY = e.changedTouches[0].screenY;
+    }, {passive: true});
 
-        if (steps !== 0 && Math.abs(deltaX) >= 60) {
-            const url = new URL(window.parent.location.href);
-            url.searchParams.set('m_shift', steps);
-            window.parent.location.href = url.href;
-        }
-    }
-
-    const appContainer = window.parent.document.querySelector('.main') || window.parent.document.body;
-
-    appContainer.addEventListener('touchstart', onStart, {passive: true});
-    appContainer.addEventListener('touchmove', onMove, {passive: true});
-    appContainer.addEventListener('touchend', onEnd, {passive: true});
-
-    appContainer.addEventListener('mousedown', onStart);
-    window.parent.document.addEventListener('mousemove', onMove);
-    window.parent.document.addEventListener('mouseup', onEnd);
+    doc.addEventListener('touchend', function(e) {
+        touchendX = e.changedTouches[0].screenX;
+        touchendY = e.changedTouches[0].screenY;
+        handleGesture();
+    }, {passive: true});
 })();
 </script>
 """
-components.html(drag_js, height=0, width=0)
+components.html(swipe_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 파일 탐색 및 저장 함수
+# 파일 탐색 및 저장 함수 (출력 연동 동기화)
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -354,6 +296,10 @@ def save_to_excel_file(df, file_path):
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+
+        # 달력 날짜별 메모 정보를 엑셀 내 '메모' 컬럼으로 통합 동기화
+        memos = st.session_state.get("memos", {})
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
 
         if "날짜" in save_df.columns:
             cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
@@ -375,10 +321,6 @@ def save_app_state(df, sheet_name, memos, batch_patterns=None):
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-
-        if "날짜" in save_df.columns:
-            cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
-            save_df = save_df[cols]
 
         if batch_patterns is None:
             batch_patterns = st.session_state.get("batch_patterns", {})
@@ -566,6 +508,17 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["대직2"] = df[sub2_col].astype(str).str.strip() if sub2_col else None
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
+    # 엑셀 내 메모 열 자동 감지 및 세션 메모 동기화
+    memo_col = next((c for c in cols if "메모" in c or "비고" in c), None)
+    if memo_col:
+        if "memos" not in st.session_state:
+            st.session_state.memos = {}
+        for _, r in df.iterrows():
+            d_str = r["날짜"].strftime("%Y-%m-%d")
+            m_val = str(r[memo_col]).strip()
+            if m_val and m_val not in ["nan", "None"]:
+                st.session_state.memos[d_str] = m_val
+
     df["실제근무1"] = (
         df["대직1"]
         .fillna("")
@@ -621,7 +574,7 @@ if "df" not in st.session_state:
     if saved_df is not None:
         st.session_state.df = saved_df
         st.session_state.selected_sheet = saved_sheet
-        st.session_state.memos = saved_memos
+        st.session_state.memos = saved_memos if saved_memos else {}
         st.session_state.batch_patterns = saved_patterns if saved_patterns else {}
         if "file_bytes" in st.session_state:
             _, _, sheet_names, raw_df, _ = load_excel_smart(
@@ -640,7 +593,8 @@ if "df" not in st.session_state:
         st.session_state.selected_sheet = used_sheet
         st.session_state.sheet_names = sheet_names
         st.session_state.raw_df = raw_df
-        st.session_state.memos = {}
+        if "memos" not in st.session_state:
+            st.session_state.memos = {}
         st.session_state.batch_patterns = {}
     else:
         today_date = datetime.date.today()
@@ -670,7 +624,7 @@ if "batch_patterns" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 상위 메뉴용 종료 확인 다이얼로그 (팝업)
+# 상위 메뉴용 종료 확인 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -688,7 +642,7 @@ def confirm_exit_dialog():
 
 
 # ---------------------------------------------------------
-# 설정 다이얼로그 (달력표시 방식, 테마 선택, 수동 반복등록, 카카오 센더)
+# 설정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
@@ -698,7 +652,6 @@ def settings_dialog():
         "💬 카카오 센더 기능",
     ])
 
-    # 탭 1: 화면 및 테마 설정
     with tab_s1:
         st.markdown("**:blue[1. 달력 표시 방식 선택]**")
         new_view_type = st.radio(
@@ -727,7 +680,6 @@ def settings_dialog():
             st.success("✅ 화면 설정이 이 기기에 저장되었습니다.")
             st.rerun()
 
-    # 탭 2: 근무자 수동 반복등록
     with tab_s2:
         st.markdown("📅 **입력된 근무자만 규칙적으로 순환 등록되며, 비워둔 칸은 기존 데이터를 유지합니다.**")
 
@@ -793,7 +745,6 @@ def settings_dialog():
             st.success("✅ 순환 반복 패턴이 저장 및 적용되었습니다.")
             st.rerun()
 
-    # 탭 3: 카카오 센더 기능
     with tab_s3:
         st.markdown("📱 **오늘 또는 지정 날짜의 숙직 근무 안내 메시지를 카카오톡으로 발송합니다.**")
 
@@ -969,6 +920,16 @@ with st.sidebar:
         st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
         st.rerun()
 
+    # 수정된 최신 엑셀 파일 다운로드 버튼 (출력 동기화)
+    if "file_bytes" in st.session_state and st.session_state.file_bytes:
+        st.download_button(
+            label="📥 수정된 엑셀 파일 다운로드",
+            data=st.session_state.file_bytes,
+            file_name=st.session_state.get("file_name", "숙직근무표_수정본.xlsx"),
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
     st.divider()
     if st.button("🔴 앱종료", use_container_width=True):
         confirm_exit_dialog()
@@ -1021,37 +982,43 @@ with tab1:
     current_ym = today.strftime("%Y-%m")
     default_idx = available_months.index(current_ym) if current_ym in available_months else 0
 
+    # 세션 키 기반 동기화 보장
+    if "calendar_month_select" not in st.session_state:
+        st.session_state.calendar_month_select = available_months[default_idx] if available_months else ""
+
     if "selected_month_idx" not in st.session_state:
-        st.session_state.selected_month_idx = default_idx
+        st.session_state.selected_month_idx = available_months.index(st.session_state.calendar_month_select) if st.session_state.calendar_month_select in available_months else default_idx
 
-    # JS 드래그 이동 수치(m_shift) 파라미터 수신 처리
-    if "m_shift" in st.query_params:
-        try:
-            shift_val = int(st.query_params.get("m_shift", 0))
-            st.query_params.clear()
-            target_idx = st.session_state.selected_month_idx + shift_val
-            st.session_state.selected_month_idx = max(0, min(len(available_months) - 1, target_idx))
-        except Exception:
-            pass
-
-    # 월 선택 및 설정 상단 툴바 (스와이프 버튼을 없애고 선택창 및 드래그 안내 적용)
-    col_nav1, col_nav2 = st.columns([3.2, 1.0])
-
+    # 월 이동 및 설정 상단 툴바
+    col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([0.6, 2.2, 0.6, 1.2])
+    
     with col_nav1:
+        if st.button("◀ 이전달", key="prev_month_btn", help="이전 달로 이동 (스와이프 가능)"):
+            if st.session_state.selected_month_idx > 0:
+                st.session_state.selected_month_idx -= 1
+                st.session_state.calendar_month_select = available_months[st.session_state.selected_month_idx]
+                st.rerun()
+
+    with col_nav2:
         selected_month = st.selectbox(
-            "📅 조회 월 선택 (화면을 좌우로 드래그하여 월 이동 가능)",
+            "📅 조회 월 선택",
             available_months,
-            index=st.session_state.selected_month_idx,
             key="calendar_month_select",
             label_visibility="collapsed",
         )
         st.session_state.selected_month_idx = available_months.index(selected_month)
 
-    with col_nav2:
+    with col_nav3:
+        if st.button("다음달 ▶", key="next_month_btn", help="다음 달로 이동 (스와이프 가능)"):
+            if st.session_state.selected_month_idx < len(available_months) - 1:
+                st.session_state.selected_month_idx += 1
+                st.session_state.calendar_month_select = available_months[st.session_state.selected_month_idx]
+                st.rerun()
+
+    with col_nav4:
         if st.button("⚙️ 설정", use_container_width=True, type="secondary"):
             settings_dialog()
 
-    # 조회 년월 강조 헤더
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
         st.markdown(
@@ -1089,9 +1056,8 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        st.caption("💡 화면 좌우를 드래그하여 월 이동이 가능하며, 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
+        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
 
-        # 설정된 달력 표시 방식 적용
         calendar_view_type = st.session_state.auto_view_type
 
         if calendar_view_type == "📄 세로형 리스트":
@@ -1103,9 +1069,7 @@ with tab1:
                 weekday_str = weekdays_kr[weekday_idx]
                 duty_info = duty_map.get(day)
 
-                if curr_date == today:
-                    day_title = f"⭐ [오늘] {day:02d}일({weekday_str})"
-                elif weekday_idx == 6 or curr_date in kr_holidays:
+                if weekday_idx == 6 or curr_date in kr_holidays:
                     day_title = f"🔴 {day:02d}일({weekday_str})"
                 elif weekday_idx == 5:
                     day_title = f"🔵 {day:02d}일({weekday_str})"
@@ -1123,7 +1087,6 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 가로형 Grid 달력
             st.markdown('<div class="grid-calendar-wrapper"><div class="grid-calendar-inner">', unsafe_allow_html=True)
             
             cols_header = st.columns(7)
@@ -1164,10 +1127,7 @@ with tab1:
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        if curr_date == today:
-                            btn_text = f"⭐[오늘] {day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"⭐[오늘] {day_counter}일\n{p1_txt}\n{p2_txt}"
-                        else:
-                            btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_counter}일\n{p1_txt}\n{p2_txt}"
+                        btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_counter}일\n{p1_txt}\n{p2_txt}"
 
                         if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
                             if duty_info:

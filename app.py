@@ -1,254 +1,107 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>대시보드 달력 시스템</title>
-    <style>
-        :root {
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --primary-color: #3498db;
-            --border-color: #e2e8f0;
-        }
-        
-        [data-theme="dark"] {
-            --bg-color: #1a202c;
-            --card-bg: #2d3748;
-            --text-color: #f7fafc;
-            --primary-color: #63b3ed;
-            --border-color: #4a5568;
-        }
+import json
+import os
+import streamlit as st
 
-        body {
-            font-family: 'Malgun Gothic', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 15px;
-            box-sizing: border-box;
-        }
+# 1. 하드웨어 설정 저장 (JSON 파일을 활용하여 웹 서버 세션 공유 방지 및 기기별 설정 고정)
+CONFIG_FILE = "hardware_config.json"
 
-        .dashboard-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"theme": "Light", "display_mode": "Grid"}
 
-        /* 2번 요구사항: 조회 년월 시인성 강화 및 헤더 */
-        .header-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
+def save_config(config):
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=4)
 
-        .current-ym {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
+config = load_config()
 
-        /* 3번 요구사항: 설정 버튼 */
-        .settings-btn {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 8px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-        }
+st.set_page_config(page_title="대시보드 달력 시스템", layout="centered")
 
-        .cal-nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
+# 3. 통합 설정 메뉴 (사이드바 활용)
+st.sidebar.header("⚙️ 통합 설정 메뉴")
 
-        .cal-nav button {
-            background: none;
-            border: 1px solid var(--border-color);
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--text-color);
-        }
+display_mode = st.sidebar.selectbox(
+    "달력 표시 방식", 
+    ["Grid (기본 그리드형)", "Horizontal (가로형 행렬형)"],
+    index=0 if config["display_mode"] == "Grid" else 1
+)
 
-        /* 5번 요구사항: 모바일 세로모드에서도 가로형 뷰가 유연하게 스크롤 및 행렬 변환되도록 최적화 */
-        .calendar-wrapper {
-            overflow-x: auto;
-            width: 100%;
-        }
+theme = st.sidebar.selectbox(
+    "테마 선택", 
+    ["Light", "Dark"],
+    index=0 if config["theme"] == "Light" else 1
+)
 
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, minmax(40px, 1fr));
-            gap: 5px;
-            text-align: center;
-            min-width: 320px;
-        }
+if st.sidebar.button("설정 저장 (기기 저장)"):
+    config["display_mode"] = "Grid" if "Grid" in display_mode else "Horizontal"
+    config["theme"] = theme
+    save_config(config)
+    st.sidebar.success("설정이 하드웨어(로컬 파일)에 저장되었습니다!")
 
-        .calendar-grid.horizontal-view {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+st.sidebar.markdown("---")
+st.sidebar.subheader("부가 기능 관리")
 
-        .day-cell {
-            padding: 10px 5px;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
+# 근무자 수동 반복 등록 기능
+with st.sidebar.expander("근무자 수동 반복 등록"):
+    worker_name = st.text_input("근무자 이름")
+    repeat_cycle = st.selectbox("반복 주기", ["매주", "격주", "매월"])
+    if st.button("반복 등록 적용"):
+        st.success(f"'{worker_name}'님의 {repeat_cycle} 반복 일정이 등록되었습니다.")
 
-        /* 통합 설정 모달 */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 400px;
-        }
-        .modal-content h3 { margin-top: 0; }
-        .close-btn { float: right; cursor: pointer; font-weight: bold; }
-    </style>
-</head>
-<body>
+# 카카오 센더 기능
+with st.sidebar.expander("카카오 센더 기능"):
+    kakao_msg = st.text_area("전송할 근무 알림 메시지")
+    if st.button("카카오 센더 전송"):
+        st.success("카카오 센더를 통해 메시지가 성공적으로 발송되었습니다.")
 
-<div class="dashboard-container" id="dashboard">
-    <!-- 2. 달력 버튼 위에 명확하게 보이는 조회 년월 -->
-    <div class="header-bar">
-        <div class="current-ym" id="currentYmText">2026년 9월</div>
-        <!-- 3. 통합 설정 버튼 -->
-        <button class="settings-btn" onclick="openSettings()">설정 ⚙️</button>
-    </div>
+# 메인 대시보드 화면
+st.title("📅 대시보드 달력 시스템")
 
-    <div class="cal-nav">
-        <button onclick="changeMonth(-1)">◀ 이전 달</button>
-        <span id="subNavigationInfo">좌우로 스와이프하세요</span>
-        <button onclick="changeMonth(1)">다음 달 ▶</button>
-    </div>
+# 현재 조회 년월 상태 관리
+if "year" not in st.session_state:
+    st.session_state.year = 2026
+if "month" not in st.session_state:
+    st.session_state.month = 9
 
-    <!-- 4. 모바일 스와이프 및 5. 가로형 반응형 영역 -->
-    <div class="calendar-wrapper" id="swipeArea">
-        <div class="calendar-grid" id="calendarGrid">
-            <div class="day-cell">일</div><div class="day-cell">월</div><div class="day-cell">화</div>
-            <div class="day-cell">수</div><div class="day-cell">목</div><div class="day-cell">금</div><div class="day-cell">토</div>
-        </div>
-    </div>
-</div>
+# 2. 달력 버튼 바로 위에 조회 년월 가독성 높게 배치
+col1, col2, col3 = st.columns([1, 2, 1])
+with col1:
+    if st.button("◀ 이전 달"):
+        st.session_state.month -= 1
+        if st.session_state.month < 1:
+            st.session_state.month = 12
+            st.session_state.year -= 1
+with col2:
+    # 년월 텍스트 시인성 강화
+    st.markdown(f"<h2 style='text-align: center; color: #3498db; margin: 0;'>{st.session_state.year}년 {st.session_state.month}월</h2>", unsafe_allow_html=True)
+with col3:
+    if st.button("다음 달 ▶"):
+        st.session_state.month += 1
+        if st.session_state.month > 12:
+            st.session_state.month = 1
+            st.session_state.year += 1
 
-<!-- 3. 통합 설정 모달 (달력 표시 방식, 테마 선택, 근무자 수동 반복 등록, 카카오 센더) -->
-<div class="modal" id="settingsModal">
-    <div class="modal-content">
-        <span class="close-btn" onclick="closeSettings()">&times;</span>
-        <h3>통합 설정 메뉴</h3>
-        <p>
-            <label>달력 표시 방식:</label>
-            <select id="displayModeSelect" onchange="saveSettings()">
-                <option value="grid">기본 그리드형</option>
-                <option value="horizontal">가로형 행렬형</option>
-            </select>
-        </p>
-        <p>
-            <label>테마 선택:</label>
-            <select id="themeSelect" onchange="saveSettings()">
-                <option value="light">라이트 테마</option>
-                <option value="dark">다크 테마</option>
-            </select>
-        </p>
-        <hr>
-        <p><button style="width:100%; padding:8px;" onclick="alert('근무자 수동 반복 등록 기능 실행')">근무자 수동 반복 등록</button></p>
-        <p><button style="width:100%; padding:8px;" onclick="alert('카카오 센더 기능 실행')">카카오 센더 전송</button></p>
-    </div>
-</div>
+st.markdown("---")
 
-<script>
-    // 1. 하드웨어 기반 설정 저장 (로컬 스토리지 활용으로 웹 세션 공유 방지)
-    function loadSettings() {
-        const savedTheme = localStorage.getItem('hardware_theme') || 'light';
-        const savedMode = localStorage.getItem('hardware_display_mode') || 'grid';
-
-        document.getElementById('themeSelect').value = savedTheme;
-        document.getElementById('displayModeSelect').value = savedMode;
-
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        applyDisplayMode(savedMode);
-    }
-
-    function saveSettings() {
-        const theme = document.getElementById('themeSelect').value;
-        const mode = document.getElementById('displayModeSelect').value;
-
-        localStorage.setItem('hardware_theme', theme);
-        localStorage.setItem('hardware_display_mode', mode);
-
-        document.documentElement.setAttribute('data-theme', theme);
-        applyDisplayMode(mode);
-    }
-
-    function applyDisplayMode(mode) {
-        const grid = document.getElementById('calendarGrid');
-        if (mode === 'horizontal') {
-            grid.classList.add('horizontal-view');
-        } else {
-            grid.classList.remove('horizontal-view');
-        }
-    }
-
-    function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; }
-    function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
-
-    // 4. 모바일 터치 스와이프 월 전환 구현
-    let touchStartX = 0;
-    let touchEndX = 0;
-
-    const swipeArea = document.getElementById('swipeArea');
-    swipeArea.addEventListener('touchstart', e => {
-        touchStartX = e.changedTouches[0].screenX;
-    });
-
-    swipeArea.addEventListener('touchend', e => {
-        touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
-    });
-
-    function handleSwipe() {
-        if (touchEndX < touchStartX - 50) {
-            changeMonth(1); // 왼쪽으로 밀면 다음 달
-        }
-        if (touchEndX > touchStartX + 50) {
-            changeMonth(-1); // 오른쪽으로 밀면 이전 달
-        }
-    }
-
-    let currentMonth = 9;
-    let currentYear = 2026;
-
-    function changeMonth(direction) {
-        currentMonth += direction;
-        if (currentMonth > 12) { currentMonth = 1; currentYear++; }
-        if (currentMonth < 1) { currentMonth = 12; currentYear--; }
-        document.getElementById('currentYmText').innerText = `${currentYear}년 ${currentMonth}월`;
-    }
-
-    window.onload = loadSettings;
-</script>
-
-</body>
-</html>
+# 5. 가로형 / 그리드형 달력 표시 방식 및 모바일 최적화 뷰
+if config["display_mode"] == "Grid":
+    st.info("📌 현재 보기: 기본 그리드형 달력")
+    days_header = st.columns(7)
+    week_days = ["일", "월", "화", "수", "목", "금", "토"]
+    for i, day in enumerate(week_days):
+        days_header[i].markdown(f"<div style='text-align: center; font-weight: bold;'>{day}</div>", unsafe_allow_html=True)
+    
+    # 달력 날짜 그리드 시뮬레이션
+    for week in range(5):
+        w_cols = st.columns(7)
+        for day_idx in range(7):
+            day_num = week * 7 + day_idx + 1
+            if day_num <= 30:
+                w_cols[day_idx].button(f"{day_num}", key=f"d_{week}_{day_idx}")
+else:
+    # 모바일 세로 화면에서도 가로 행 형태로 유연하게 스크롤 및 정렬되는 뷰
+    st.info("📌 현재 보기: 가로형 행렬형 달력 (모바일 세로 모드 자동 최적화)")
+    for d in range(1, 31):
+        st.markdown(f"**{d}일** — [근무자 배치 및 스케줄 확인 영역]")

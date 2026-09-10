@@ -39,7 +39,7 @@ st.set_page_config(
 # ---------------------------------------------------------
 def load_local_config():
     default_config = {
-        "auto_view_type": "📄 세로형 리스트",
+        "auto_view_type": "🗓️ 가로형 Grid",
         "app_theme": "☀️ 화이트 테마",
         "kakao_api_key": "",
     }
@@ -89,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 모바일 7열 세로화면 자동맞춤 및 줄바꿈)
+# 동적 CSS (모바일 7열 한눈에 들어오는 퍼펙트 핏 레이아웃)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -109,6 +109,7 @@ input_text = "#F8FAFC" if is_dark else "#0F172A"
 
 responsive_css = f"""
 <style>
+    /* 기본 바디 및 컨테이너 최적화 */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -117,11 +118,15 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
+    /* 메인 여백 극소화 (모바일 화면 전체 활용) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.5rem 0.2rem !important;
-        max-width: 100% !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 1rem !important;
+        max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
@@ -130,7 +135,7 @@ responsive_css = f"""
         background-color: {sidebar_bg} !important;
         color: {main_text_color} !important;
     }}
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{
         color: {main_text_color} !important;
     }}
 
@@ -140,17 +145,16 @@ responsive_css = f"""
 
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 2px solid {border_color};
-        border-radius: 12px;
-        padding: 10px 15px;
-        margin-top: 5px;
-        margin-bottom: 10px;
+        border: 1px solid {border_color};
+        border-radius: 8px;
+        padding: 6px 10px;
+        margin-top: 2px;
+        margin-bottom: 6px;
         text-align: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }}
     .month-header-card h2 {{
         margin: 0 !important;
-        font-size: clamp(18px, 4vw, 26px) !important;
+        font-size: clamp(16px, 3.8vw, 22px) !important;
         font-weight: 800 !important;
         color: {"#60A5FA" if is_dark else "#2563EB"} !important;
     }}
@@ -158,10 +162,10 @@ responsive_css = f"""
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
         color: {"white" if is_dark else "#0F172A"};
-        padding: 10px 14px;
-        border-radius: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
         border: 1px solid {border_color};
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         width: 100%;
         box-sizing: border-box;
     }}
@@ -171,42 +175,70 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* 버튼 스타일 및 줄바꿈 처리 */
+    /* 🚨 모바일 세로 7열 한눈에 꽉 차는 셀 버튼 스타일 */
     .stButton > button {{
         width: 100% !important;
+        min-width: 0 !important;
         height: auto !important;
-        min-height: 42px !important;
-        padding: 4px 1px !important;
+        min-height: 52px !important;
+        padding: 3px 1px !important;
         border: 1px solid {border_color} !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(8px, 2.2vw, 12px) !important;
+        font-size: clamp(7px, 2.0vw, 11px) !important;
         font-weight: 500 !important;
-        margin-bottom: 2px !important;
+        margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.2 !important;
-        transition: all 0.2s ease !important;
+        line-height: 1.15 !important;
     }}
 
     .stButton > button:hover {{
         border-color: {btn_hover_border} !important;
         background-color: {btn_hover_bg} !important;
-        color: {btn_text} !important;
     }}
 
+    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 (스크롤 유발 금지) */
+    [data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 1px !important;
+        margin: 0 !important;
+    }}
+
+    [data-testid="column"] {{
+        width: 14.285% !important;
+        max-width: 14.285% !important;
+        min-width: 0 !important;
+        flex: 1 1 14.285% !important;
+        padding: 0px 0px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }}
+
+    [data-testid="stElementContainer"] {{
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
+
+    /* 팝업 스타일 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(300px, 92vw, 680px) !important;
+        width: clamp(290px, 92vw, 600px) !important;
         max-width: 95vw !important;
         max-height: 88vh !important;
         border-radius: 12px !important;
-        padding: 1.2rem !important;
+        padding: 1rem !important;
         overflow-y: auto !important;
         border: 1px solid {border_color} !important;
     }}
@@ -217,24 +249,7 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
 
-    /* 🚨 세로화면 폭 축소 및 7열 가로 매트릭스 고정 (스크롤 없이 화면 내부 표출) */
-    [data-testid="stHorizontalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        width: 100% !important;
-        min-width: 0 !important;
-        gap: 2px !important;
-    }}
-
-    [data-testid="column"] {{
-        width: 14.28% !important;
-        min-width: 0 !important;
-        flex: 1 1 0% !important;
-        padding: 0 !important;
-    }}
-
-    /* JS 스와이프용 버튼 완전 격리 */
+    /* JS 히든 스와이프 버튼 은닉 */
     .swipe-hidden-container {{
         display: none !important;
         height: 0px !important;
@@ -243,7 +258,6 @@ responsive_css = f"""
         padding: 0px !important;
         position: absolute !important;
         left: -9999px !important;
-        overflow: hidden !important;
     }}
 </style>
 """
@@ -259,7 +273,7 @@ calendar_enhancer_js = """
         const doc = window.parent.document;
         if (!doc) return;
 
-        // 1. 스와이프 전용 히든 버튼 완전 숨김 처리
+        // 1. 스와이프 히든 버튼 숨김
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {
             const txt = btn.innerText || '';
@@ -268,14 +282,10 @@ calendar_enhancer_js = """
                 if (container) {
                     container.style.setProperty('display', 'none', 'important');
                     container.style.setProperty('height', '0px', 'important');
-                    container.style.setProperty('margin', '0px', 'important');
-                    container.style.setProperty('padding', '0px', 'important');
-                } else {
-                    btn.style.setProperty('display', 'none', 'important');
                 }
             }
 
-            // 2. 오늘 날짜 음영 및 하이라이트 스타일 강제 적용
+            // 2. 오늘 날짜 강조 스타일
             if (txt.includes('🌟') || txt.includes('[오늘]')) {
                 btn.style.setProperty('background', 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 'important');
                 btn.style.setProperty('color', '#FFFFFF', 'important');
@@ -284,7 +294,7 @@ calendar_enhancer_js = """
             }
         });
 
-        // 3. 7열 달력 행(stHorizontalBlock)에 폭 100% 강제 부여 (화면 맞춤)
+        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
         horizBlocks.forEach(block => {
             if (block.children.length === 7) {
@@ -292,12 +302,21 @@ calendar_enhancer_js = """
                 block.style.setProperty('flex-direction', 'row', 'important');
                 block.style.setProperty('flex-wrap', 'nowrap', 'important');
                 block.style.setProperty('width', '100%', 'important');
-                block.style.setProperty('min-width', '0px', 'important');
+                block.style.setProperty('max-width', '100%', 'important');
+                block.style.setProperty('gap', '1px', 'important');
+
+                Array.from(block.children).forEach(child => {
+                    child.style.setProperty('width', '14.285%', 'important');
+                    child.style.setProperty('max-width', '14.285%', 'important');
+                    child.style.setProperty('min-width', '0px', 'important');
+                    child.style.setProperty('flex', '1 1 14.285%', 'important');
+                    child.style.setProperty('padding', '0px', 'important');
+                });
             }
         });
     }
 
-    // 터치 스와이프 이벤트
+    // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {
         const doc = window.parent.document;
@@ -681,13 +700,11 @@ if "batch_patterns" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (팝업 유지 세션 관리)
+# 다이얼로그 정의
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
     st.write("정말로 숙직 근무 관리 시스템을 종료하시겠습니까?")
-    st.write("종료 시 실행 중인 세션이 정지됩니다.")
-
     col_e1, col_e2 = st.columns(2)
     with col_e1:
         if st.button("❌ 취소", use_container_width=True):
@@ -712,8 +729,8 @@ def settings_dialog():
         st.markdown("**:blue[1. 달력 표시 방식 선택]**")
         new_view_type = st.radio(
             "달력 표출 형식",
-            options=["📄 세로형 리스트", "🗓️ 가로형 Grid"],
-            index=0 if st.session_state.auto_view_type == "📄 세로형 리스트" else 1,
+            options=["🗓️ 가로형 Grid", "📄 세로형 리스트"],
+            index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1,
             key="cfg_view_type_radio",
         )
 
@@ -726,32 +743,25 @@ def settings_dialog():
             key="cfg_theme_radio",
         )
 
-        st.caption("💡 선택한 화면 방식과 테마는 하드웨어(사용자 기기)에 저장되어 이후 접속 시에도 유지됩니다.")
-
         if st.button("💾 화면 설정 적용하기", use_container_width=True, type="primary"):
             st.session_state.auto_view_type = new_view_type
             st.session_state.app_theme = new_theme
             save_local_config("auto_view_type", new_view_type)
             save_local_config("app_theme", new_theme)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 화면 설정이 이 기기에 저장되었습니다.")
+            st.success("✅ 화면 설정이 저장되었습니다.")
             st.rerun()
 
     with tab_s2:
-        st.markdown("📅 **입력된 근무자만 규칙적으로 순환 등록되며, 비워둔 칸은 기존 데이터를 유지합니다.**")
-
+        st.markdown("📅 **입력된 근무자만 규칙적으로 순환 등록됩니다.**")
         today_default = datetime.date.today()
         saved_pat = st.session_state.get("batch_patterns", {})
 
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            start_date_input = st.date_input(
-                "시작 날짜", value=today_default, key="dlg_batch_start"
-            )
+            start_date_input = st.date_input("시작 날짜", value=today_default, key="dlg_batch_start")
         with col_b2:
-            total_days_count = st.number_input(
-                "적용 총 일수", min_value=1, max_value=180, value=30, step=1, key="dlg_batch_days"
-            )
+            total_days_count = st.number_input("적용 총 일수", min_value=1, max_value=180, value=30, step=1, key="dlg_batch_days")
 
         col_p1, col_p2 = st.columns(2)
         with col_p1:
@@ -800,18 +810,12 @@ def settings_dialog():
             st.session_state.df = df
             save_app_state(df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 순환 반복 패턴이 저장 및 적용되었습니다.")
+            st.success("✅ 순환 반복 패턴이 반영되었습니다.")
             st.rerun()
 
     with tab_s3:
-        st.markdown("📱 **오늘 또는 지정 날짜의 숙직 근무 안내 메시지를 카카오톡으로 발송합니다.**")
-
-        kakao_key = st.text_input(
-            "카카오 REST API 키 (또는 Access Token)",
-            value=st.session_state.kakao_api_key,
-            type="password",
-            key="kakao_key_input",
-        )
+        st.markdown("📱 **카카오톡 메시지 발송 설정**")
+        kakao_key = st.text_input("카카오 REST API 키", value=st.session_state.kakao_api_key, type="password", key="kakao_key_input")
         if kakao_key != st.session_state.kakao_api_key:
             st.session_state.kakao_api_key = kakao_key
             save_local_config("kakao_api_key", kakao_key)
@@ -827,42 +831,27 @@ def settings_dialog():
             memo = st.session_state.memos.get(send_date.strftime("%Y-%m-%d"), "없음")
             msg_content = f"📢 [{send_date.strftime('%Y-%m-%d')} 숙직근무 안내]\n- 근무자 1: {p1}\n- 근무자 2: {p2}\n- 메모: {memo}"
         else:
-            msg_content = f"📢 [{send_date.strftime('%Y-%m-%d')} 숙직근무 안내]\n해당 날짜의 근무 정보가 등록되지 않았습니다."
+            msg_content = f"📢 [{send_date.strftime('%Y-%m-%d')} 숙직근무 안내]\n해당 날짜의 근무 정보가 없습니다."
 
-        st.text_area("전송될 메시지 미리보기", value=msg_content, height=110)
-
-        col_k1, col_k2 = st.columns(2)
-        with col_k1:
-            if st.button("💬 나에게 카카오톡 메시지 전송", use_container_width=True, type="primary"):
-                if not kakao_key:
-                    st.warning("⚠️ 카카오 API 키 또는 Access Token을 입력해주세요.")
-                else:
-                    try:
-                        headers = {"Authorization": f"Bearer {kakao_key}"}
-                        payload = {
-                            "template_object": json.dumps({
-                                "object_type": "text",
-                                "text": msg_content,
-                                "link": {"web_url": "https://streamlit.io", "mobile_web_url": "https://streamlit.io"},
-                            })
-                        }
-                        res = requests.post("https://kapi.kakao.com/v2/api/talk/memo/default/send", headers=headers, data=payload)
-                        if res.status_code == 200:
-                            st.success("✅ 카카오톡 메시지 전송 성공!")
-                        else:
-                            st.error(f"❌ 전송 실패 (코드: {res.status_code}): {res.text}")
-                    except Exception as ex:
-                        st.error(f"전송 예외 오류: {ex}")
-        with col_k2:
-            encoded_msg = requests.utils.quote(msg_content)
-            st.markdown(
-                f'<a href="https://sharer.kakao.com/talk/friends/picker/easylink?app_key=sample&message={encoded_msg}" target="_blank"><button style="width:100%; min-height:48px; border-radius:8px; background-color:#FEE500; color:#000; font-weight:bold; border:none; cursor:pointer;">💛 카카오톡 외부 공유창 열기</button></a>',
-                unsafe_allow_html=True,
-            )
+        st.text_area("미리보기", value=msg_content, height=100)
+        if st.button("💬 나에게 카카오톡 메시지 전송", use_container_width=True, type="primary"):
+            if not kakao_key:
+                st.warning("⚠️ API 키를 입력해주세요.")
+            else:
+                try:
+                    headers = {"Authorization": f"Bearer {kakao_key}"}
+                    payload = {"template_object": json.dumps({"object_type": "text", "text": msg_content, "link": {"web_url": "https://streamlit.io"}})}
+                    res = requests.post("https://kapi.kakao.com/v2/api/talk/memo/default/send", headers=headers, data=payload)
+                    if res.status_code == 200:
+                        st.success("✅ 전송 성공!")
+                    else:
+                        st.error(f"❌ 전송 실패 ({res.status_code}): {res.text}")
+                except Exception as ex:
+                    st.error(f"오류 발생: {ex}")
 
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그 (날짜별 Dynamic Key 지정)
+# 근무자 수정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -911,13 +900,13 @@ def edit_worker_dialog(date_str, duty_info):
             sub2_custom = st.text_input("대직자2 직접입력", value=val_sub2 if sub2_sel == "(직접 입력)" else "", key=f"sub2_custom_{date_str}") if sub2_sel == "(직접 입력)" else ""
 
         st.divider()
-        edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=80, key=f"edit_memo_{date_str}")
+        edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=70, key=f"edit_memo_{date_str}")
 
         c_sub1, c_sub2 = st.columns([2, 1])
         with c_sub1:
-            submitted = st.form_submit_button("💾 엑셀 저장 및 반영", use_container_width=True)
+            submitted = st.form_submit_button("💾 저장 및 반영", use_container_width=True)
         with c_sub2:
-            close_dialog = st.form_submit_button("🚪 창 닫기", use_container_width=True)
+            close_dialog = st.form_submit_button("🚪 닫기", use_container_width=True)
 
         if submitted:
             final_p1 = p1_custom.strip() if p1_sel == "(직접 입력)" else ("" if p1_sel == "(선택 안함)" else p1_sel)
@@ -939,7 +928,7 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.df = st.session_state.df.sort_values(by="날짜").reset_index(drop=True)
 
             save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
-            st.success("✅ 변경사항이 저장되었습니다.")
+            st.success("✅ 저장되었습니다.")
             st.rerun()
 
         if close_dialog:
@@ -951,12 +940,10 @@ def edit_worker_dialog(date_str, duty_info):
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
-
     if "file_name" in st.session_state:
-        st.info(f"📄 현재 파일: `{st.session_state.file_name}`")
+        st.info(f"📄 파일: `{st.session_state.file_name}`")
 
-    uploaded_file = st.file_uploader("새 엑셀 파일 업로드", type=["xlsx"])
-
+    uploaded_file = st.file_uploader("새 엑셀 업로드", type=["xlsx"])
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         save_path = os.path.join("DATA", uploaded_file.name)
@@ -974,13 +961,12 @@ with st.sidebar:
         st.session_state.raw_df = raw_df
 
         save_app_state(parsed_df, used_sheet, st.session_state.get("memos", {}), st.session_state.get("batch_patterns", {}))
-
-        st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
+        st.success("✅ 파일 로드 완료")
         st.rerun()
 
     if "file_bytes" in st.session_state and st.session_state.file_bytes:
         st.download_button(
-            label="📥 수정된 엑셀 파일 다운로드",
+            label="📥 엑셀 파일 다운로드",
             data=st.session_state.file_bytes,
             file_name=st.session_state.get("file_name", "숙직근무표_수정본.xlsx"),
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -992,16 +978,11 @@ with st.sidebar:
         st.session_state.show_exit_dialog = True
         st.rerun()
 
-
-# ---------------------------------------------------------
-# 세션 기반 다이얼로그 호출 처리
-# ---------------------------------------------------------
 if st.session_state.show_settings_dialog:
     settings_dialog()
 
 if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
-
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -1030,16 +1011,15 @@ with tab1:
         p1 = f"{t_row['실제근무1']}(대)" if pd.notnull(t_row.get("대직1")) and str(t_row.get("대직1")).strip() else t_row["실제근무1"]
         p2 = f"{t_row['실제근무2']}(대)" if pd.notnull(t_row.get("대직2")) and str(t_row.get("대직2")).strip() else t_row["실제근무2"]
         t_memo = st.session_state.memos.get(today.strftime("%Y-%m-%d"), "")
-        memo_str = f" | 📌 메모: {t_memo}" if t_memo else ""
+        memo_str = f" | 📌 {t_memo}" if t_memo else ""
 
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:14px; font-weight:bold;">
-                근무자 1: <span>{p1}</span> &nbsp;|&nbsp; 
-                근무자 2: <span>{p2}</span>
-                <span style="font-size:12px; font-weight:normal;">{memo_str}</span>
+            <div style="font-size:11px; opacity:0.9;">🚨 오늘 근무자 ({today_str})</div>
+            <div style="font-size:13px; font-weight:bold;">
+                1: <span>{p1}</span> | 2: <span>{p2}</span>
+                <span style="font-size:11px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -1134,8 +1114,6 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능하며, 화면 좌우 스와이프로 달을 이동할 수 있습니다.")
-
         calendar_view_type = st.session_state.auto_view_type
 
         if calendar_view_type == "📄 세로형 리스트":
@@ -1169,7 +1147,7 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 🗓️ 화면 100% 폭에 맞춰 세로 모드에서도 스크롤 없이 7열 표출 + 자동 줄바꿈 달력
+            # 🗓️ [요청 반영] 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1182,11 +1160,10 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(11px, 2.3vw, 14px); padding-bottom: 2px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding-bottom: 2px;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 
-            st.markdown("<div style='margin-bottom: 4px;'></div>", unsafe_allow_html=True)
             first_day_weekday = calendar.monthrange(year, month)[0]
             start_offset = (first_day_weekday + 1) % 7
             day_counter = 1
@@ -1211,7 +1188,12 @@ with tab1:
                         is_today = (curr_date == today)
                         day_label = f"🌟{day_counter}일" if is_today else f"{day_counter}일"
 
-                        btn_text = f"{day_label}\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_label}\n{p1_txt}\n{p2_txt}"
+                        # 🚨 [요청 반영] 1줄: 날짜 / 2줄: 실제근무자1 / 3줄: 실제근무자2 / 4줄: 메모
+                        cell_lines = [day_label, p1_txt, p2_txt]
+                        if day_memo:
+                            cell_lines.append(f"📌{day_memo}")
+
+                        btn_text = "\n".join(cell_lines)
 
                         if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
                             if duty_info:
@@ -1260,7 +1242,7 @@ with tab2:
         st.session_state.df = full_df[cols]
 
         save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
-        st.success("✅ 엑셀 파일 및 대시보드에 저장되었습니다.")
+        st.success("✅ 저장되었습니다.")
         st.rerun()
 
 # ---------------------------------------------------------

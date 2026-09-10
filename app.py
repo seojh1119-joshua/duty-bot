@@ -89,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
+# 동적 CSS (모바일 가로달력 강제 1열 밀착 및 화면 핏)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -107,18 +107,16 @@ dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
-# 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 기본 바디 및 컨테이너 최적화 (가로 스크롤 방지 및 화면 핏) */
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+    /* 🚨 모바일 가로 스크롤 완전 차단 및 100% 핏 */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        width: 100% !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
     }}
@@ -126,11 +124,11 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding-left: 4px !important;
-        padding-right: 4px !important;
-        padding-top: 0.2rem !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        padding-top: 0.1rem !important;
         padding-bottom: 0.2rem !important;
-        max-width: 100% !important;
+        max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
@@ -147,36 +145,36 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    h1 {{ font-size: clamp(16px, 4vw, 22px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
+    h1 {{ font-size: clamp(15px, 3.8vw, 22px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 6px; padding: 3px 8px; margin-top: 1px; margin-bottom: 4px; text-align: center;
+        border: 1px solid {border_color}; border-radius: 6px; padding: 2px 6px; margin-top: 1px; margin-bottom: 2px; text-align: center;
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(14px, 3.2vw, 18px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(13px, 3vw, 17px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"}; padding: 4px 8px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 4px; width: 100%; box-sizing: border-box;
+        color: {"white" if is_dark else "#0F172A"}; padding: 3px 6px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 2px; width: 100%; box-sizing: border-box;
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 콤팩트 셀 버튼 스타일 및 글자 잘림 방지 */
+    /* 🚨 콤팩트 셀 버튼 스타일 및 글자 잘림 방지 (모바일 가로 핏 최적화) */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 52px !important;
-        padding: 2px 1px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 46px !important;
+        padding: 1px 0px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: clamp(6.5px, 1.8vw, 10px) !important; font-weight: 500 !important; margin: 0 !important;
+        text-align: center !important; font-size: clamp(6px, 1.6vw, 9.5px) !important; font-weight: 500 !important; margin: 0 !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.15 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.1 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 🗓️ 7개 컬럼 강제 가로 한 화면 밀착 정렬 (줄바꿈 방지) */
+    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 (절대 줄바꿈 방지) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -184,16 +182,17 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 2px !important;
+        gap: 1px !important;
         margin: 0 !important;
+        padding: 0 !important;
         box-sizing: border-box !important;
     }}
 
     [data-testid="column"] {{
-        width: 14.28% !important;
-        max-width: 14.28% !important;
+        width: 14.285% !important;
+        max-width: 14.285% !important;
         min-width: 0 !important;
-        flex: 1 1 14.28% !important;
+        flex: 1 1 14.285% !important;
         padding: 0px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
@@ -237,6 +236,26 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
+
+        // 7개 컬럼 강제 가로 정렬 주입 (JS 보완)
+        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
+        horizBlocks.forEach(block => {{
+            if (block.children.length === 7) {{
+                block.style.setProperty('display', 'flex', 'important');
+                block.style.setProperty('flex-direction', 'row', 'important');
+                block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                block.style.setProperty('width', '100%', 'important');
+                block.style.setProperty('gap', '1px', 'important');
+                
+                Array.from(block.children).forEach(child => {{
+                    child.style.setProperty('width', '14.285%', 'important');
+                    child.style.setProperty('max-width', '14.285%', 'important');
+                    child.style.setProperty('min-width', '0px', 'important');
+                    child.style.setProperty('flex', '1 1 14.285%', 'important');
+                    child.style.setProperty('padding', '0px', 'important');
+                }});
+            }}
+        }});
     }}
 
     let touchstartX = 0, touchstartY = 0;
@@ -253,7 +272,6 @@ calendar_enhancer_js = f"""
 
     const doc = window.parent.document;
     
-    /* 📱 모바일 뒤로가기 버튼(백버튼) 제어: 팝업 상태일 때 앱 최소화 방지 */
     if (!window.parent._historyPatched) {{
         window.parent._historyPatched = true;
         window.parent.history.pushState(null, null, window.parent.location.href);
@@ -286,7 +304,7 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {{
                 if (diffX < 0) {{
                     triggerMonthChange('next');
                 }} else {{
@@ -296,7 +314,7 @@ calendar_enhancer_js = f"""
         }}, {{passive: true}});
     }}
 
-    setInterval(enhanceCalendarUI, 200);
+    setInterval(enhanceCalendarUI, 150);
 }})();
 </script>
 """
@@ -1105,7 +1123,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding-bottom: 2px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(9px, 2vw, 12px); padding-bottom: 1px;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

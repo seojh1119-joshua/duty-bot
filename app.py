@@ -154,7 +154,7 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ font-size: 16px !important; font-weight: 900 !important; margin: 0 !important; }}
 
-    /* 📌 [핵심 1] 팝업창 가로/세로 화면 고정 비율 설정 */
+    /* 팝업창 가로/세로 화면 고정 비율 설정 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -169,7 +169,6 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 세로 화면(Portrait)일 때 팝업 고정 비율 */
     @media (orientation: portrait) {{
         [data-testid="stDialog"] > div:first-child {{
             width: 90vw !important;
@@ -178,7 +177,6 @@ responsive_css = f"""
         }}
     }}
 
-    /* 가로 화면(Landscape)일 때 팝업 고정 비율 */
     @media (orientation: landscape) {{
         [data-testid="stDialog"] > div:first-child {{
             width: 70vw !important;
@@ -213,7 +211,7 @@ responsive_css = f"""
         padding: 2px 4px !important;
     }}
 
-    /* 📌 [핵심 2] 요일 박스와 달력 버튼 폭을 동일하게 7열 균등 배치 및 세로폭 최적화 */
+    /* 📌 [핵심] 7열 가로형 달력 그리드 구조 (모바일 세로/가로 모두 7열 유지 및 세로폭 대응) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -232,7 +230,6 @@ responsive_css = f"""
         margin: 0 !important;
     }}
     
-    /* 요일 박스 컨테이너 스타일 (달력 버튼과 완벽히 같은 폭 유지) */
     .weekday-box {{
         text-align: center;
         font-weight: 900;
@@ -246,24 +243,45 @@ responsive_css = f"""
         margin: 0px;
     }}
 
-    div[data-testid="column"] .stButton > button {{
-        width: 100% !important;
-        min-height: clamp(55px, 14vw, 95px) !important;
-        max-height: 110px !important;
-        padding: 1px 0px !important;
-        font-size: clamp(7px, 1.8vw, 10px) !important;
-        overflow: hidden !important;
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: flex-start !important;
-        align-items: center !important;
-        box-sizing: border-box !important;
+    /* 모바일 세로 화면(Portrait)일 때 달력 버튼 폭은 좁고 높이가 높도록(7열 유지) 컴팩트하게 조정 */
+    @media (orientation: portrait) {{
+        div[data-testid="column"] .stButton > button {{
+            width: 100% !important;
+            min-height: 52px !important;
+            max-height: 72px !important;
+            padding: 1px 0px !important;
+            font-size: clamp(7px, 2vw, 9.5px) !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            box-sizing: border-box !important;
+        }}
     }}
+
+    /* 모바일 가로 화면 또는 일반 화면(Landscape/PC)일 때 달력 버튼 스타일 */
+    @media (orientation: landscape) {{
+        div[data-testid="column"] .stButton > button {{
+            width: 100% !important;
+            min-height: 75px !important;
+            max-height: 105px !important;
+            padding: 1px 0px !important;
+            font-size: clamp(8px, 1.5vw, 11px) !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: center !important;
+            box-sizing: border-box !important;
+        }}
+    }}
+
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow: hidden !important;
-        line-height: 1.05 !important;
+        line-height: 1.02 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
@@ -279,7 +297,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트
+# 브라우저 스크립트 (드래그 팝업 오류 방지 및 스와이프 기능 개선)
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>
@@ -346,6 +364,12 @@ calendar_enhancer_js_template = """
 
     if (!doc._swipeAttached) {
         doc._swipeAttached = true;
+        
+        // 📌 드래그(텍스트 선택 및 마우스 이동) 시 팝업창이 오동작하는 오류 원인 차단
+        doc.addEventListener('dragstart', function(e) {
+            e.preventDefault();
+        }, {passive: false});
+
         doc.addEventListener('touchstart', function(e) {
             if (e.changedTouches && e.changedTouches.length > 0) {
                 touchstartX = e.changedTouches[0].clientX;
@@ -357,7 +381,7 @@ calendar_enhancer_js_template = """
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
                 if (diffX < 0) triggerMonthChange('next');
                 else triggerMonthChange('prev');
             }

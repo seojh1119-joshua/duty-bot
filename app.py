@@ -153,7 +153,7 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ font-size: 15px !important; font-weight: 900 !important; margin: 0 !important; }}
 
-    /* 팝업창 모바일 가로/세로 최적화 */
+    /* 팝업창 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -187,7 +187,7 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
 
-    /* 📌 7열 전체 강제 고정 레이아웃 (가로 폭은 좁게 압축하되 균등 분할) */
+    /* 📌 7열 전체 강제 고정 레이아웃 (세로 화면에서도 7개 모두 한 눈에 완벽 배치) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -222,14 +222,14 @@ responsive_css = f"""
         margin: 0px;
     }}
 
-    /* 📌 모바일 세로 화면(Portrait): 폭은 좁게 슬림하게 만들되, 글씨와 높이는 키워서 가독성 확보 */
+    /* 📌 모바일 세로 화면(Portrait): 폭은 슬림하게 채우되, 글씨 크기와 높이는 적당히 키워서 가독성 대폭 향상 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 68px !important;
-            max-height: 90px !important;
+            min-height: 70px !important;
+            max-height: 95px !important;
             padding: 2px 0px !important;
-            font-size: clamp(9px, 2.5vw, 11.5px) !important;
+            font-size: clamp(9.5px, 2.6vw, 12px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
@@ -278,7 +278,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (드래그/스와이프 시 팝업창 오류 완전 차단)
+# 브라우저 스크립트 (드래그/스와이프 및 달력 기능 제어)
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>

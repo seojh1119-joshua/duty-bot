@@ -62,7 +62,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 가로달력 2배 확대 및 고정 최적화
+# 동적 CSS 및 모바일 가로달력 한눈에 보기 최적화 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -104,7 +104,7 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    h1 {{ font-size: clamp(15px, 4.2vw, 21px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; white-space: nowrap !important; }}
+    h1 {{ font-size: clamp(16px, 4.5vw, 22px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; white-space: nowrap !important; }}
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
@@ -112,14 +112,15 @@ responsive_css = f"""
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1px solid {border_color}; border-radius: 5px; padding: 4px 6px; margin: 3px 0; text-align: center;
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(12px, 3vw, 15px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(13px, 3.2vw, 16px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; }}
 
+    /* 요구사항: 달력 위 숙직근무표 폰트 크기를 제목과 조화롭게 수정 */
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"}; padding: 5px 7px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 3px; width: 100%; box-sizing: border-box;
+        color: {"white" if is_dark else "#0F172A"}; padding: 6px 9px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 4px; width: 100%; box-sizing: border-box;
     }}
-    .today-card .today-title {{ font-size: 11px !important; opacity: 0.95; font-weight: 700; }}
-    .today-card .today-content {{ font-size: 13px !important; font-weight: 800; }}
+    .today-card .today-title {{ font-size: clamp(12px, 3.2vw, 15px) !important; opacity: 0.95; font-weight: 800; }}
+    .today-card .today-content {{ font-size: clamp(13px, 3.8vw, 17px) !important; font-weight: 800; }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: 900; }}
 
     .stButton > button {{
@@ -130,12 +131,12 @@ responsive_css = f"""
         cursor: pointer !important;
     }}
 
-    /* 가로달력 버튼 세로 크기 2배 확대 및 흔들림 방지 고정 */
+    /* 요구사항: 모바일 세로 화면에서 가로달력이 한눈에 보이도록 높이 슬림화 및 최적화 */
     div[data-testid="column"] .stButton > button {{
-        min-height: clamp(100px, 22vw, 145px) !important;
-        max-height: 145px !important;
-        padding: 2px 0px !important;
-        font-size: clamp(7px, 1.5vw, 10px) !important;
+        min-height: clamp(62px, 13vw, 85px) !important;
+        max-height: 90px !important;
+        padding: 1px 0px !important;
+        font-size: clamp(8px, 2vw, 11px) !important;
         color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
         overflow: hidden !important;
         flex-shrink: 0 !important;
@@ -143,7 +144,7 @@ responsive_css = f"""
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.1 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
@@ -167,7 +168,6 @@ responsive_css = f"""
         top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
     }}
 
-    /* 입력창 및 날짜 선택 박스 고대조(Contrast) 스타일 적용 */
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], input[type="date"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
@@ -185,69 +185,94 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 완벽 스와이프 및 달력UI 강화 JS (가로/세로 공용)
+# 모바일 브라우저 뒤로가기 버튼 처리 및 UI 보정 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = """
 <script>
-(function() {{
-    function enhanceCalendarUI() {{
-        const doc = window.parent.document;
-        if (!doc) return;
+(function() {
+    const doc = window.parent.document;
+    if (!doc) return;
 
+    // 히스토리 상태 초기화 (뒤로가기 제어를 위함)
+    if (!window.history.state || !window.history.state.appInitialized) {
+        window.history.replaceState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
+    }
+
+    // 모바일 뒤로가기(popstate) 이벤트 핸들러
+    window.addEventListener('popstate', function(event) {
+        // 1. 열려있는 다이얼로그나 팝업 닫기 시도
+        const closeButtons = Array.from(doc.querySelectorAll('button')).filter(b => {
+            const txt = (b.innerText || '').trim();
+            return txt.includes('🚪 닫기') || txt.includes('❌ 취소');
+        });
+        if (closeButtons.length > 0) {
+            closeButtons[0].click();
+            window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
+            return;
+        }
+
+        // 2. 달력 메뉴 외의 탭/페이지에 있을 때 달력 화면으로 복귀시키기 위해 스트림릿 탭 중 첫 번째(달력 메인) 클릭
+        const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
+        if (tabs.length > 0) {
+            // 첫 번째 탭이 달력 메인이라고 가정하고 클릭 유도
+            tabs[0].click();
+        }
+        window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
+    });
+
+    function enhanceCalendarUI() {
         const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {{
+        buttons.forEach(btn => {
             const txt = btn.innerText || '';
-            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
+            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {
                 const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) {{ container.style.setProperty('display', 'none', 'important'); }}
-            }}
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
+                if (container) { container.style.setProperty('display', 'none', 'important'); }
+            }
+            if (txt.includes('🌟') || txt.includes('[오늘]')) {
                 btn.style.setProperty('background', '{bg}', 'important');
                 btn.style.setProperty('color', '{text}', 'important');
                 btn.style.setProperty('border', '{border}', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
-            }}
-        }});
-    }}
+            }
+        });
+    }
 
     let touchstartX = 0, touchstartY = 0;
     
-    function triggerMonthChange(dir) {{
-        const doc = window.parent.document;
+    function triggerMonthChange(dir) {
         const buttons = Array.from(doc.querySelectorAll('button'));
         const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
         const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
         if (targetBtn) targetBtn.click();
-    }}
+    }
 
-    const doc = window.parent.document;
-    if (!doc._swipeAttached) {{
+    if (!doc._swipeAttached) {
         doc._swipeAttached = true;
         
-        doc.addEventListener('touchstart', function(e) {{
-            if (e.changedTouches && e.changedTouches.length > 0) {{
+        doc.addEventListener('touchstart', function(e) {
+            if (e.changedTouches && e.changedTouches.length > 0) {
                 touchstartX = e.changedTouches[0].clientX;
                 touchstartY = e.changedTouches[0].clientY;
-            }}
-        }}, {{passive: true}});
+            }
+        }, {passive: true});
 
-        doc.addEventListener('touchend', function(e) {{
+        doc.addEventListener('touchend', function(e) {
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
-                if (diffX < 0) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+                if (diffX < 0) {
                     triggerMonthChange('next');
-                }} else {{
+                } else {
                     triggerMonthChange('prev');
-                }}
-            }}
-        }}, {{passive: true}});
-    }}
+                }
+            }
+        }, {passive: true});
+    }
 
     setInterval(enhanceCalendarUI, 200);
-}})();
+})();
 </script>
 """.format(bg=today_highlight_bg, text=today_highlight_text, border=today_highlight_border)
 
@@ -443,7 +468,6 @@ def settings_dialog():
             v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
             
             if infinite_repeat:
-                # 시작일부터 해당 월의 마지막 날까지 무한 순환
                 last_day_of_month = calendar.monthrange(start_d.year, start_d.month)[1]
                 target_end_date = datetime.date(start_d.year, start_d.month, last_day_of_month)
                 delta_days = (target_end_date - start_d).days + 1
@@ -486,7 +510,6 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
     
-    # 수정: 근무자1, 근무자2 컬럼 모두에서 이름을 모아 선택지를 구성 (기존에는 근무자1만 사용해 누락 발생)
     all_workers = set(st.session_state.df["근무자1"].dropna().unique()) | set(st.session_state.df["근무자2"].dropna().unique())
     all_workers.discard("미지정")
     worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
@@ -618,10 +641,19 @@ with tab1:
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
+            # 요구사항: 요일 폰트 크기를 달력(버튼) 폰트보다 크고 명확하게 설정 및 공휴일/주말 색상 다르게 표시
             cols_h = st.columns(7)
-            h_names = [("일", "#FF6B6B" if is_dark else "#DC2626"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#38BDF8" if is_dark else "#2563EB")]
+            h_names = [
+                ("일", "#FF6B6B" if is_dark else "#DC2626"), 
+                ("월", main_text_color), 
+                ("화", main_text_color), 
+                ("수", main_text_color), 
+                ("목", main_text_color), 
+                ("금", main_text_color), 
+                ("토", "#38BDF8" if is_dark else "#2563EB")
+            ]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: clamp(10px, 2.5vw, 14px); padding: 8px 0; background: rgba(128,128,128,0.08); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(12px, 3.2vw, 16px); padding: 5px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1

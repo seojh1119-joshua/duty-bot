@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 7열 강제 반응형 스타일 지정
+# 동적 CSS 및 모바일 가독성 개선형 7열 반응형 스타일 지정
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -187,7 +187,7 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
 
-    /* 📌 [결정적 수정] 모바일 환경에서도 한 화면에 7열 전체 강제 고정 레이아웃 */
+    /* 📌 7열 전체 강제 고정 레이아웃 (가로 폭은 좁게 압축하되 균등 분할) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -212,8 +212,8 @@ responsive_css = f"""
     .weekday-box {{
         text-align: center;
         font-weight: 900;
-        font-size: clamp(8px, 2.2vw, 11px);
-        padding: 2px 0px;
+        font-size: clamp(10px, 2.8vw, 12.5px);
+        padding: 3px 0px;
         background: rgba(128,128,128,0.1);
         border-radius: 3px;
         border: 1px solid {border_color};
@@ -222,14 +222,14 @@ responsive_css = f"""
         margin: 0px;
     }}
 
-    /* 📌 모바일 세로 화면(Portrait): 폭이 좁고 높이가 높은 형태의 콤팩트한 7열 달력 그리드 버튼 */
+    /* 📌 모바일 세로 화면(Portrait): 폭은 좁게 슬림하게 만들되, 글씨와 높이는 키워서 가독성 확보 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 56px !important;
-            max-height: 75px !important;
-            padding: 1px 0px !important;
-            font-size: clamp(6.5px, 1.8vw, 9px) !important;
+            min-height: 68px !important;
+            max-height: 90px !important;
+            padding: 2px 0px !important;
+            font-size: clamp(9px, 2.5vw, 11.5px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
@@ -244,10 +244,10 @@ responsive_css = f"""
     @media (orientation: landscape) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 72px !important;
-            max-height: 98px !important;
-            padding: 1px 0px !important;
-            font-size: clamp(8px, 1.4vw, 10.5px) !important;
+            min-height: 75px !important;
+            max-height: 100px !important;
+            padding: 2px 0px !important;
+            font-size: clamp(10px, 1.6vw, 12px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
@@ -262,7 +262,7 @@ responsive_css = f"""
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow: hidden !important;
-        line-height: 1.01 !important;
+        line-height: 1.15 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
@@ -346,7 +346,6 @@ calendar_enhancer_js_template = """
     if (!doc._swipeAttached) {
         doc._swipeAttached = true;
         
-        // 📌 드래그 및 텍스트 선택 시 발생하는 오동작 및 의도치 않은 팝업창 생성 원인을 완벽 차단
         doc.addEventListener('dragstart', function(e) {
             e.preventDefault();
             e.stopPropagation();

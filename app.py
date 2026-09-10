@@ -117,7 +117,6 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 1. 제목 스타일 및 설정버튼과의 간격 확대 */
     h1 {{
         font-size: clamp(26px, 6.5vw, 36px) !important;
         margin: 10px 0px 20px 0px !important;
@@ -129,7 +128,6 @@ responsive_css = f"""
         letter-spacing: -0.5px !important;
     }}
 
-    /* 설정박스 전용 카드 스타일 */
     .setting-box {{
         background-color: {box_bg} !important;
         border: 2px solid {border_color} !important;
@@ -139,7 +137,6 @@ responsive_css = f"""
         box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }}
 
-    /* 2. 오늘 근무자 카드: 글씨크기 확대 및 입체 음영 그라데이션 적용 */
     .today-card {{
         background: { "linear-gradient(135deg, #1E3A8A 0%, #2563EB 50%, #1D4ED8 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)" } !important;
         color: {"#FFFFFF" if is_dark else "#1E3A8A"} !important;
@@ -168,7 +165,6 @@ responsive_css = f"""
         font-weight: 900 !important; 
     }}
 
-    /* 3. 숙직근무표 헤더 글씨크기 확대 */
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1px solid {border_color}; border-radius: 6px; padding: 6px 8px; margin: 6px 0 10px 0; text-align: center;
@@ -183,7 +179,6 @@ responsive_css = f"""
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
-    /* 일반 버튼 스타일 */
     .stButton > button {{
         width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 36px !important;
         padding: 6px 8px !important; border: 1.5px solid {border_color} !important; border-radius: 6px !important;
@@ -192,7 +187,6 @@ responsive_css = f"""
         cursor: pointer !important;
     }}
 
-    /* 4. 달력 버튼 가로폭 축소 및 7열 모바일 세로 화면 맞춤 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; max-width: 100vw !important; min-width: 0 !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -226,7 +220,6 @@ responsive_css = f"""
 
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 5, 6. 달력/설정 팝업창 모바일 세로 화면 가로폭 및 입력박스 비율 자동 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 94vw !important; max-width: 480px !important; max-height: 90vh !important;
@@ -236,28 +229,16 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 팝업 내부 입력박스 및 레이아웃 상대적 길이 자동 조절 스타일 */
     [data-testid="stDialog"] [data-testid="stForm"] {{
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
+        border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important;
     }}
 
     [data-testid="stDialog"] [data-testid="stHorizontalBlock"] {{
-        gap: 6px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
+        gap: 6px !important; width: 100% !important; box-sizing: border-box !important;
     }}
 
     [data-testid="stDialog"] [data-testid="column"] {{
-        width: 50% !important;
-        max-width: 50% !important;
-        flex: 1 1 50% !important;
-        min-width: 0 !important;
-        padding: 0 2px !important;
-        box-sizing: border-box !important;
+        width: 50% !important; max-width: 50% !important; flex: 1 1 50% !important; min-width: 0 !important; padding: 0 2px !important; box-sizing: border-box !important;
     }}
 
     [data-testid="stDialog"] input, 
@@ -268,78 +249,47 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stTextInput"],
     [data-testid="stDialog"] [data-testid="stSelectbox"],
     [data-testid="stDialog"] [data-testid="stTextArea"] {{
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
+        width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
     }}
 
     [data-testid="stDialog"] label {{
-        font-size: clamp(12px, 3.2vw, 14px) !important;
-        font-weight: 700 !important;
-        margin-bottom: 2px !important;
-        white-space: nowrap !important;
+        font-size: clamp(12px, 3.2vw, 14px) !important; font-weight: 700 !important; margin-bottom: 2px !important; white-space: nowrap !important;
     }}
 
     [data-testid="stDialog"] .stButton > button {{
-        min-height: 38px !important;
-        font-size: clamp(13px, 3.6vw, 15px) !important;
-        padding: 4px 6px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
+        min-height: 38px !important; font-size: clamp(13px, 3.6vw, 15px) !important; padding: 4px 6px !important; width: 100% !important; box-sizing: border-box !important;
     }}
 
-    /* 모바일 세로 화면에 특화된 팝업 내부 요소 반응형 세로 자동 재배치 */
     @media screen and (max-width: 600px) {{
         [data-testid="stDialog"] > div:first-child {{
-            width: 95vw !important;
-            padding: 10px 8px !important;
+            width: 95vw !important; padding: 10px 8px !important;
         }}
         [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] {{
             flex-direction: column !important;
         }}
         [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
-            width: 100% !important;
-            max-width: 100% !important;
-            flex: 1 1 100% !important;
+            width: 100% !important; max-width: 100% !important; flex: 1 1 100% !important;
         }}
-        /* 하단 저장/닫기 버튼 행은 50% 가로 분할 유지 */
         [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child {{
             flex-direction: row !important;
         }}
         [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child > [data-testid="column"] {{
-            width: 50% !important;
-            max-width: 50% !important;
-            flex: 1 1 50% !important;
+            width: 50% !important; max-width: 50% !important; flex: 1 1 50% !important;
         }}
     }}
 
-    /* 7. 상단 탭 메뉴 휴대폰 세로 화면폭 한눈 최적화 */
     [data-baseweb="tab-list"] {{
-        width: 100% !important;
-        display: flex !important;
-        gap: 2px !important;
-        padding: 0 !important;
+        width: 100% !important; display: flex !important; gap: 2px !important; padding: 0 !important;
     }}
     [data-baseweb="tab"] {{
-        flex: 1 1 auto !important;
-        padding: 8px 4px !important;
-        font-size: clamp(11px, 3.2vw, 15px) !important;
-        font-weight: 800 !important;
-        text-align: center !important;
-        justify-content: center !important;
-        min-width: 0 !important;
+        flex: 1 1 auto !important; padding: 8px 4px !important; font-size: clamp(11px, 3.2vw, 15px) !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; min-width: 0 !important;
     }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], input[type="date"] {{
-        background-color: {input_bg} !important;
-        color: {input_text} !important;
-        border: 1.5px solid {border_color} !important;
-        font-weight: 600 !important;
-        max-width: 100% !important;
+        background-color: {input_bg} !important; color: {input_text} !important; border: 1.5px solid {border_color} !important; font-weight: 600 !important; max-width: 100% !important;
     }}
     [data-baseweb="input"] input {{
-        color: {input_text} !important;
-        -webkit-text-fill-color: {input_text} !important;
+        color: {input_text} !important; -webkit-text-fill-color: {input_text} !important;
     }}
 
     .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; }}
@@ -532,7 +482,6 @@ def load_app_state():
                 df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
                 df = df[["날짜"] + [c for c in df.columns if c != "날짜"]]
                 
-            # 필수 열 자동 정제 및 보완
             if "근무자1" not in df.columns: df["근무자1"] = "미지정"
             if "근무자2" not in df.columns: df["근무자2"] = "미지정"
             if "대직1" not in df.columns: df["대직1"] = None
@@ -739,7 +688,6 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
     
-    # 근무자 목록 수집
     all_workers = set()
     for col in ["근무자1", "근무자2", "대직1", "대직2"]:
         if col in st.session_state.df.columns:
@@ -759,7 +707,7 @@ def edit_worker_dialog(date_str, duty_info):
             return 0
         if val_str in worker_options:
             return worker_options.index(val_str)
-        return len(worker_options) - 1  # 목록에 없는 이름인 경우 '(직접 입력)' 선택
+        return len(worker_options) - 1
 
     curr_p1 = str(curr_row.get("근무자1", "")).strip() if pd.notnull(curr_row.get("근무자1")) else ""
     curr_p2 = str(curr_row.get("근무자2", "")).strip() if pd.notnull(curr_row.get("근무자2")) else ""
@@ -772,7 +720,6 @@ def edit_worker_dialog(date_str, duty_info):
             p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
             p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
 
-            # 대직자1 드롭다운 메뉴 적용
             sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"sub1_s_{date_str}")
             sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"sub1_c_{date_str}") if sub1_s == "(직접 입력)" else ""
 
@@ -780,7 +727,6 @@ def edit_worker_dialog(date_str, duty_info):
             p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"p2_s_{date_str}")
             p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"p2_c_{date_str}") if p2_s == "(직접 입력)" else ""
 
-            # 대직자2 드롭다운 메뉴 적용
             sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"sub2_s_{date_str}")
             sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"sub2_c_{date_str}") if sub2_s == "(직접 입력)" else ""
         
@@ -856,7 +802,6 @@ today = datetime.date.today()
 # ---------------------------------------------------------
 st.title("📋 광주교도소 의료과 숙직근무")
 
-# 메인 설정박스 (제목과 간격 유지)
 st.markdown('<div class="setting-box">', unsafe_allow_html=True)
 if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width=True, type="secondary"):
     st.session_state.show_settings_dialog = True
@@ -907,7 +852,6 @@ with tab1:
         num_days = calendar.monthrange(y, m)[1]
         m_df = df[df["년월"] == sel_month]
         
-        # 대직자 발생 시 (대) 표기를 달력 버튼 정보에 자동 포함하는 로직
         duty_map = {}
         for i, row in m_df.iterrows():
             p1_name = str(row.get("실제근무1", "미지정")).strip()
@@ -979,7 +923,6 @@ with tab2:
     sel_ed_m = st.selectbox("📅 월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
     target_df = df.copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m].copy()
 
-    # 데이터 에디터 변경 내역 수집
     edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
 
     if st.button("💾 변경사항 일괄 저장", use_container_width=True, type="primary"):
@@ -989,7 +932,6 @@ with tab2:
             m_df = st.session_state.df.copy()
             m_df.update(edited_df)
             
-        # 수정 데이터 바탕으로 실제 근무자 재계산 및 년월 갱신
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
             m_df["년월"] = m_df["날짜"].dt.strftime("%Y-%m")
@@ -1008,21 +950,47 @@ with tab2:
         st.rerun()
 
 with tab3:
-    st.subheader("📊 숙직근무자 월별 통계")
+    st.subheader("📊 숙직근무자 월별 통계 및 근무시간")
     stat_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
     sel_st_m = st.selectbox("📅 통계 월선택", stat_ms)
-    f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
+    f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m].copy()
     
-    comb = pd.concat([
-        f_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"}),
-        f_df[["실제근무2", "근무구분_원본"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})
-    ], ignore_index=True)
-    comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
+    if not f_df.empty and "날짜" in f_df.columns:
+        f_df["날짜"] = pd.to_datetime(f_df["날짜"])
+        # 요일 판단 (0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일)
+        # 조건: 평일(월~목)=7시간, 일요일(6)=7시간, 금요일(4)=15시간, 토요일(5)=15시간
+        f_df["근무시간"] = f_df["날짜"].dt.dayofweek.map(lambda dw: 15 if dw in [4, 5] else 7)
 
-    if not comb.empty:
-        stats = pd.crosstab(comb["근무자"], comb["구분"])
-        stats["총 근무 횟수"] = stats.sum(axis=1)
-        st.dataframe(stats.sort_values(by="총 근무 횟수", ascending=False), use_container_width=True)
+        # 근무자 1, 2 결합
+        c1_df = f_df[["실제근무1", "근무구분_원본", "근무시간"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"})
+        c2_df = f_df[["실제근무2", "근무구분_원본", "근무시간"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})
+        comb = pd.concat([c1_df, c2_df], ignore_index=True)
+        comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
+
+        if not comb.empty:
+            # 근무 횟수 집계
+            stats = pd.crosstab(comb["근무자"], comb["구분"])
+            stats["총 근무 횟수"] = stats.sum(axis=1)
+
+            # 근무 시간 집계 (근무자별 Sum)
+            time_stats = comb.groupby("근무자")["근무시간"].sum()
+            stats["총 근무시간 (시간)"] = time_stats
+
+            # 총 근무시간 기준으로 정렬
+            stats = stats.sort_values(by="총 근무시간 (시간)", ascending=False)
+
+            # 1. 시각화 그래프
+            st.markdown("##### 📈 근무자별 총 근무시간 그래프")
+            st.bar_chart(stats["총 근무시간 (시간)"], use_container_width=True)
+
+            st.divider()
+
+            # 2. 통계 표
+            st.markdown("##### 📋 근무자별 근무 횟수 및 계산 시간 상세")
+            st.caption("※ 근무시간 계산 기준: 평일/일요일 7시간, 금요일/토요일 15시간")
+            st.dataframe(stats, use_container_width=True)
+        else:
+            st.info("통계할 근무자 데이터가 없습니다.")
     else:
         st.info("통계 데이터가 없습니다.")
 

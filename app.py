@@ -6,6 +6,7 @@ import io
 import json
 import os
 import requests
+import altair as alt
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -979,9 +980,14 @@ with tab3:
             # 총 근무시간 기준으로 정렬
             stats = stats.sort_values(by="총 근무시간 (시간)", ascending=False)
 
-            # 1. 시각화 그래프
-            st.markdown("##### 📈 근무자별 총 근무시간 그래프")
-            st.bar_chart(stats["총 근무시간 (시간)"], use_container_width=True)
+            # 1. 시각화 그래프 (Y축 범위를 0~70으로 고정한 Altair 차트 적용)
+            st.markdown("##### 📈 근무자별 총 근무시간 그래프 (최대 70시간 한계 고정)")
+            chart_df = stats.reset_index()
+            chart = alt.Chart(chart_df).mark_bar().encode(
+                x=alt.X('근무자:N', title='근무자', sort='-y'),
+                y=alt.Y('총 근무시간 (시간):Q', title='총 근무시간 (시간)', scale=alt.Scale(domain=[0, 70]))
+            ).properties(height=300)
+            st.altair_chart(chart, use_container_width=True)
 
             st.divider()
 

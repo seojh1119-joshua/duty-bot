@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 세로 최적화 및 스와이프 대응)
+# 동적 CSS (버튼 충돌 방지, 화이트 테마 어두운 폰트, 요일/오늘카드 확대)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -111,7 +111,7 @@ sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
-input_text = "#F8FAFC" if is_dark else "#F8FAFC"
+input_text = "#F8FAFC" if is_dark else "#0F172A"
 
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
@@ -119,7 +119,7 @@ today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 사이드바 토글 버튼과 설정 버튼 영역 간섭/중복 클릭 방지 */
+    /* 사이드바 토글 및 상단 설정 버튼 영역 간섭/충돌 완전 방지 z-index 격리 */
     [data-testid="stSidebarNav"] {{ z-index: 100000 !important; }}
     [data-testid="collapsedControl"] {{ z-index: 99999 !important; top: 5px !important; }}
     
@@ -157,11 +157,19 @@ responsive_css = f"""
 
     h1 {{ font-size: clamp(16px, 4vw, 22px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; }}
     
+    /* ⚙️ 상단 설정 버튼 격리 (9월 5일 등 달력 날짜 버튼과 충돌하지 않도록 독립 영역 설정) */
+    div[data-testid="column"]:nth-child(2) {{
+        position: relative !important;
+        z-index: 9999 !important;
+    }}
     div[data-testid="column"]:nth-child(2) button {{
-        font-size: clamp(15px, 3.5vw, 20px) !important;
-        padding: 0px !important;
-        min-height: 34px !important;
+        font-size: clamp(16px, 4vw, 21px) !important;
+        padding: 4px !important;
+        min-height: 38px !important;
         margin-top: 2px !important;
+        background-color: { "rgba(255,255,255,0.08)" if is_dark else "rgba(0,0,0,0.04)" } !important;
+        border: 1px solid {border_color} !important;
+        border-radius: 6px !important;
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
@@ -173,11 +181,14 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: clamp(16px, 4vw, 21px) !important; font-weight: 900 !important; color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; }}
 
+    /* 오늘 근무자 카드 확대 및 가독성 향상 */
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"}; padding: 2px 4px; border-radius: 4px; border: 1px solid {border_color}; margin-bottom: 2px; width: 100%; box-sizing: border-box;
+        color: {"white" if is_dark else "#0F172A"}; padding: 6px 8px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 4px; width: 100%; box-sizing: border-box;
     }}
-    .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
+    .today-card .today-title {{ font-size: 12px !important; opacity: 0.95; font-weight: 700; }}
+    .today-card .today-content {{ font-size: 14px !important; font-weight: 800; }}
+    .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: 900; }}
 
     /* 일반 앱 버튼 컴팩트화 */
     .stButton > button {{
@@ -188,11 +199,12 @@ responsive_css = f"""
         touch-action: manipulation !important; cursor: pointer !important;
     }}
 
-    /* 달력 내부 셀 버튼만 세로 길이를 확장 (min-height 78px) */
+    /* 🚨 달력 내부 셀 버튼: 폰트를 조금 줄이고 간격 최적화 */
     div[data-testid="column"] .stButton > button {{
-        min-height: 78px !important;
-        padding: 3px 1px !important;
-        font-size: clamp(7px, 1.7vw, 10px) !important;
+        min-height: 76px !important;
+        padding: 2px 1px !important;
+        font-size: clamp(6.5px, 1.5vw, 9px) !important;
+        color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
     }}
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
@@ -202,7 +214,7 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 비율 최적화 */
+    /* 7개 컬럼 강제 가로 한 화면 일렬 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -259,7 +271,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 🚨 모바일 스와이프 감도 및 인식 최적화 JS
+# 모바일 스와이프 기능 및 버튼 간섭 방지 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -360,7 +372,7 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
@@ -1029,7 +1041,7 @@ with st.sidebar:
         st.rerun()
 
 # ---------------------------------------------------------
-# 🚨 단일 다이얼로그 호출 보장 (StreamlitInvalidLayoutContextError 방지)
+# 단일 다이얼로그 호출 보장 (StreamlitInvalidLayoutContextError 방지)
 # ---------------------------------------------------------
 if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
@@ -1077,10 +1089,10 @@ with tab1:
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:10px; opacity:0.9;">🚨 오늘 근무자 ({today_str})</div>
-            <div style="font-size:12px; font-weight:bold;">
+            <div class="today-title">🚨 오늘 근무자 ({today_str})</div>
+            <div class="today-content">
                 1: <span>{p1}</span> | 2: <span>{p2}</span>
-                <span style="font-size:10px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:11px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -1202,7 +1214,7 @@ with tab1:
                         st.session_state.editing_duty_info = duty_info
                         st.rerun()
         else:
-            # 🗓️ 가로형 Grid 달력: 요일 박스 세로 길이 확대 및 달력 폰트보다 크기 강조
+            # 🗓️ 가로형 Grid 달력: 요일 박스 세로 길이 2배 확대 및 폰트 대폭 확대
             cols_header = st.columns(7, wrap=False)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1215,7 +1227,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: 900; font-size: clamp(13px, 3vw, 17px); padding: 10px 0; background: { 'rgba(255,255,255,0.06)' if is_dark else 'rgba(0,0,0,0.04)' }; border-radius: 4px; border: 1px solid {border_color};'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: 900; font-size: clamp(14px, 3.5vw, 19px); padding: 14px 0; background: { 'rgba(255,255,255,0.06)' if is_dark else 'rgba(0,0,0,0.04)' }; border-radius: 6px; border: 1px solid {border_color};'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

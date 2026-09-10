@@ -1,833 +1,575 @@
-import calendar
-import datetime
-import io
-import json
-import os
-import holidays
-import openpyxl
-import pandas as pd
-import streamlit as st
-
+ 캘린더 가져오기
+ 날짜 및 시간을 가져옵니다 .
+ 글로브 가져오기
+ io를 가져옵니다
+ JSON 가져오기
+ os를 가져옵니다
+가져오기  요청
+ pandas를  pd 로  가져옵니다 .
+ Streamlit을  st 로  가져옵니다.
+ streamlit.components.v1 을 components 로 가져  옵니다 .​ 
+# 대한민국 공휴일 이벤트 처리
+노력하다 :
+    수입  휴일
+    kr_holidays  =  holidays.KR ( )​
+ ImportError 제외 :
+    kr_holidays  = {}
+# DATA 및 데이터 기본 폴더를 생성했습니다.
+os.makedirs ( " DATA " , exist_ok = True )
+os.makedirs ( " data " , exist_ok = True )
+PERSISTENCE_STATE_PATH  =  os.path.join ( " DATA " , " edited_duty_schedule.json " )
+CONFIG_PATH  =  os.path.join ( " DATA " , " local_config.json " )
 # ---------------------------------------------------------
-# 1. 페이지 설정 및 기본 구성
+# 페이지 기본 설정
 # ---------------------------------------------------------
-st.set_page_config(
-    page_title="숙직 근무표 관리 시스템",
-    page_icon="📅",
-    layout="wide",
-    initial_sidebar_state="expanded",
+st.set_page_config (​​
+    page_title = "숙직 근무테이블 대시보드" ,
+    페이지 아이콘 = "📋" ,
+    레이아웃 = "넓음" ,
+    initial_sidebar_state = "확장됨" ,
 )
-
-# 커스텀 CSS (모바일 레이아웃 및 카드 스타일 조정)
-st.markdown(
-    """
-    <style>
-    .month-header-card {
-        text-align: center;
-        background-color: #f0f2f6;
-        padding: 8px;
-        border-radius: 10px;
-        margin-bottom: 10px;
+# ---------------------------------------------------------
+# 1. 하드웨어/기기 개별 설정 저장 및 로드 웹 방지(공유 웹 방지)
+# ---------------------------------------------------------
+def  load_local_config ():
+    default_config  = {
+        "auto_view_type" : " 📄 세로형리스트 " ,
+        "auto_view_type" : " 🗓️ 가로형 Grid " ,
+        "app_theme" : "☀️ 화이트 테마" ,
+        "kakao_api_key" : "" ,
     }
-    .today-card {
-        background-color: #e8f4f8;
-        border-left: 5px solid #1E88E5;
-        padding: 10px 15px;
-        border-radius: 5px;
-        margin-bottom: 15px;
-        font-size: 0.95rem;
+@@ -89,7 +89,7 @@ def save_local_config(key, value):
+    st . 정지 ()
+
+# ---------------------------------------------------------
+# 뒤섞인 CSS ( 테마별 스타일 & 모바일 7열 자동 화면 맞춤 및 줄바꿈 )
+# 움직이고 있는 CSS (모바일 7열에 독점적으로 자리잡고 )
+# ---------------------------------------------------------
+is_dark  =  st . 세션_상태 . app_theme  ==  "🌙 블랙 테마"
+
+@@ -109,6 +109,7 @@ def save_local_config(key, value):
+
+responsive_css  =  f"""
+<스타일>
+    /* 기본적으로 본체 및 건설 최적화 */
+    html, 본문, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+        background-color: { theme_bg } !important;
+        색상: { main_text_color } !중요;
+@@ -117,11 +118,15 @@ def save_local_config(key, value):
+        overflow-x: 숨김 !중요;
+    }}
+    /* 메인 여백 극소화(모바일 화면 전체 활용) */
+    .main .block-container {{
+        background-color: { theme_bg } !important;
+        색상: { main_text_color } !중요;
+        패딩: 0.5rem 0.2rem !중요;
+        최대 너비: 100% !중요;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        padding-top: 0.5rem !중요;
+        padding-bottom: 1rem !important;
+        최대 너비: 100vw !중요;
+        너비: 100% !중요;
+        박스 크기 조정: border-box !important;
+    }}
+@@ -130,7 +135,7 @@ def save_local_config(key, value):
+        background-color: { sidebar_bg } !important;
+        색상: { main_text_color } !중요;
+    }}
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] 범위, [data-testid="stSidebar"] 라벨 , [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {{
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] 범위, [data-testid="stSidebar"] 라벨 {{
+        색상: { main_text_color } !중요;
+    }}
+@@ -140,28 +145,27 @@ def save_local_config(key, value):
+    .월 헤더 카드 {{
+        background: {  "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)"  if  is_dark  else  "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)"  } ;
+        border: 2px solid { border_color } ;
+        테두리 반경: 12px ;
+        패딩: 10px 15px ;
+        상단 여백: 5px ;
+        하단 여백: 10px ;
+        테두리: 1px 솔리드 { 테두리 색상 } ;
+        테두리 반경: 8px ;
+        패딩: 6px 10px ;
+        상단 여백: 2px ;
+        margin-bottom: 6px ;
+        텍스트 정렬: 가운데 정렬;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }}
+    .month-header-card h2 {{
+        여백: 0 !중요;
+        글꼴 크기: clamp( 18px, 4vw, 26px ) !important;
+        글꼴 크기: clamp( 16px, 3.8vw, 22px ) !important;
+        글꼴 두께: 800 !중요;
+        색상: { "#60A5FA"  (어두우 면  ) 그렇지 않으면 "#2563EB" }   !중요;
+    }}
+    .오늘의카드 {{
+        background: {  "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)"  if  is_dark  else  "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)"  } ;
+        색상: { is_dark 이면 "white" ,  그렇지 않으면 "#0F172A" }    ;
+        패딩: 10px 14px ;
+        테두리 반경: 10px ;
+        패딩: 8px 10px ;
+        테두리 반경: 8px ;
+        테두리: 1px 솔리드 { 테두리 색상 } ;
+        하단 여백: 10px ;
+        하단 여백: 8px ;
+        너비: 100%;
+        박스 크기 조정: 테두리 박스;
+    }}
+@@ -171,42 +175,70 @@ def save_local_config(key, value):
+        글꼴 두께: 굵게;
+    }}
+    /* 버튼 스타일 및 줄바꿈 처리 */
+    /* 🚨 모바일 세로 7열 전체에 완벽한 차는 셀 버튼 스타일 */
+    .stButton > 버튼 {{
+        너비: 100% !중요;
+        최소 너비: 0 !중요;
+        높이: 자동 !중요;
+        최소 높이: 42px !중요;
+        패딩: 4px 1px !중요;
+        최소 높이: 52px !중요;
+        패딩: 3px 1px !중요;
+        border: 1px solid { border_color } !important;
+        테두리 반경: 6px !중요;
+        테두리 반경: 4px !중요;
+        배경색: { btn_bg } !중요;
+        색상: { btn_text } !중요;
+        박스 크기 조정: border-box !important;
+        텍스트 정렬: 가운데 정렬 !중요;
+        글꼴 크기: clamp( 8px , 2.2vw, 12px ) !important;
+        글꼴 크기: clamp( 7px , 2.0vw, 11px ) !important;
+        글꼴 두께: 500 !중요;
+        margin -bottom: 2px !important;
+        여백 : 0 !중요;
+        공백: 미리 줄 바꿈 !중요;
+        단어 구분: 모두 끊기 !중요;
+        overflow-wrap: 어디에서든 !important;
+        줄 높이: 1.2 !중요;
+        전환: 모든 0.2초 완화 !중요;
+        줄 높이: 1.15 !중요;
+    }}
+    .stButton > 버튼:호버 {{
+        border-color: { btn_hover_border } !important;
+        background-color: { btn_hover_bg } !important;
+        색상: { btn_text } !중요;
+    }}
+    /* 🚨 7개 방향을 전환하는 방향으로 반대(스크롤 대응 금지) */
+    [data-testid="stHorizontalBlock"] {{
+        표시: flex !important;
+        flex-direction: 행 !important;
+        flex-wrap: nowrap !important;
+        너비: 100% !중요;
+        최대 너비: 100% !중요;
+        최소 너비: 0 !중요;
+        간격: 1px !중요;
+        여백: 0 !중요;
+    }}
+    [data-testid="column"] {{
+        너비: 14.285% !중요;
+        최대 너비: 14.285% !중요;
+        최소 너비: 0 !중요;
+        플렉스: 1 1 14.285% !중요;
+        패딩: 0px 0px !중요;
+        여백: 0 !중요;
+        박스 크기 조정: border-box !important;
+    }}
+    [data-testid="stElementContainer"] {{
+        너비: 100% !중요;
+        여백: 0 !중요;
+        패딩: 0 !중요;
+    }}
+    /* 팝업 스타일 */
+    [data-testid="stDialog"] > div:first-child {{
+        배경색: { dialog_bg } !important;
+        색상: { main_text_color } !중요;
+        너비: clamp( 300px , 92vw, 680px ) !important;
+        너비: clamp( 290px , 92vw, 600px ) !important;
+        최대 너비: 95vw !중요;
+        최대 높이: 88vh !중요;
+        테두리 반경: 12px !important;
+        패딩: 1.2rem !중요;
+        패딩: 1rem !중요;
+        overflow-y: 자동 !중요;
+        border: 1px solid { border_color } !important;
+    }}
+@@ -217,24 +249,7 @@ def save_local_config(key, value):
+        테두리 색상: { border_color } !중요;
+    }}
+    /* 🚨 세로 화면 크기 축소 및 7열 가로 매트릭스 고정(스크롤 없이 화면 내부 표출) */
+    [data-testid="stHorizontalBlock"] {{
+        표시: flex !important;
+        flex-direction: 행 !important;
+        flex-wrap: nowrap !important;
+        너비: 100% !중요;
+        최소 너비: 0 !중요;
+        간격: 2px !중요;
+    }}
+    [data-testid="column"] {{
+        너비: 14.28% !중요;
+        최소 너비: 0 !중요;
+        플렉스: 1 1 0% !중요;
+        패딩: 0 !중요;
+    }}
+    /* JS용 버튼 완전 컴팩트 */
+    /* JS 히든스 버튼 은닉 */
+    .swipe-hidden-container {{
+        표시: 없음 !중요;
+        높이: 0px !중요;
+@@ -243,7 +258,6 @@ def save_local_config(key, value):
+        패딩: 0px !중요;
+        위치: 절대적 !중요;
+        왼쪽: -9999px !중요;
+        오버플로: 숨김 !중요;
+    }}
+</style>
+"""
+@@ -259,7 +273,7 @@ def save_local_config(key, value):
+        const doc = window.parent.document;
+        (!doc)이면 반환;
+        // 1. 완전 숨김 버튼 처리
+        // 1. 숨은 버튼 숨김
+        const buttons = Array.from(doc.querySelectorAll('button'));
+        buttons.forEach(btn => {
+            const txt = btn.innerText || '';
+@@ -268,14 +282,10 @@ def save_local_config(key, value):
+                컨테이너인 경우 {
+                    컨테이너.스타일.setProperty('display', 'none', 'important');
+                    컨테이너.스타일.setProperty('높이', '0px', '중요');
+                    컨테이너.스타일.setProperty('여백', '0px', '중요');
+                    컨테이너.스타일.setProperty('padding', '0px', 'important');
+                } 또 다른 {
+                    btn.style.setProperty('display', 'none', 'important');
+                }
+            }
+            // 2. 오늘 날짜를 알리고 스타일을 적용합니다.
+            // 2. 오늘 날짜에 대한 강조 스타일
+            만약 txt 파일에 '🌟'이 포함되어 있거나 '[오늘]'이 포함되어 있다면 {
+                btn.style.setProperty('background', 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 'important');
+                btn.style.setProperty('color', '#FFFFFF', 'important');
+@@ -284,20 +294,29 @@ def save_local_config(key, value):
+            }
+        });
+        // 3. 7열의 위치(stHorizontalBlock)에 100% 위임 (화면 맞춤 )
+        // 3. 7개의 방향 100% 거대 반란군 (모바일 스크롤 반대 )
+        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
+        horizBlocks.forEach(block => {
+            블록의 자식 블록 길이가 7개이면
+                block.style.setProperty('display', 'flex', 'important');
+                block.style.setProperty('flex-direction', 'row', 'important');
+                block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                block.style.setProperty('width', '100%', 'important');
+                block.style.setProperty('min-width', '0px', 'important');
+                block.style.setProperty('max-width', '100%', 'important');
+                block.style.setProperty('gap', '1px', 'important');
+                Array.from(block.children).forEach(child => {
+                    child.style.setProperty('width', '14.285%', 'important');
+                    child.style.setProperty('max-width', '14.285%', 'important');
+                    child.style.setProperty('min-width', '0px', 'important');
+                    child.style.setProperty('flex', '1 1 14.285%', 'important');
+                    child.style.setProperty('padding', '0px', 'important');
+                });
+            }
+        });
     }
-    .swipe-hidden-container {
-        display: none;
-    }
-    div[data-testid="stForm"] {
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 15px;
-    }
-    .stButton>button {
-        width: 100%;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# 파일 경로 정의
-DATA_DIR = "DATA"
-JSON_FILE = os.path.join(DATA_DIR, "edited_duty_schedule.json")
-EXCEL_FILE = os.path.join(DATA_DIR, "숙직근무표.xlsx")
-
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
-# 한국 공휴일 정보
-kr_holidays = holidays.KR()
+    // 터치스 이벤트
+    // 터치 하세요
+    touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0으로 설정합니다.
+    함수 triggerMonthChange(dir) {
+        const doc = window.parent.document;
+@@ -681,13 +700,11 @@ def get_all_workers_list(df):
 
 
 # ---------------------------------------------------------
-# 2. 데이터 유틸리티 함수
+# 시계 기록 정의 (팝업 유지 세션 관리)
+#시계로그 정의
 # ---------------------------------------------------------
-def generate_dummy_data():
-    """기본 데이터 생성 (데이터가 없을 때 사용)"""
-    today = datetime.date.today()
-    start_date = datetime.date(today.year, 1, 1)
-    end_date = datetime.date(today.year, 12, 31)
+@ 성 . 대화상자 ( "⚠️ 프로그램 종료 확인" )
+def  confirm_exit_dialog ():
+    성 . 쓰기 ( "정말로 숙직 근무 시스템을 종료하는 사용자?" )
+    성 . write ( "종료 시실행 세션이 정지됩니다." )
 
-    date_range = pd.date_range(start_date, end_date)
-    df = pd.DataFrame(
-        {
-            "날짜": date_range,
-            "근무자1": ["홍길동"] * len(date_range),
-            "대직1": [None] * len(date_range),
-            "실제근무1": ["홍길동"] * len(date_range),
-            "근무자2": ["김철수"] * len(date_range),
-            "대직2": [None] * len(date_range),
-            "실제근무2": ["김철수"] * len(date_range),
-        }
-    )
-    return df
-
-
-def save_app_state(df, selected_sheet, memos, batch_patterns):
-    """현재 앱 상태를 JSON 및 Excel로 저장"""
-    try:
-        # JSON 저장
-        export_df = df.copy()
-        if "날짜" in export_df.columns:
-            export_df["날짜"] = export_df["날짜"].dt.strftime("%Y-%m-%d")
-
-        state_data = {
-            "selected_sheet": selected_sheet,
-            "memos": memos,
-            "batch_patterns": batch_patterns,
-            "df_data": export_df.to_dict(orient="records"),
-        }
-        with open(JSON_FILE, "w", encoding="utf-8") as f:
-            json.dump(state_data, f, ensure_ascii=False, indent=2)
-
-        # 엑셀 저장
-        with pd.ExcelWriter(EXCEL_FILE, engine="openpyxl") as writer:
-            export_df["메모"] = export_df["날짜"].map(
-                lambda d: memos.get(str(d), "")
-            )
-            export_df.to_excel(writer, index=False, sheet_name="근무표")
-    except Exception as e:
-        st.error(f"저장 중 오류 발생: {e}")
-
-
-def load_app_state():
-    """저장된 상태 읽기"""
-    if os.path.exists(JSON_FILE):
-        try:
-            with open(JSON_FILE, "r", encoding="utf-8") as f:
-                state_data = json.load(f)
-
-            df = pd.DataFrame(state_data.get("df_data", []))
-            if not df.empty and "날짜" in df.columns:
-                df["날짜"] = pd.to_datetime(df["날짜"])
-
-            return (
-                df,
-                state_data.get("selected_sheet", "근무표"),
-                state_data.get("memos", {}),
-                state_data.get("batch_patterns", {}),
-            )
-        except Exception:
-            pass
-    return generate_dummy_data(), "근무표", {}, {}
-
-
-def load_excel_smart(file_source, sheet_name=None):
-    """엑셀 파일 스마트 로딩"""
-    try:
-        excel_file = pd.ExcelFile(file_source)
-        sheet_names = excel_file.sheet_names
-        target_sheet = (
-            sheet_name if sheet_name in sheet_names else sheet_names[0]
+    col_e1 , col_e2  =  st.columns ( 2 )​​
+     col_e1 과 함께 :
+         st.button ( "❌ 취소" , use_container_width = True ) 인 경우 :
+@@ -712,8 +729,8 @@ def settings_dialog():
+        성 . markdown ( "**:blue[1. 현재 표시 방식 선택]**" )
+        new_view_type  =  st.radio (​​
+            "달력 표출 형식" ,
+            options = [ " 📄 세로형리스트 " , " 🗓️ 가로형 그리드 " ],
+            st 인 경우 인덱스 = 0  입니다 . 세션_상태 . auto_view_type == " 📄 세로형리스트 " else 1 ,     
+            options = [ " 🗓️ 가로형 그리드 " , " 📄 세로형리스트 " ],
+            st.session_state.auto_view_type 이 " 🗓️ 가로형 Grid " 인 경우 index = 0  , 그렇지 않으면 1 ,     
+            키 = "cfg_view_type_radio" ,
         )
 
-        raw_df = pd.read_excel(excel_file, sheet_name=target_sheet)
-
-        # 열 이름 정규화
-        df = raw_df.copy()
-        if "날짜" in df.columns:
-            df["날짜"] = pd.to_datetime(df["날짜"])
-        else:
-            df["날짜"] = pd.date_range(
-                start=f"{datetime.date.today().year}-01-01", periods=len(df)
-            )
-
-        for col in [
-            "근무자1",
-            "대직1",
-            "실제근무1",
-            "근무자2",
-            "대직2",
-            "실제근무2",
-        ]:
-            if col not in df.columns:
-                df[col] = None
-
-        # 실제근무 계산
-        df["실제근무1"] = df.apply(
-            lambda r: (
-                r["대직1"]
-                if pd.notnull(r["대직1"]) and str(r["대직1"]).strip() != ""
-                else r["근무자1"]
-            ),
-            axis=1,
-        )
-        df["실제근무2"] = df.apply(
-            lambda r: (
-                r["대직2"]
-                if pd.notnull(r["대직2"]) and str(r["대직2"]).strip() != ""
-                else r["근무자2"]
-            ),
-            axis=1,
+@@ -726,32 +743,25 @@ def settings_dialog():
+            키 = "cfg_theme_radio" ,
         )
 
-        f_bytes = (
-            file_source.getvalue()
-            if hasattr(file_source, "getvalue")
-            else None
+        성 . caption ( "💡 예외 화면 방식 시스템은 하드웨어(사용자 기기)에 저장되어 이후 인터페이스 시에도 유지됩니다." )
+
+        만약  st . 버튼 ( "💾 설정 설정 적용하기" , use_container_width = True , type = "primary" ):
+            st.session_state.auto_view_type = new_view_type​​​​  
+            st.session_state.app_theme = new_theme​​​​  
+            save_local_config ( "auto_view_type" , new_view_type )
+            save_local_config ( "앱 테마" , 새 테마 )
+            st.session_state.show_settings_dialog = False​​​​  
+            성 . 성공 ( "✅ 화면 설정이 이 기기에 저장되었습니다." )
+            성 . 성공 ( "✅ 화면 설정이 저장되었습니다." )
+            st.rerun ( )​
+
+     tab_s2 와 함께 :
+        성 . markdown ( "📅 **입력되는 작업자만 규칙적으로 협의할 수 있으며, 비워둔 터널은 원시 데이터를 유지합니다.**" )
+
+        성 . markdown ( "📅 **입력된 작업자만 규칙적으로 협력 등록됩니다.**" )
+        today_default  =  datetime.date.today ( )​​​
+        saved_pat  =  st.session_state.get ( " batch_patterns " , { } )
+
+        col_b1 , col_b2  =  st.columns ( 2 )​​
+         col_b1 과 함께 :
+            start_date_input  =  st.date_input (​​
+                "시작 날짜" , 값 = today_default , 키 = "dlg_batch_start"
+            )
+            start_date_input  =  st.date_input ( "시작 날짜" , value = today_default , key = " dlg_batch_start " )
+         col_b2 와 함께 :
+            total_days_count  =  st.number_input (​​
+                "적용 총 일수" , min_value = 1 , max_value = 180 , value = 30 , step = 1 , key = "dlg_batch_days"
+            )
+            total_days_count  =  일 . number_input ( "적용 총 일수" , min_value = 1 , max_value = 180 , value = 30 , step = 1 , key = "dlg_batch_days" )
+
+        col_p1 , col_p2  =  st.columns ( 2 )​​
+         col_p1 과 함께 :
+@@ -800,18 +810,12 @@ def settings_dialog():
+            st.session_state.df = df​​​​  
+            save_app_state ( df , st.session_state.selected_sheet , st.session_state.memos , st.session_state.batch_patterns )​​​​​​​​​​​​
+            st.session_state.show_settings_dialog = False​​​​  
+            성 . 성공 ( "✅ 협력 반복 패턴이 저장되고 적용되었습니다 ." )
+            성 . 성공 ( "✅ 협력 반복 패턴이 있었습니다 ." )
+            st.rerun ( )​
+
+     tab_s3 포함 :
+        성 . markdown ( "📱 **오늘 또는 휴가 배우자의 숙직에 인사합니다.**" )
+
+        kakao_key  =  st.text_input (​​
+            "카카오 REST API 키(또는 Access Token)" ,
+            값 = st.session_state.kakao_api_key ,​​​​
+            type = "비밀번호" ,
+            키 = "카카오 키 입력" ,
         )
-        return df, target_sheet, sheet_names, raw_df, f_bytes
-    except Exception as e:
-        st.error(f"엑셀을 불러오는 중 오류가 발생했습니다: {e}")
-        df = generate_dummy_data()
-        return df, "기본", ["기본"], df, None
+        성 . markdown ( "📱 **카카오톡현재 페이지 설정**" )
+        kakao_key  =  st.text_input ( " 카카오 REST API 키 " , value = st.session_state.kakao_api_key , type = " password " , key = " kakao_key_input " )
+         kakao_key  가  st.session_state.kakao_api_key 와 같지 않으면​​​
+            st.session_state.kakao_api_key = kakao_key​​​​  
+            save_local_config ( "kakao_api_key" , kakao_key )
+@@ -827,42 +831,27 @@ def settings_dialog():
+            memo  =  st.session_state.memos.get ( send_date.strftime ( " % Y- % m- %d " ) , " 없음 " )
+            msg_content  =  f"📢 [ { send_date . strftime ( '%Y-%m-%d' ) } 숙직근무 안내] \n - 일하는자 1: { p1 } \n - 일하는자 2: { p2 } \n - 메모: { memo } "
+        또 다른 :
+            msg_content  =  f"📢 [ { send_date . strftime ( '%Y-%m-%d' ) } 숙직근무 안내] \n 해당 날짜의 저 정보가 등록되어 있었습니다."
+
+        성 . text_area ( "전송예정일 미리보기" , 값 = msg_content , 높이 = 110 )
+
+        col_k1 , col_k2  =  st.columns ( 2 )​​
+         col_k1 과 함께 :
+            만약  st . 버튼 ( "💬 나에게 카카오톡 전송" , use_container_width = True , 유형 = "기본" ):
+                 카카오키 가  아니면 :
+                    성 . warning ( "⚠️ 카카오 API 키 또는 Access Token을 입력해주세요." )
+                또 다른 :
+                    노력하다 :
+                        헤더  = { "인증" : f"베어러 { 카카오키 } " }
+                        페이로드  = {
+                            "template_object" : json . dumps ({
+                                "object_type" : "text" ,
+                                "텍스트" : msg_content ,
+                                "link" : { "web_url" : "https://streamlit.io" , "mobile_web_url" : "https://streamlit.io" },
+                            })
+                        }
+                        res  =  requests.post ( " https://kapi.kakao.com/v2/api/talk/memo/default/send " , headers = headers , data = payload )
+                         res.status_code 가 200 이면 :​​  
+                            성 . 성공 ( "✅ 카카오톡 메시지 전송 성공!" )
+                        또 다른 :
+                            성 . error ( f"❌ 전송 실패 (코드: { res . status_code } ): { res . text } " )
+                     예외  를  제외 합니다 .
+                        성 . 오류 ( f"전송 오류 오류: { ex } " )
+         col_k2 와 함께 :
+            encoded_msg  =  requests.utils.quote ( msg_content )​​​​
+            st . 마크다운 (
+                f' <a href="https://sharer.kakao.com/talk/friends/picker/easylink?app_key=sample&message= { encoded_msg } " target="_blank"> <button style="width:100%; min-height:48px; border-radius:8px; background-color:#FEE500; color:#000; font-weight:bold; border:none; cursor:pointer;">💛 카카오톡 외부 공유창 열기</button></a>' ,
+                unsafe_allow_html = True ,
+            )
+            msg_content  =  f"📢 [ { send_date . strftime ( '%Y-%m-%d' ) } 숙직근무 안내] \n 해당 날짜의 근무 정보가 없습니다."
+
+        성 . text_area ( "미리보기" , 값 = msg_content , 높이 = 100 )
+        만약  st . 버튼 ( "💬 나에게 카카오톡 전송" , use_container_width = True , 유형 = "기본" ):
+             카카오키 가  아니면 :
+                성 . 경고 ( "⚠️ API 키를 입력해주세요." )
+            또 다른 :
+                노력하다 :
+                    헤더  = { "인증" : f"베어러 { 카카오키 } " }
+                    payload  = { "template_object" : json . dumps ({ "object_type" : "text" , "text" : msg_content , "link" : { "web_url" : "https://streamlit.io" }})}
+                    res  =  requests.post ( " https://kapi.kakao.com/v2/api/talk/memo/default/send " , headers = headers , data = payload )
+                     res.status_code 가 200 이면 :​​  
+                        성 . 성공 ( "✅ 전송 성공!" )
+                    또 다른 :
+                        성 . error ( f"❌ 전송 실패 ( { res . status_code } ): { res . text } " )
+                 예외  를  제외 합니다 .
+                    성 . error ( f"오류발생: { ex } " )
 
 
 # ---------------------------------------------------------
-# 3. 세션 상태 초기화
+# 날짜별 시계 기록 (날짜별 동적 키 날짜)
+# 작동자 시간 기록
 # ---------------------------------------------------------
-if "df" not in st.session_state:
-    init_df, init_sheet, init_memos, init_patterns = load_app_state()
-    st.session_state.df = init_df
-    st.session_state.selected_sheet = init_sheet
-    st.session_state.sheet_names = [init_sheet]
-    st.session_state.memos = init_memos
-    st.session_state.batch_patterns = init_patterns
+@ 성 . 대화 상자 ( "✏️ 근무자 수정 및 메모 작성" )
+def  edit_worker_dialog ( date_str , duty_info ):
+@@ -911,13 +900,13 @@ def get_opt_idx(val):
+            sub2_custom  =  st . text_input ( "대직자2 직접입력" , value = val_sub2  if  sub2_sel  ==  "(직접입력)"  else  "" , key = f"sub2_custom_ { date_str } " ) if  sub2_sel  ==  "(직접입력)"  else  ""
 
-if "show_settings_dialog" not in st.session_state:
-    st.session_state.show_settings_dialog = False
+        st . 구분자 ()
+        edit_memo  =  st . text_area ( "your 데이트별 메모 (달력 표출)" , value = current_memo , height = 80 , key = f"edit_memo_ { date_str } " )
+        edit_memo  =  st . text_area ( "date별 메모 (달력 표출)" , value = current_memo , height = 70 , key = f"edit_memo_ { date_str } " )
 
-if "show_exit_dialog" not in st.session_state:
-    st.session_state.show_exit_dialog = False
+        c_sub1 , c_sub2  =  st.columns ( [ 2 , 1 ] )
+         c_sub1 과 함께 :
+            제출됨  =  st . form_submit_button ( "💾 공격 저장 및 공격" , use_container_width = True )
+            제출됨  =  st . form_submit_button ( "💾 저장 및 복원" , use_container_width = True )
+         c_sub2 와 함께 :
+            close_dialog  =  st.form_submit_button ( " 🚪 창 닫기 " , use_container_width = True )
+            close_dialog  =  st.form_submit_button ( " 🚪 닫기" , use_container_width = True )
 
-if "auto_view_type" not in st.session_state:
-    st.session_state.auto_view_type = "🗓️ 가로형 Grid"
+         제출된 경우 :
+            final_p1  =  p1_custom . Strip () if  p1_sel  ==  "(직접 입력)"  else ( ""  if  p1_sel  ==  "(선택 안함)"  else  p1_sel )
+@@ -939,7 +928,7 @@ def get_opt_idx(val):
+            st.session_state.df = st.session_state.df.sort_values ( by = " 날짜 " ) .reset_index ( drop = True )​​​​​​​​  
 
+            save_app_state ( st.session_state.df , st.session_state.selected_sheet , st.session_state.memos , st.session_state.batch_patterns )​​​​​​​​​​​​​​​​
+            성 . 성공 ( "✅ 변경사항이 저장되었습니다." )
+            성 . 성공 ( "✅저장했습니다." )
+            st.rerun ( )​
 
+         close_dialog 인 경우 :
+@@ -951,12 +940,10 @@ def get_opt_idx(val):
 # ---------------------------------------------------------
-# 4. 다이얼로그 정의 (Pop-up Window)
-# ---------------------------------------------------------
-@st.dialog("⚙️ 대시보드 및 근무 관리 설정")
-def settings_dialog():
-    st.subheader("🛠️ 시스템 설정")
+ st . 사이드바 포함 :
+    성 . 헤더 ( "📂 작업표 파일 관리" )
 
-    # 뷰 방식 선택
-    view_type = st.radio(
-        "달력 표출 방식",
-        options=["🗓️ 가로형 Grid", "📄 세로형 리스트"],
-        index=0
-        if st.session_state.auto_view_type == "🗓️ 가로형 Grid"
-        else 1,
-    )
-    st.session_state.auto_view_type = view_type
+     st.session_state 에 "file_name"  이 있는 경우 : 
+        성 . info ( f"📄 현재 파일: ` { st . session_state . file_name } `" )
 
-    st.divider()
-    st.subheader("🔄 순환 근무 자동 배치")
-    st.caption("특정 기간 동안 근무자를 순환 패턴으로 자동 입력합니다.")
+    Upload_file  =  st . file_uploader ( "새 공격 파일 업로드" , type = [ "xlsx" ])
+        st.info ( f " 📄 파일 : ` { st.session_state.file_name } ` " )
 
-    p_workers = st.text_input(
-        "근무자 목록 (쉼표로 구분)", value="홍길동, 김철수, 이영희, 박민수"
-    )
-    start_d = st.date_input("시작일", value=datetime.date.today())
-    days_cnt = st.number_input("배치 일수", min_value=1, max_value=365, value=30)
-    target_slot = st.selectbox(
-        "배치할 슬롯", options=["근무자 1", "근무자 2", "전체"]
-    )
+    Upload_file  =  st . file_uploader ( "새로 몰려오는 공격" , type = [ "xlsx" ])
+     uploaded_file  이 None 이   아니면 :
+        file_bytes  =  uploaded_file.getvalue ( )​
+        save_path  =  os.path.join ( " DATA " , uploaded_file.name )​​​​
+@@ -974,13 +961,12 @@ def get_opt_idx(val):
+        st.session_state.raw_df = raw_df​​​​  
 
-    if st.button("🚀 자동 배치 실행", use_container_width=True, type="primary"):
-        worker_list = [
-            w.strip() for w in p_workers.split(",") if w.strip() != ""
-        ]
-        if worker_list:
-            df = st.session_state.df
-            w_idx = 0
-            for i in range(days_cnt):
-                curr_date = pd.Timestamp(start_d + datetime.timedelta(days=i))
-                matches = df[df["날짜"] == curr_date]
-                if not matches.empty:
-                    r_idx = matches.index[0]
-                    assigned_worker = worker_list[w_idx % len(worker_list)]
+        save_app_state ( parsed_df , used_sheet , st.session_state.get ( " memos" , {}) , st.session_state.get ( " batch_patterns " , { } ) )
 
-                    if target_slot in ["근무자 1", "전체"]:
-                        df.at[r_idx, "근무자1"] = assigned_worker
-                        if pd.isna(df.at[r_idx, "대직1"]):
-                            df.at[r_idx, "실제근무1"] = assigned_worker
+        성 . 성공 ( f"✅ ' { Used_sheet } ' 데이터 로드 ●" )
+        성 . 성공 ( "✅ 파일 로드하기" )
+        st.rerun ( )​
 
-                    if target_slot in ["근무자 2", "전체"]:
-                        df.at[r_idx, "근무자2"] = assigned_worker
-                        if pd.isna(df.at[r_idx, "대직2"]):
-                            df.at[r_idx, "실제근무2"] = assigned_worker
-
-                    w_idx += 1
-
-            st.session_state.df = df
-            save_app_state(
-                df,
-                st.session_state.selected_sheet,
-                st.session_state.memos,
-                st.session_state.batch_patterns,
-            )
-            st.success("✅ 자동 배치가 완료되었습니다.")
-            st.rerun()
-
-    if st.button("닫기", use_container_width=True):
-        st.session_state.show_settings_dialog = False
-        st.rerun()
-
-
-@st.dialog("🔴 시스템 종료")
-def confirm_exit_dialog():
-    st.write("시스템을 종료하시겠습니까? 현재까지의 변경사항은 모두 저장되었습니다.")
-    col_e1, col_e2 = st.columns(2)
-    with col_e1:
-        if st.button("확인 (종료)", type="primary", use_container_width=True):
-            st.session_state.show_exit_dialog = False
-            st.success("시스템이 종료되었습니다. 브라우저 탭을 닫아주세요.")
-            st.stop()
-    with col_e2:
-        if st.button("취소", use_container_width=True):
-            st.session_state.show_exit_dialog = False
-            st.rerun()
-
-
-@st.dialog("✏️ 근무자/대직자 변경 및 메모")
-def edit_worker_dialog(date_str, duty_info):
-    st.markdown(f"### 📅 **{date_str}** 근무 변경")
-
-    row_idx = duty_info["idx"]
-    df = st.session_state.df
-    row = df.loc[row_idx]
-
-    # 기존 등록된 근무자 목록 추출
-    existing_workers = set()
-    for col in ["근무자1", "실제근무1", "근무자2", "실제근무2"]:
-        existing_workers.update(
-            df[col].dropna().astype(str).str.strip().tolist()
-        )
-
-    worker_options = ["(선택 안함)", "(직접 입력)"] + sorted(
-        list(existing_workers)
-    )
-
-    val_p1 = (
-        str(row["근무자1"])
-        if pd.notnull(row["근무자1"])
-        else "(선택 안함)"
-    )
-    val_sub1 = (
-        str(row["대직1"])
-        if pd.notnull(row["대직1"]) and str(row["대직1"]).strip() != ""
-        else "(선택 안함)"
-    )
-
-    val_p2 = (
-        str(row["근무자2"])
-        if pd.notnull(row["근무자2"])
-        else "(선택 안함)"
-    )
-    val_sub2 = (
-        str(row["대직2"])
-        if pd.notnull(row["대직2"]) and str(row["대직2"]).strip() != ""
-        else "(선택 안함)"
-    )
-
-    current_memo = st.session_state.memos.get(date_str, "")
-
-    def get_opt_idx(val):
-        return worker_options.index(val) if val in worker_options else 1
-
-    with st.form(key=f"edit_form_{date_str}"):
-        col_f1, col_f2 = st.columns(2)
-
-        with col_f1:
-            st.markdown("**:blue[근무자 1 / 대직자 1]**")
-            p1_sel = st.selectbox(
-                "근무자 1",
-                options=worker_options,
-                index=get_opt_idx(val_p1),
-                key=f"sel_p1_{date_str}",
-            )
-            p1_custom = (
-                st.text_input(
-                    "근무자 1 (직접 입력)",
-                    value=val_p1 if val_p1 not in worker_options else "",
-                    key=f"custom_p1_{date_str}",
-                )
-                if p1_sel == "(직접 입력)"
-                else ""
-            )
-
-            sub1_sel = st.selectbox(
-                "대직자 1 (없으면 선택 안함)",
-                options=worker_options,
-                index=get_opt_idx(val_sub1),
-                key=f"sel_sub1_{date_str}",
-            )
-            sub1_custom = (
-                st.text_input(
-                    "대직자 1 (직접 입력)",
-                    value=val_sub1 if val_sub1 not in worker_options else "",
-                    key=f"custom_sub1_{date_str}",
-                )
-                if sub1_sel == "(직접 입력)"
-                else ""
-            )
-
-        with col_f2:
-            st.markdown("**:blue[근무자 2 / 대직자 2]**")
-            p2_sel = st.selectbox(
-                "근무자 2",
-                options=worker_options,
-                index=get_opt_idx(val_p2),
-                key=f"sel_p2_{date_str}",
-            )
-            p2_custom = (
-                st.text_input(
-                    "근무자 2 (직접 입력)",
-                    value=val_p2 if val_p2 not in worker_options else "",
-                    key=f"custom_p2_{date_str}",
-                )
-                if p2_sel == "(직접 입력)"
-                else ""
-            )
-
-            sub2_sel = st.selectbox(
-                "대직자 2 (없으면 선택 안함)",
-                options=worker_options,
-                index=get_opt_idx(val_sub2),
-                key=f"sel_sub2_{date_str}",
-            )
-            sub2_custom = (
-                st.text_input(
-                    "대직자 2 (직접 입력)",
-                    value=val_sub2 if val_sub2 not in worker_options else "",
-                    key=f"custom_sub2_{date_str}",
-                )
-                if sub2_sel == "(직접 입력)"
-                else ""
-            )
-
-        st.markdown("**:blue[메모 / 비고]**")
-        memo_val = st.text_area(
-            "특이사항 및 메모",
-            value=current_memo,
-            height=80,
-            key=f"memo_area_{date_str}",
-        )
-
-        submit_btn = st.form_submit_button(
-            "💾 저장하기", use_container_width=True, type="primary"
-        )
-
-        if submit_btn:
-            final_p1 = (
-                p1_custom.strip()
-                if p1_sel == "(직접 입력)"
-                else ("미지정" if p1_sel == "(선택 안함)" else p1_sel)
-            )
-            final_sub1 = (
-                sub1_custom.strip()
-                if sub1_sel == "(직접 입력)"
-                else (
-                    None
-                    if sub1_sel == "(선택 안함)" or not sub1_sel
-                    else sub1_sel
-                )
-            )
-
-            final_p2 = (
-                p2_custom.strip()
-                if p2_sel == "(직접 입력)"
-                else ("미지정" if p2_sel == "(선택 안함)" else p2_sel)
-            )
-            final_sub2 = (
-                sub2_custom.strip()
-                if sub2_sel == "(직접 입력)"
-                else (
-                    None
-                    if sub2_sel == "(선택 안함)" or not sub2_sel
-                    else sub2_sel
-                )
-            )
-
-            df = st.session_state.df
-            df.at[row_idx, "근무자1"] = final_p1
-            df.at[row_idx, "대직1"] = final_sub1
-            df.at[row_idx, "실제근무1"] = final_sub1 if final_sub1 else final_p1
-
-            df.at[row_idx, "근무자2"] = final_p2
-            df.at[row_idx, "대직2"] = final_sub2
-            df.at[row_idx, "실제근무2"] = final_sub2 if final_sub2 else final_p2
-
-            if memo_val.strip():
-                st.session_state.memos[date_str] = memo_val.strip()
-            else:
-                st.session_state.memos.pop(date_str, None)
-
-            st.session_state.df = df
-            save_app_state(
-                df,
-                st.session_state.selected_sheet,
-                st.session_state.memos,
-                st.session_state.batch_patterns,
-            )
-            st.success("✅ 근무 정보 및 메모가 성공적으로 저장되었습니다.")
-            st.rerun()
+     st.session_state 에 "  file_bytes " 가 있고 st.session_state.file_bytes 가 있는 경우 :​   
+        st . 다운로드_버튼 (
+            label = "📥 수정된 파일 다운로드" ,
+            label = "📥 파일 다운로드" ,
+            데이터 = st.session_state.file_bytes ,​​​​
+            파일명 = st . 세션_상태 . get ( "file_name" , "숙직근무표_수정본.xlsx" ),
+            mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ,
+@@ -992,17 +978,12 @@ def get_opt_idx(val):
+        st.session_state.show_exit_dialog = True​​​​  
+        st.rerun ( )​
 
 
 # ---------------------------------------------------------
-# 5. 팝업 다이얼로그 출력 제어
+#개의 세션 기반 시계 로그 호출 처리
 # ---------------------------------------------------------
-if st.session_state.show_settings_dialog:
-    settings_dialog()
+ 세션 상태의 설정 대화 상자 가 표시 되면
+    설정 대화 상자 ()
 
-if st.session_state.show_exit_dialog:
-    confirm_exit_dialog()
-
-
-# ---------------------------------------------------------
-# 6. 상단 컨트롤 및 사이드바 영역
-# ---------------------------------------------------------
-df_main = st.session_state.df
-available_years = sorted(list(df_main["날짜"].dt.year.unique()))
-if not available_years:
-    available_years = [datetime.date.today().year]
-
-today = datetime.date.today()
-default_year = (
-    today.year if today.year in available_years else available_years[0]
-)
-default_month = today.month
-
-if "selected_year" not in st.session_state:
-    st.session_state.selected_year = default_year
-
-if "selected_month" not in st.session_state:
-    st.session_state.selected_month = default_month
-
-# 사이드바 설정
-with st.sidebar:
-    st.header("⚙️ 메뉴 및 설정")
-
-    uploaded_file = st.file_uploader(
-        "📁 엑셀 파일 업로드", type=["xlsx", "xls"]
-    )
-    if uploaded_file is not None:
-        if st.button("📥 업로드 파일 적용", use_container_width=True):
-            parsed_df, used_sheet, sheet_names, raw_df, f_bytes = (
-                load_excel_smart(uploaded_file)
-            )
-            st.session_state.df = parsed_df
-            st.session_state.selected_sheet = used_sheet
-            st.session_state.sheet_names = sheet_names
-            st.session_state.raw_df = raw_df
-            st.session_state.file_bytes = f_bytes
-            st.session_state.file_name = uploaded_file.name
-            save_app_state(
-                parsed_df,
-                used_sheet,
-                st.session_state.memos,
-                st.session_state.batch_patterns,
-            )
-            st.success("엑셀 파일이 불러와졌습니다.")
-            st.rerun()
-
-    st.markdown("---")
-
-    if len(st.session_state.get("sheet_names", [])) > 1:
-        selected_s = st.selectbox(
-            "📋 시트 선택",
-            options=st.session_state.sheet_names,
-            index=(
-                st.session_state.sheet_names.index(
-                    st.session_state.selected_sheet
-                )
-                if st.session_state.selected_sheet
-                in st.session_state.sheet_names
-                else 0
-            ),
-        )
-        if selected_s != st.session_state.selected_sheet:
-            if "file_bytes" in st.session_state:
-                parsed_df, used_sheet, _, raw_df, _ = load_excel_smart(
-                    st.session_state.file_bytes, selected_s
-                )
-                st.session_state.df = parsed_df
-                st.session_state.selected_sheet = used_sheet
-                st.session_state.raw_df = raw_df
-                st.rerun()
-
-    if st.button("⚙️ 대시보드 및 근무 관리 설정", use_container_width=True):
-        st.session_state.show_settings_dialog = True
-        st.rerun()
-
-    output_io = io.BytesIO()
-    with pd.ExcelWriter(output_io, engine="openpyxl") as writer:
-        export_df = st.session_state.df.copy()
-        if "날짜" in export_df.columns:
-            export_df["날짜"] = export_df["날짜"].dt.strftime("%Y-%m-%d")
-        export_df["메모"] = export_df["날짜"].map(
-            lambda d: st.session_state.memos.get(str(d), "")
-        )
-        export_df.to_excel(writer, index=False)
-
-    st.download_button(
-        label="📥 현재 근무표 엑셀 다운로드",
-        data=output_io.getvalue(),
-        file_name=f"숙직근무표_{st.session_state.selected_year}_{st.session_state.selected_month:02d}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-    )
-
-    st.markdown("---")
-    if st.button("🔴 시스템 종료", use_container_width=True):
-        st.session_state.show_exit_dialog = True
-        st.rerun()
+ 세션 상태 가 종료 대화 상자를 표시 하는 경우 :
+    confirm_exit_dialog ()
 
 
-# ---------------------------------------------------------
-# 7. 헤더 및 월 이동 컨트롤
-# ---------------------------------------------------------
-col_top1, col_top2, col_top3, col_top4, col_top5 = st.columns(
-    [1.5, 1, 2.5, 1, 1.5]
-)
+df  =  st.session_state.df​​​​
+오늘  =  날짜 . 날짜 . 오늘 ()
 
-with col_top1:
-    sel_y = st.selectbox(
-        "연도",
-        options=available_years,
-        index=available_years.index(st.session_state.selected_year),
-        key="sb_year",
-        label_visibility="collapsed",
-    )
-    if sel_y != st.session_state.selected_year:
-        st.session_state.selected_year = sel_y
-        st.rerun()
+@@ -1030,16 +1011,15 @@ def get_opt_idx(val):
+        p1  =  f" { t_row [ '실제근무1' ] } (대)"  if  pd . notnull ( t_row . get ( "대직1" )) 및  str ( t_row . get ( "대직1" )). Strip () else  t_row [ "실제근무1" ]
+        p2  =  f" { t_row [ '실제근무2' ] } (대)"  if  pd . notnull ( t_row . get ( "대직2" )) 및  str ( t_row . get ( "대직2" )). Strip () else  t_row [ "실제근무2" ]
+        t_memo  =  st.session_state.memos.get ( today.strftime ( " % Y-%m- % d " ) ) , " " )
+        memo_str  =  f" | pine 메모: { t_memo } "  if  t_memo  else  ""
+        memo_str  =  f" | 📌 { t_memo } "  if  t_memo  else  ""
 
-with col_top2:
-    if st.button("◀ 이전달", use_container_width=True, key="btn_prev_month"):
-        if st.session_state.selected_month == 1:
-            st.session_state.selected_month = 12
-            if st.session_state.selected_year - 1 in available_years:
-                st.session_state.selected_year -= 1
-        else:
-            st.session_state.selected_month -= 1
-        st.rerun()
-
-with col_top3:
-    st.markdown(
-        f'<div class="month-header-card"><h2>📅 {st.session_state.selected_year}년 {st.session_state.selected_month}월</h2></div>',
-        unsafe_allow_html=True,
-    )
-
-with col_top4:
-    if st.button("다음달 ▶", use_container_width=True, key="btn_next_month"):
-        if st.session_state.selected_month == 12:
-            st.session_state.selected_month = 1
-            if st.session_state.selected_year + 1 in available_years:
-                st.session_state.selected_year += 1
-        else:
-            st.session_state.selected_month += 1
-        st.rerun()
-
-with col_top5:
-    sel_m = st.selectbox(
-        "월 선택",
-        options=list(range(1, 13)),
-        index=st.session_state.selected_month - 1,
-        key="sb_month",
-        label_visibility="collapsed",
-    )
-    if sel_m != st.session_state.selected_month:
-        st.session_state.selected_month = sel_m
-        st.rerun()
-
-# 터치 스와이프 연동 숨김 버튼
-st.markdown('<div class="swipe-hidden-container">', unsafe_allow_html=True)
-if st.button("HIDDEN_PREV", key="hidden_prev_btn"):
-    if st.session_state.selected_month == 1:
-        st.session_state.selected_month = 12
-        if st.session_state.selected_year - 1 in available_years:
-            st.session_state.selected_year -= 1
-    else:
-        st.session_state.selected_month -= 1
-    st.rerun()
-
-if st.button("HIDDEN_NEXT", key="hidden_next_btn"):
-    if st.session_state.selected_month == 12:
-        st.session_state.selected_month = 1
-        if st.session_state.selected_year + 1 in available_years:
-            st.session_state.selected_year += 1
-    else:
-        st.session_state.selected_month += 1
-    st.rerun()
-st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ---------------------------------------------------------
-# 8. 오늘의 근무 안내 요약 카드
-# ---------------------------------------------------------
-today_ts = pd.Timestamp(today)
-today_row = df_main[df_main["날짜"] == today_ts]
-
-if not today_row.empty:
-    r_today = today_row.iloc[0]
-    p1_t = r_today["실제근무1"]
-    p2_t = r_today["실제근무2"]
-    memo_t = st.session_state.memos.get(today.strftime("%Y-%m-%d"), "")
-    memo_str = f" | 📝 메모: {memo_t}" if memo_t else ""
-    st.markdown(
-        f"""
+        st . 마크다운 (
+            에프"""
         <div class="today-card">
-            🌟 <b>오늘의 숙직근무 ({today.strftime('%Y-%m-%d')})</b>: 
-            <span>1근무: {p1_t}</span> | <span>2근무: {p2_t}</span>{memo_str}
+            <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ( { today_str } )</div>
+            <div style="font-size:14px; font-weight:bold;">
+                근무자 1: <span> { p1 } </span>  | 
+                근무자 2: <span> { p2 } </span>
+                <span style="font-size:12px; font-weight:normal;"> { memo_str } </span>
+            <div style="font-size:11px; opacity:0.9;">🚨 오늘 일하는자 ( { today_str } )</div>
+            <div style="font-size:13px; font-weight:bold;">
+                1: <스팬> { p1 } </span> | 2: <스팬> { p2 } </span>
+                <span style="font-size:11px; font-weight:normal;"> { memo_str } </span>
+            </div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """ ,
+@@ -1134,8 +1114,6 @@ def go_next_month():
+                "p2_display" : p2_display ,
+            }
 
+        성 . caption ( "💡 각 날짜 항목을 클릭하면 작동자 수정 및 메모 작성이 가능하며, 저장할 수 있도록 달을 이동할 수 있습니다." )
 
-# ---------------------------------------------------------
-# 9. 달력 표출 영역 (Grid형 vs List형)
-# ---------------------------------------------------------
-year = st.session_state.selected_year
-month = st.session_state.selected_month
+        calendar_view_type  =  st.session_state.auto_view_type​​​​
 
-m_start = pd.Timestamp(year, month, 1)
-m_end = pd.Timestamp(
-    year, month, calendar.monthrange(year, month)[1], 23, 59, 59
-)
-month_df = df_main[
-    (df_main["날짜"] >= m_start) & (df_main["날짜"] <= m_end)
-].copy()
+        if  Calendar_view_type  ==  "📄 세로형리스트" :
+@@ -1169,7 +1147,7 @@ def go_next_month():
+                     duty_info 인 경우 :
+                        edit_worker_dialog ( date_str , duty_info )
+        또 다른 :
+            # 🗓️ 화면에 100% 회전하는 방식 과 스크롤 없이 7열 표출 + 자동 줄바꿈을 위한
+            # 🗓️ [요청 반대] 이동식 7열 세로 에 가로 손잡이 배치
+            cols_header  =  st.columns ( 7 )​​
+            color_sun  =  "#FF6B6B"  if  is_dark  else  "#DC2626"
+            색상 채도  =  "#38BDF8"  (어두우 면  ) 그렇지 않으면 "#2563EB"  
+@@ -1182,11 +1160,10 @@ def go_next_month():
 
-if st.session_state.auto_view_type == "🗓️ 가로형 Grid":
-    days_hdr = ["월", "화", "수", "목", "금", "토", "일"]
-    hdr_cols = st.columns(7)
-    for idx, day_name in enumerate(days_hdr):
-        color = (
-            "#EF4444" if idx == 6 else ("#3B82F6" if idx == 5 else "inherit")
-        )
-        hdr_cols[idx].markdown(
-            f"<div style='text-align:center; font-weight:bold; color:{color}; padding:2px 0;'>{day_name}</div>",
-            unsafe_allow_html=True,
-        )
-
-    cal_matrix = calendar.monthcalendar(year, month)
-
-    for week in cal_matrix:
-        week_cols = st.columns(7)
-        for day_idx, day_num in enumerate(week):
-            with week_cols[day_idx]:
-                if day_num == 0:
-                    st.write("")
-                else:
-                    curr_date = datetime.date(year, month, day_num)
-                    curr_ts = pd.Timestamp(curr_date)
-                    date_str = curr_date.strftime("%Y-%m-%d")
-
-                    match = month_df[month_df["날짜"] == curr_ts]
-
-                    is_holiday = curr_date in kr_holidays
-                    holiday_name = (
-                        kr_holidays.get(curr_date) if is_holiday else ""
-                    )
-
-                    is_today = curr_date == today
-                    prefix = "🌟" if is_today else ""
-
-                    if match.empty:
-                        btn_label = f"{prefix}{day_num}일\n미지정"
-                        duty_info = {"idx": None}
-                    else:
-                        r_idx = match.index[0]
-                        row = match.loc[r_idx]
-
-                        w1 = (
-                            row["실제근무1"]
-                            if pd.notnull(row["실제근무1"])
-                            else "미지정"
-                        )
-                        w2 = (
-                            row["실제근무2"]
-                            if pd.notnull(row["실제근무2"])
-                            else "미지정"
-                        )
-
-                        sub1_flag = (
-                            "🔄"
-                            if pd.notnull(row.get("대직1"))
-                            and str(row.get("대직1")).strip()
-                            not in ["", "nan", "None"]
-                            else ""
-                        )
-                        sub2_flag = (
-                            "🔄"
-                            if pd.notnull(row.get("대직2"))
-                            and str(row.get("대직2")).strip()
-                            not in ["", "nan", "None"]
-                            else ""
-                        )
-
-                        memo_flag = (
-                            "📝" if date_str in st.session_state.memos else ""
-                        )
-
-                        duty_info = {"idx": r_idx}
-                        btn_label = f"{prefix}{day_num}일 {holiday_name[:3] if holiday_name else ''}{memo_flag}\n1:{w1}{sub1_flag}\n2:{w2}{sub2_flag}"
-
-                    if st.button(btn_label, key=f"grid_btn_{date_str}"):
-                        if duty_info["idx"] is not None:
-                            edit_worker_dialog(date_str, duty_info)
-
-else:
-    # 📄 세로형 리스트 뷰
-    st.markdown("### 📄 일별 근무 리스트")
-
-    if month_df.empty:
-        st.info("해당 월의 근무 데이터가 없습니다.")
-    else:
-        for r_idx, row in month_df.iterrows():
-            d_obj = row["날짜"].date()
-            d_str = d_obj.strftime("%Y-%m-%d")
-
-            w1 = row["실제근무1"] if pd.notnull(row["실제근무1"]) else "미지정"
-            w2 = row["실제근무2"] if pd.notnull(row["실제근무2"]) else "미지정"
-            memo = st.session_state.memos.get(d_str, "")
-
-            col_l1, col_l2, col_l3, col_l4 = st.columns([2, 2, 2, 1])
-
-            with col_l1:
-                st.write(
-                    f"**{d_str} ({['월','화','수','목','금','토','일'][d_obj.weekday()]})**"
+             enumerate ( headers ) 의 idx , ( h_name , color ) 에 대해 : 
+                cols_header [ idx ]. 마크다운 (
+                    f"<div style='text-align: center; color: { color } ; font-weight: bold; font-size: clamp( 11px , 2. 3vw, 14px ); padding-bottom: 2px;'> { h_name } </div>" ,
+                    f"<div style='text-align: center; color: { color } ; font-weight: bold; font-size: clamp( 10px , 2. 2vw, 13px ); padding-bottom: 2px;'> { h_name } </div>" ,
+                    unsafe_allow_html = True ,
                 )
 
-            with col_l2:
-                st.write(f"1근무: **{w1}**")
+            st.markdown ( "< div style = 'margin-bottom: 4px;'></div>" , unsafe_allow_html = True )
+            first_day_weekday  =  calendar.monthrange ( year , month ) [ 0 ]​
+            start_offset  = ( first_day_weekday  +  1 ) %  7
+            일수 카운터  =  1
+@@ -1211,7 +1188,12 @@ def go_next_month():
+                        is_today  = ( curr_date  ==  today )
+                        day_label  =  f"🌟 { day_counter } 일"  if  is_today  else  f" { day_counter } 일"
 
-            with col_l3:
-                st.write(f"2근무: **{w2}**")
+                        btn_text  =  f" { day_label } \n { p1_txt } \n { p2_txt } \n 📌 { day_memo } "  if  day_memo  else  f" { day_label } \n { p1_txt } \n { p2_txt } "
+                        # 🚨 [요청에 대하여] 1줄: 데이트 / 2줄: 실제근무자1 / 3줄: 실제근무자2 / 4줄: 메모
+                        cell_lines  = [ day_label , p1_txt , p2_txt ]
+                         day_memo 인 경우 :
+                            cell_lines.append ( f " 📌 { day_memo } " )
 
-            with col_l4:
-                if st.button("✏️ 수정", key=f"list_btn_{d_str}"):
-                    edit_worker_dialog(d_str, {"idx": r_idx})
+                        btn_text  =  " \n " . join ( cell_lines )
 
-            if memo:
-                st.caption(f"📝 메모: {memo}")
-            st.divider()
+                         grid_cols [ c ] .button ( btn_text , key = f"btn_grid_card_ { date_str } " ) 인 경우 :
+                             duty_info 인 경우 :
+@@ -1260,7 +1242,7 @@ def go_next_month():
+        st.session_state.df = full_df [ cols ]​​​​  
+
+        save_app_state ( st.session_state.df , st.session_state.selected_sheet , st.session_state.memos , st.session_state.batch_patterns )​​​​​​​​​​​​​​​​
+        성 . 성공 ( "✅ 파일 및 대시보드에 저장되었습니다." )
+        성 . 성공 ( "✅저장했습니다." )
+        st.rerun ( )​
+
+# ---------------------------------------------------------

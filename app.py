@@ -62,7 +62,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 최적화 스타일 (가로달력 7열 한눈에 보기 & 팝업 비율 조절)
+# 동적 CSS 및 모바일 최적화 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -215,7 +215,26 @@ calendar_enhancer_js_template = """
         window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
     });
 
+    // 드롭다운(Selectbox) 클릭 시 불필요한 키보드 올라옴 방지 및 직접 터치 제어
+    function preventUnwantedKeyboard() {
+        const selects = doc.querySelectorAll('[data-baseweb="select"] input, select');
+        selects.forEach(el => {
+            if (!el.hasAttribute('data-kb-controlled')) {
+                el.setAttribute('data-kb-controlled', 'true');
+                el.setAttribute('readonly', 'readonly'); // 기본 포커스 시 키보드 차단
+                el.addEventListener('focus', function(e) {
+                    // 드롭다운 메뉴 열림 전용으로 설정
+                    setTimeout(() => { el.removeAttribute('readonly'); }, 50);
+                });
+                el.addEventListener('blur', function(e) {
+                    el.setAttribute('readonly', 'readonly');
+                });
+            }
+        });
+    }
+
     function enhanceCalendarUI() {
+        preventUnwantedKeyboard();
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {
             const txt = btn.innerText || '';
@@ -698,7 +717,7 @@ with tab3:
     comb = pd.concat([f_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"}), f_df[["실제근무2", "근무구분_원본"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})], ignore_index=True)
     comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
     
-    , if not comb.empty:
+    if not comb.empty:
         stats = pd.crosstab(comb["근무자"], comb["구분"])
         stats["총 근무 횟수"] = stats.sum(axis=1)
         st.dataframe(stats.sort_values(by="총 근무 횟수", ascending=False), use_container_width=True)

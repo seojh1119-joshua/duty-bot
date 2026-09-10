@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 세로 화면 맞춤 스타일
+# 동적 CSS 및 모바일 세로 화면 7열/팝업 맞춤 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -112,16 +112,16 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.2rem 2px 0.1rem 2px !important;
+        padding: 0.1rem 1px 0.1rem 1px !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: clamp(26px, 6.5vw, 36px) !important;
-        margin: 10px 0px 20px 0px !important;
-        padding: 4px 0px !important;
+        font-size: clamp(24px, 6vw, 36px) !important;
+        margin: 6px 0px 10px 0px !important;
+        padding: 2px 0px !important;
         font-weight: 900 !important;
         white-space: nowrap !important;
         text-align: center !important;
@@ -132,47 +132,46 @@ responsive_css = f"""
     .setting-box {{
         background-color: {box_bg} !important;
         border: 2px solid {border_color} !important;
-        border-radius: 10px !important;
-        padding: 10px 12px !important;
-        margin: 14px 0px 18px 0px !important;
+        border-radius: 8px !important;
+        padding: 8px 10px !important;
+        margin: 10px 0px 14px 0px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #1E3A8A 0%, #2563EB 50%, #1D4ED8 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)" } !important;
         color: {"#FFFFFF" if is_dark else "#1E3A8A"} !important;
-        padding: 12px 14px !important;
-        border-radius: 12px !important;
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
         border: 2px solid {"#60A5FA" if is_dark else "#3B82F6"} !important;
-        margin-bottom: 16px !important;
+        margin-bottom: 12px !important;
         width: 100% !important;
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
     }}
     .today-card .today-title {{ 
-        font-size: clamp(16px, 4.5vw, 20px) !important; 
+        font-size: clamp(15px, 4vw, 18px) !important; 
         font-weight: 900 !important; 
-        margin-bottom: 4px !important;
-        letter-spacing: -0.3px !important;
+        margin-bottom: 2px !important;
     }}
     .today-card .today-content {{ 
-        font-size: clamp(17px, 5vw, 23px) !important; 
+        font-size: clamp(16px, 4.5vw, 21px) !important; 
         font-weight: 900 !important; 
-        line-height: 1.4 !important;
+        line-height: 1.3 !important;
     }}
     .today-card span {{ 
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important; 
-        font-size: clamp(18px, 5.2vw, 24px) !important;
+        font-size: clamp(17px, 4.8vw, 22px) !important;
         font-weight: 900 !important; 
     }}
 
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 6px; padding: 6px 8px; margin: 6px 0 10px 0; text-align: center;
+        border: 1px solid {border_color}; border-radius: 6px; padding: 4px 6px; margin: 4px 0 8px 0; text-align: center;
     }}
     .month-header-card h2 {{ 
         margin: 0 !important; 
-        font-size: clamp(20px, 5.5vw, 28px) !important; 
+        font-size: clamp(18px, 5vw, 24px) !important; 
         font-weight: 900 !important; 
         color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; 
     }}
@@ -181,27 +180,43 @@ responsive_css = f"""
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 36px !important;
-        padding: 6px 8px !important; border: 1.5px solid {border_color} !important; border-radius: 6px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 32px !important;
+        padding: 4px 6px !important; border: 1.5px solid {border_color} !important; border-radius: 6px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: 14px !important; font-weight: 700 !important; margin: 0 !important;
+        text-align: center !important; font-size: 13px !important; font-weight: 700 !important; margin: 0 !important;
         cursor: pointer !important;
     }}
 
+    /* 📌 [핵심] 모바일 세로 화면에서도 달력의 7열이 한 화면에 무조건 강제 고정되도록 설정 */
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-        width: 100% !important; max-width: 100vw !important; min-width: 0 !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
+        display: flex !important; 
+        flex-direction: row !important; 
+        flex-wrap: nowrap !important;
+        width: 100% !important; 
+        max-width: 100vw !important; 
+        min-width: 0 !important; 
+        gap: 1px !important; 
+        margin: 0 !important; 
+        padding: 0 !important; 
+        box-sizing: border-box !important;
     }}
+    
     [data-testid="column"] {{
-        width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important;
-        flex: 1 1 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
+        width: 14.285% !important; 
+        max-width: 14.285% !important; 
+        min-width: 0 !important;
+        flex: 1 1 14.285% !important; 
+        padding: 0px !important; 
+        margin: 0 !important; 
+        box-sizing: border-box !important;
     }}
 
+    /* 달력 날짜 칸 버튼 모바일 최적화 (7열 가로배치 유지) */
     div[data-testid="column"] .stButton > button {{
-        min-height: clamp(140px, 28vw, 220px) !important;
-        max-height: 280px !important;
-        padding: 3px 1px !important;
-        font-size: clamp(9px, 2.5vw, 12px) !important;
+        min-height: clamp(100px, 22vw, 160px) !important;
+        max-height: 200px !important;
+        padding: 2px 0px !important;
+        font-size: clamp(8px, 2.1vw, 11px) !important;
         color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
         overflow: hidden !important;
         flex-shrink: 0 !important;
@@ -214,19 +229,29 @@ responsive_css = f"""
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.25 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.2 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
+    /* 📌 [핵심] 팝업(Dialog) 창 모바일 세로 화면 맞춤 설정 (내용이 한눈에 보이도록 축소 및 정렬) */
     [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important; color: {main_text_color} !important;
-        width: 94vw !important; max-width: 480px !important; max-height: 90vh !important;
-        border-radius: 12px !important; padding: 14px 10px !important; overflow-y: auto !important;
-        border: 2px solid {border_color} !important; margin: auto !important; position: fixed !important;
-        top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
+        background-color: {dialog_bg} !important; 
+        color: {main_text_color} !important;
+        width: 96vw !important; 
+        max-width: 440px !important; 
+        max-height: 94vh !important;
+        border-radius: 10px !important; 
+        padding: 10px 8px !important; 
+        overflow-y: auto !important;
+        border: 2px solid {border_color} !important; 
+        margin: auto !important; 
+        position: fixed !important;
+        top: 50% !important; 
+        left: 50% !important; 
+        transform: translate(-50%, -50%) !important;
         box-sizing: border-box !important;
     }}
 
@@ -235,11 +260,11 @@ responsive_css = f"""
     }}
 
     [data-testid="stDialog"] [data-testid="stHorizontalBlock"] {{
-        gap: 6px !important; width: 100% !important; box-sizing: border-box !important;
+        gap: 4px !important; width: 100% !important; box-sizing: border-box !important;
     }}
 
     [data-testid="stDialog"] [data-testid="column"] {{
-        width: 50% !important; max-width: 50% !important; flex: 1 1 50% !important; min-width: 0 !important; padding: 0 2px !important; box-sizing: border-box !important;
+        width: 50% !important; max-width: 50% !important; flex: 1 1 50% !important; min-width: 0 !important; padding: 0 1px !important; box-sizing: border-box !important;
     }}
 
     [data-testid="stDialog"] input, 
@@ -250,20 +275,20 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stTextInput"],
     [data-testid="stDialog"] [data-testid="stSelectbox"],
     [data-testid="stDialog"] [data-testid="stTextArea"] {{
-        width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+        width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; font-size: 12px !important;
     }}
 
     [data-testid="stDialog"] label {{
-        font-size: clamp(12px, 3.2vw, 14px) !important; font-weight: 700 !important; margin-bottom: 2px !important; white-space: nowrap !important;
+        font-size: clamp(11px, 3vw, 13px) !important; font-weight: 700 !important; margin-bottom: 1px !important; white-space: nowrap !important;
     }}
 
     [data-testid="stDialog"] .stButton > button {{
-        min-height: 38px !important; font-size: clamp(13px, 3.6vw, 15px) !important; padding: 4px 6px !important; width: 100% !important; box-sizing: border-box !important;
+        min-height: 34px !important; font-size: clamp(12px, 3.2vw, 14px) !important; padding: 2px 4px !important; width: 100% !important; box-sizing: border-box !important;
     }}
 
     @media screen and (max-width: 600px) {{
         [data-testid="stDialog"] > div:first-child {{
-            width: 95vw !important; padding: 10px 8px !important;
+            width: 98vw !important; padding: 8px 6px !important;
         }}
         [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] {{
             flex-direction: column !important;
@@ -283,7 +308,7 @@ responsive_css = f"""
         width: 100% !important; display: flex !important; gap: 2px !important; padding: 0 !important;
     }}
     [data-baseweb="tab"] {{
-        flex: 1 1 auto !important; padding: 8px 4px !important; font-size: clamp(11px, 3.2vw, 15px) !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; min-width: 0 !important;
+        flex: 1 1 auto !important; padding: 6px 2px !important; font-size: clamp(11px, 3vw, 14px) !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; min-width: 0 !important;
     }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], input[type="date"] {{
@@ -577,7 +602,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (모바일 세로 화면 맞춤 조절)
+# 다이얼로그 정의 (팝업 세로 화면 맞춤 조절)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -895,7 +920,7 @@ with tab1:
                 ("토", "#38BDF8" if is_dark else "#2563EB")
             ]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(11px, 3.2vw, 15px); padding: 3px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(10px, 3vw, 14px); padding: 2px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -958,29 +983,22 @@ with tab3:
     
     if not f_df.empty and "날짜" in f_df.columns:
         f_df["날짜"] = pd.to_datetime(f_df["날짜"])
-        # 요일 판단 (0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일)
-        # 조건: 평일(월~목)=7시간, 일요일(6)=7시간, 금요일(4)=15시간, 토요일(5)=15시간
         f_df["근무시간"] = f_df["날짜"].dt.dayofweek.map(lambda dw: 15 if dw in [4, 5] else 7)
 
-        # 근무자 1, 2 결합
         c1_df = f_df[["실제근무1", "근무구분_원본", "근무시간"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"})
         c2_df = f_df[["실제근무2", "근무구분_원본", "근무시간"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})
         comb = pd.concat([c1_df, c2_df], ignore_index=True)
         comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
 
         if not comb.empty:
-            # 근무 횟수 집계
             stats = pd.crosstab(comb["근무자"], comb["구분"])
             stats["총 근무 횟수"] = stats.sum(axis=1)
 
-            # 근무 시간 집계 (근무자별 Sum)
             time_stats = comb.groupby("근무자")["근무시간"].sum()
             stats["총 근무시간 (시간)"] = time_stats
 
-            # 총 근무시간 기준으로 정렬
             stats = stats.sort_values(by="총 근무시간 (시간)", ascending=False)
 
-            # 1. 시각화 그래프 (Y축 범위를 0~70으로 고정한 Altair 차트 적용)
             st.markdown("##### 📈 근무자별 총 근무시간 그래프 (최대 70시간 한계 고정)")
             chart_df = stats.reset_index()
             chart = alt.Chart(chart_df).mark_bar().encode(
@@ -991,7 +1009,6 @@ with tab3:
 
             st.divider()
 
-            # 2. 통계 표
             st.markdown("##### 📋 근무자별 근무 횟수 및 계산 시간 상세")
             st.caption("※ 근무시간 계산 기준: 평일/일요일 7시간, 금요일/토요일 15시간")
             st.dataframe(stats, use_container_width=True)

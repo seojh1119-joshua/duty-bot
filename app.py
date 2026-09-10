@@ -89,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 고정 7열 가로형 그리드 구조)
+# 동적 CSS (테마별 스타일 & 모바일 7열 가로형 달력 완전 보장)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -114,15 +114,16 @@ responsive_css = f"""
         color: {main_text_color} !important;
         width: 100vw !important;
         max-width: 100vw !important;
-        overflow-x: hidden !important;
     }}
 
+    /* 모바일 가로 스크롤 보장 */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
         padding: 0.5rem 0.5rem !important;
         max-width: 100% !important;
         width: 100% !important;
+        overflow-x: auto !important;
     }}
 
     [data-testid="stSidebar"] {{
@@ -215,24 +216,19 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
 
-    /* 🗓️ 항상 7열을 유지하는 가로형 달력(Matrix Grid) 컨테이너 */
-    .grid-calendar-wrapper {{
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 10px;
-    }}
-    
-    .grid-calendar-inner {{
-        min-width: 680px; /* 모바일 세로화면에서도 7열 달력 형태가 줄바꿈되지 않고 가로 달력 형태 유지 */
-        width: 100%;
-    }}
-
-    .grid-calendar-inner [data-testid="stHorizontalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
+    /* 🚨 7열 가로형 달력 모바일 세로모드 무너짐 완벽 방지 */
+    @media (max-width: 768px) {{
+        [data-testid="stHorizontalBlock"] {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            min-width: 680px !important; /* 모바일에서도 일~토 7열 형태 강제 고정 */
+        }}
+        [data-testid="column"] {{
+            width: 14.28% !important;
+            min-width: 90px !important;
+            flex: 1 1 0% !important;
+        }}
     }}
 
     /* JS 스와이프용 버튼 완전 격리 */
@@ -276,13 +272,24 @@ calendar_enhancer_js = """
                 }
             }
 
-            // 2. 오늘 날짜 음영 및 하이라이트 스타일 강제 적용 (CSS :contains 대체)
+            // 2. 오늘 날짜 음영 및 하이라이트 스타일 강제 적용
             if (txt.includes('🌟') || txt.includes('[오늘]')) {
                 btn.style.setProperty('background', 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 'important');
                 btn.style.setProperty('color', '#FFFFFF', 'important');
                 btn.style.setProperty('border', '2px solid #F59E0B', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
                 btn.style.setProperty('box-shadow', '0 0 12px rgba(37, 99, 235, 0.6)', 'important');
+            }
+        });
+
+        // 3. 7열 달력 행(stHorizontalBlock)에 min-width 680px 강제 부여 (모바일 세로 세움 방지)
+        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
+        horizBlocks.forEach(block => {
+            if (block.children.length === 7) {
+                block.style.setProperty('display', 'flex', 'important');
+                block.style.setProperty('flex-direction', 'row', 'important');
+                block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                block.style.setProperty('min-width', '680px', 'important');
             }
         });
     }
@@ -329,7 +336,7 @@ calendar_enhancer_js = """
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 파일 탐색 및 저장 함수 (출력 연동 동기화)
+# 파일 탐색 및 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -985,7 +992,7 @@ with st.sidebar:
 
 
 # ---------------------------------------------------------
-# 세션 기반 다이얼로그 호출 처리 (팝업 유지 적용)
+# 세션 기반 다이얼로그 호출 처리
 # ---------------------------------------------------------
 if st.session_state.show_settings_dialog:
     settings_dialog()
@@ -1043,18 +1050,15 @@ with tab1:
 
     current_ym = today.strftime("%Y-%m")
 
-    # 월 선택 세션 상태 초기화 및 안전 검증
     if "selected_month" not in st.session_state or st.session_state.selected_month not in available_months:
         st.session_state.selected_month = current_ym if current_ym in available_months else available_months[0]
 
     if "calendar_month_select" not in st.session_state or st.session_state.calendar_month_select not in available_months:
         st.session_state.calendar_month_select = st.session_state.selected_month
 
-    # 드롭다운 직접 변경 시 콜백
     def on_month_change_select():
         st.session_state.selected_month = st.session_state.calendar_month_select
 
-    # 모바일 스와이프 전용 월 이동 콜백
     def go_prev_month():
         curr_idx = available_months.index(st.session_state.selected_month)
         if curr_idx > 0:
@@ -1069,7 +1073,6 @@ with tab1:
             st.session_state.selected_month = new_m
             st.session_state.calendar_month_select = new_m
 
-    # JS 스와이프 트리거용 완벽 은닉 처리된 버튼
     st.markdown('<div class="swipe-hidden-container">', unsafe_allow_html=True)
     st.button("HIDDEN_PREV", key="btn_hidden_prev", on_click=go_prev_month)
     st.button("HIDDEN_NEXT", key="btn_hidden_next", on_click=go_next_month)
@@ -1165,8 +1168,6 @@ with tab1:
                         edit_worker_dialog(date_str, duty_info)
         else:
             # 🗓️ 항상 7열(일~토) 매트릭스 형태로 표출되는 가로형 달력 (Grid Calendar)
-            st.markdown('<div class="grid-calendar-wrapper"><div class="grid-calendar-inner">', unsafe_allow_html=True)
-            
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1214,8 +1215,6 @@ with tab1:
                             if duty_info:
                                 edit_worker_dialog(date_str, duty_info)
                         day_counter += 1
-
-            st.markdown('</div></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # TAB 2: 근무표 전체 수정

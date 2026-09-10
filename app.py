@@ -28,7 +28,7 @@ CONFIG_PATH = os.path.join("DATA", "local_config.json")
 # 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="숙직 근무표 대시보드",
+    page_title="광주교도소 의료과 숙직근무",
     page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -136,8 +136,9 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
+    /* 제목 폰트 크기 확대 적용 */
     h1 {{
-        font-size: clamp(16px, 4vw, 24px) !important;
+        font-size: clamp(20px, 5.5vw, 28px) !important;
         margin-top: 0px !important;
         padding-top: 0px !important;
     }}
@@ -186,7 +187,7 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
+    /* 🚨 콤팩트 셀 버튼 기본 설정 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
@@ -211,28 +212,6 @@ responsive_css = f"""
     .stButton > button:hover {{
         border-color: {btn_hover_border} !important;
         background-color: {btn_hover_bg} !important;
-    }}
-
-    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
-    [data-testid="stHorizontalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        gap: 1px !important;
-        margin: 0 !important;
-    }}
-
-    [data-testid="column"] {{
-        width: 14.285% !important;
-        max-width: 14.285% !important;
-        min-width: 0 !important;
-        flex: 1 1 14.285% !important;
-        padding: 0px 0px !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
     }}
 
     [data-testid="stElementContainer"] {{
@@ -275,7 +254,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 & 오늘 날짜 테마별 음영 처리 JS
+# 모바일 터치 스와이프 & 레이아웃 강제 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -284,7 +263,7 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
 
-        // 1. 스와이프 히든 버튼 숨김
+        // 1. 스와이프 히든 버튼 숨김 및 오늘 날짜 테마 음영
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -296,7 +275,6 @@ calendar_enhancer_js = f"""
                 }}
             }}
 
-            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -305,9 +283,11 @@ calendar_enhancer_js = f"""
             }}
         }});
 
-        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
+        // 3. 컬럼 강제 가로 정렬 (달력 7열 & 헤더 2열)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
         horizBlocks.forEach(block => {{
+            
+            // [A] 달력 7개 컬럼 강제 가로 한 화면 정렬
             if (block.children.length === 7) {{
                 block.style.setProperty('display', 'flex', 'important');
                 block.style.setProperty('flex-direction', 'row', 'important');
@@ -323,6 +303,41 @@ calendar_enhancer_js = f"""
                     child.style.setProperty('flex', '1 1 14.285%', 'important');
                     child.style.setProperty('padding', '0px', 'important');
                 }});
+
+                // 가로형 달력 버튼 높이 세로로 2~3배 키우기 (100px)
+                const gridBtns = block.querySelectorAll('button');
+                gridBtns.forEach(b => {{
+                    b.style.setProperty('min-height', '100px', 'important');
+                    b.style.setProperty('height', '100%', 'important');
+                }});
+            }}
+            
+            // [B] 상단 헤더 2열 (제목 + 톱니바퀴) 모바일 줄바꿈 방지
+            else if (block.children.length === 2) {{
+                const text = block.innerText || '';
+                if (text.includes('광주교도소') || text.includes('⚙️')) {{
+                    block.style.setProperty('display', 'flex', 'important');
+                    block.style.setProperty('flex-direction', 'row', 'important');
+                    block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                    block.style.setProperty('align-items', 'center', 'important');
+                    
+                    const col1 = block.children[0];
+                    const col2 = block.children[1];
+                    
+                    col1.style.setProperty('width', '85%', 'important');
+                    col1.style.setProperty('flex', '1 1 85%', 'important');
+                    col1.style.setProperty('min-width', '0', 'important');
+                    
+                    col2.style.setProperty('width', '15%', 'important');
+                    col2.style.setProperty('flex', '1 1 15%', 'important');
+                    col2.style.setProperty('min-width', '40px', 'important');
+                    
+                    const gearBtn = col2.querySelector('button');
+                    if (gearBtn) {{
+                        gearBtn.style.setProperty('padding', '0px', 'important');
+                        gearBtn.style.setProperty('min-height', '40px', 'important');
+                    }}
+                }}
             }}
         }});
     }}
@@ -1001,12 +1016,12 @@ today = datetime.date.today()
 # ---------------------------------------------------------
 # 메인 화면 - 제목 및 설정 버튼 상단 배치
 # ---------------------------------------------------------
-col_title, col_settings = st.columns([0.82, 0.18])
+col_title, col_settings = st.columns([0.85, 0.15])
 with col_title:
-    st.title("📋 숙직 근무 관리 대시보드")
+    st.title("📋 광주교도소 의료과 숙직근무")
 with col_settings:
     st.write("")
-    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+    if st.button("⚙️", use_container_width=True, type="secondary", key="main_top_settings_btn"):
         st.session_state.show_settings_dialog = True
         st.rerun()
 

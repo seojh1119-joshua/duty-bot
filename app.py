@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 7열 강제 고정 레이아웃 (세로 화면 폭 초과 방지 적용)
+# 동적 CSS 및 7열 강제 고정 레이아웃 (오늘의 근무자 박스 그라데이션 적용)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -94,6 +94,11 @@ input_text = "#F8FAFC" if is_dark else "#0F172A"
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
+
+# 📌 오늘의 근무자 박스 전용 그라데이션 변수 설정
+today_worker_box_bg = "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)"
+today_worker_box_border = "#3B82F6" if is_dark else "#2563EB"
+today_worker_box_text = "#FFFFFF" if is_dark else "#1E3A8A"
 
 responsive_css = f"""
 <style>
@@ -120,7 +125,6 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    /* 📌 헤드라인 스타일로 확대된 타이틀 및 텍스트 */
     .calendar-main-title {{
         font-size: 2.2rem !important;
         font-weight: 900 !important;
@@ -136,14 +140,18 @@ responsive_css = f"""
         text-align: center !important;
     }}
 
+    /* 📌 오늘의 근무자 박스 그라데이션 및 디자인 적용 */
     .today-worker-box {{
         font-size: 1.3rem !important;
         font-weight: 700 !important;
-        padding: 10px 14px;
-        background: rgba(128, 128, 128, 0.08);
-        border-radius: 6px;
-        border-left: 4px solid #2563EB;
+        padding: 12px 16px;
+        background: {today_worker_box_bg};
+        color: {today_worker_box_text} !important;
+        border-radius: 8px;
+        border: 1.5px solid {border_color};
+        border-left: 5px solid {today_worker_box_border};
         margin-bottom: 1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }}
 
     .setting-box {{
@@ -170,7 +178,6 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ font-size: 14px !important; font-weight: 900 !important; margin: 0 !important; }}
 
-    /* 팝업창 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -204,7 +211,6 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
 
-    /* 📌 세로폭 초과 방지 및 7열 완벽 고정 (가로폭 강제 고정 해제) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -224,7 +230,6 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 📌 요일 박스 글씨 크기 및 디자인 헤드라인 급 확대 */
     .weekday-box {{
         text-align: center;
         font-weight: 900;
@@ -238,7 +243,6 @@ responsive_css = f"""
         margin: 0px;
     }}
 
-    /* 세로 모드 날짜 버튼 최적화 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
@@ -256,7 +260,6 @@ responsive_css = f"""
         }}
     }}
 
-    /* 가로 모드 날짜 버튼 최적화 */
     @media (orientation: landscape) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
@@ -800,7 +803,7 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘의 근무자 박스 적용
+        # 오늘의 근무자 박스 (그라데이션 스타일 적용됨)
         st.markdown(f'<div class="today-worker-box">👤 오늘 근무자 ({today.strftime("%m월 %d일")})<br>1: {p1} | 2: {p2}{memo_txt}</div>', unsafe_allow_html=True)
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
@@ -828,7 +831,6 @@ with tab1:
 
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
-        # 숙직근무표 헤더 타이틀 적용
         st.markdown(f"<div class='duty-header-title'>🏢 {y}년 {m}월 숙직근무표</div>", unsafe_allow_html=True)
         
         num_days = calendar.monthrange(y, m)[1]

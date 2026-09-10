@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 세로 팝업 100% 핏 및 설정 버튼 확대)
+# 동적 CSS (모바일 터치 최적화 및 팝업 규격)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -125,6 +125,7 @@ responsive_css = f"""
         color: {main_text_color} !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
+        -webkit-tap-highlight-color: transparent !important;
     }}
 
     .main .block-container {{
@@ -151,10 +152,10 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    /* 🌟 제목 크기 대폭 확대 */
+    /* 🌟 제목 크기 확대 */
     h1 {{ font-size: clamp(18px, 4.5vw, 26px) !important; margin-top: 0px !important; padding-top: 0px !important; font-weight: 800 !important; }}
     
-    /* ⚙️ 상단 설정 버튼 아이콘 크기 확대 및 텍스트 제거 대응 스타일 */
+    /* ⚙️ 상단 설정 버튼 아이콘 크기 확대 */
     div[data-testid="column"]:nth-child(2) button {{
         font-size: clamp(18px, 4vw, 24px) !important;
         padding: 4px 0px !important;
@@ -176,16 +177,18 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 콤팩트 셀 버튼 스타일 및 글자 잘림 방지 */
+    /* 🚨 모바일 터치 반응성 대폭 개선 (터치 지연 및 오작동 원천 차단) */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 46px !important;
-        padding: 1px 0px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 48px !important;
+        padding: 2px 0px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: clamp(6px, 1.6vw, 9.5px) !important; font-weight: 500 !important; margin: 0 !important;
+        text-align: center !important; font-size: clamp(7px, 1.7vw, 9.5px) !important; font-weight: 600 !important; margin: 0 !important;
+        touch-action: manipulation !important; cursor: pointer !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.1 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.15 !important;
+        pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
@@ -246,7 +249,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 (드래그 시 버튼 오클릭 방지 로직 적용)
+# 모바일 터치 스와이프 및 클릭 충돌 방지 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -334,7 +337,7 @@ calendar_enhancer_js = f"""
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > 15 && Math.abs(diffX) > Math.abs(diffY)) {{
+            if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY)) {{
                 isSwiping = true;
             }}
         }}, {{passive: true}});
@@ -347,7 +350,7 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
@@ -357,7 +360,6 @@ calendar_enhancer_js = f"""
             }}
         }}, {{passive: true}});
 
-        // 🚨 스와이프 도중 날짜 버튼이 눌려 팝업이 뜨는 충돌 원천 차단
         doc.addEventListener('click', function(e) {{
             if (isSwiping) {{
                 e.stopPropagation();
@@ -1013,7 +1015,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 및 설정 버튼 상단 배치 (설정 글씨 제거 및 아이콘 확대)
+# 메인 화면 - 제목 및 설정 버튼 상단 배치
 # ---------------------------------------------------------
 col_title, col_settings = st.columns([0.84, 0.16], wrap=False)
 with col_title:

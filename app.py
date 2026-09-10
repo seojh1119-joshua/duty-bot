@@ -16,7 +16,7 @@ PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 CONFIG_PATH = os.path.join("DATA", "local_config.json")
 
 # ---------------------------------------------------------
-# 페이지 기본 설정
+# 페이지 기본 설정[cite: 1]
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="광주교도소 의료과 숙직근무",
@@ -46,7 +46,7 @@ def save_local_config(key, value):
 
 local_cfg = load_local_config()
 
-# 세션 상태 초기화
+# 세션 상태 초기화[cite: 1]
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
@@ -62,7 +62,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 최적화 스타일
+# 동적 CSS 및 모바일 최적화 스타일 (세로폭 2배 확대 및 7열 가로폭 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -124,18 +124,18 @@ responsive_css = f"""
 
     .stButton > button {{
         width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 28px !important;
-        padding: 2px 4px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
+        padding: 2px 4px !important; border: 1.5px solid {border_color} !important; border-radius: 3px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
         text-align: center !important; font-size: 12px !important; font-weight: 600 !important; margin: 0 !important;
         cursor: pointer !important;
     }}
 
-    /* 모바일 가로달력 7열이 한눈에 보이도록 간격 및 버튼 높이 극대화 슬림화 */
+    /* 모바일 가로달력 7열이 한눈에 보이도록 가로폭 조절 및 세로폭 2배 확대 */
     div[data-testid="column"] .stButton > button {{
-        min-height: clamp(52px, 11vw, 75px) !important;
-        max-height: 78px !important;
-        padding: 0px 0px !important;
-        font-size: clamp(7.5px, 1.8vw, 10.5px) !important;
+        min-height: clamp(104px, 22vw, 150px) !important;
+        max-height: 156px !important;
+        padding: 1px 0px !important;
+        font-size: clamp(8px, 2vw, 11.5px) !important;
         color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
         overflow: hidden !important;
         flex-shrink: 0 !important;
@@ -143,7 +143,7 @@ responsive_css = f"""
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.05 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
@@ -159,7 +159,7 @@ responsive_css = f"""
     }}
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 순환 등록 팝업 및 대화상자 모바일 세로 화면 맞춤 비율 조정 (내용 잘림 방지) */
+    /* 순환 등록 팝업 및 대화상자 모바일 세로 화면 맞춤 비율 조정 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 98vw !important; max-width: 420px !important; max-height: 85vh !important;
@@ -185,7 +185,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (뒤로가기 연동 및 키보드 제어 보조)
+# 브라우저 스크립트 (뒤로가기 연동 및 키보드 제어 보조)[cite: 1]
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>
@@ -215,15 +215,13 @@ calendar_enhancer_js_template = """
         window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
     });
 
-    // 드롭다운(Selectbox) 클릭 시 불필요한 키보드 올라옴 방지 및 직접 터치 제어
     function preventUnwantedKeyboard() {
         const selects = doc.querySelectorAll('[data-baseweb="select"] input, select');
         selects.forEach(el => {
             if (!el.hasAttribute('data-kb-controlled')) {
                 el.setAttribute('data-kb-controlled', 'true');
-                el.setAttribute('readonly', 'readonly'); // 기본 포커스 시 키보드 차단
+                el.setAttribute('readonly', 'readonly');
                 el.addEventListener('focus', function(e) {
-                    // 드롭다운 메뉴 열림 전용으로 설정
                     setTimeout(() => { el.removeAttribute('readonly'); }, 50);
                 });
                 el.addEventListener('blur', function(e) {
@@ -300,7 +298,7 @@ calendar_enhancer_js = (
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 공통 엑셀 및 데이터 유틸함수
+# 공통 엑셀 및 데이터 유틸함수[cite: 1]
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -442,7 +440,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (순환등록 팝업 모바일 세로 비율 및 키보드 충돌 방지 적용)
+# 다이얼로그 정의[cite: 1]
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -570,7 +568,7 @@ def edit_worker_dialog(date_str, duty_info):
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바[cite: 1]
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
@@ -601,7 +599,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면
+# 메인 화면[cite: 1]
 # ---------------------------------------------------------
 st.title("📋 광주교도소 의료과 숙직근무")
 if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width=True, type="secondary"):
@@ -727,3 +725,4 @@ with tab3:
 with tab4:
     st.subheader("🔍 시트 데이터 원본 확인")
     st.dataframe(df, use_container_width=True)
+```[cite: 1]

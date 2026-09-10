@@ -68,7 +68,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 가로달력 자동 비율 최적화
+# 동적 CSS 및 모바일 가로달력 2배 확대 및 고정 최적화
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -81,7 +81,7 @@ btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
-input_bg = "#0F172A" if is_dark else "#FFFFFF"
+input_bg = "#1E293B" if is_dark else "#F8FAFC"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
@@ -136,22 +136,25 @@ responsive_css = f"""
         cursor: pointer !important;
     }}
 
-    /* 모바일 가로달력 셀 비율 최적화 (화면 잘림 및 텍스트 겹침 완벽 방지) */
+    /* 가로달력 버튼 세로 크기 2배 확대 및 흔들림 방지 고정 */
     div[data-testid="column"] .stButton > button {{
-        min-height: clamp(52px, 11vw, 76px) !important;
-        padding: 1px 0px !important;
-        font-size: clamp(5.5px, 1.3vw, 8.5px) !important;
+        min-height: clamp(100px, 22vw, 145px) !important;
+        max-height: 145px !important;
+        padding: 2px 0px !important;
+        font-size: clamp(7px, 1.5vw, 10px) !important;
         color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
+        overflow: hidden !important;
+        flex-shrink: 0 !important;
     }}
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.1 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 7개 컬럼 강제 가로 일렬 정렬 및 간격 최소화 */
+    /* 7개 컬럼 강제 가로 고정 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; max-width: 100% !important; min-width: 0 !important; gap: 1px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -170,7 +173,18 @@ responsive_css = f"""
         top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
     }}
 
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{ background-color: {input_bg} !important; color: {input_text} !important; border-color: {border_color} !important; }}
+    /* 입력창 및 날짜 선택 박스 고대조(Contrast) 스타일 적용 */
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], input[type="date"] {{
+        background-color: {input_bg} !important;
+        color: {input_text} !important;
+        border: 2px solid {border_color} !important;
+        font-weight: 700 !important;
+    }}
+    [data-baseweb="input"] input {{
+        color: {input_text} !important;
+        -webkit-text-fill-color: {input_text} !important;
+    }}
+
     .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; }}
 </style>
 """
@@ -228,7 +242,6 @@ calendar_enhancer_js = """
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
             
-            // 좌우 스와이프 거리가 상하보다 길고 40px 이상일 때 월 변경 트리거
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
                 if (diffX < 0) {{
                     triggerMonthChange('next');
@@ -364,7 +377,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     return df[["날짜"] + [c for c in df.columns if c != "날짜"]], target_sheet, sheet_names, df_raw, file_bytes
 
-# 초기 파일 로드
 initial_file = get_initial_excel_file()
 if "file_path" not in st.session_state: st.session_state.file_path = initial_file
 if "file_bytes" not in st.session_state and os.path.exists(initial_file):
@@ -418,7 +430,10 @@ def settings_dialog():
     with tab_s2:
         st.markdown("📅 **입력된 근무자만 규칙적으로 순환 등록됩니다.**")
         start_d = st.date_input("시작 날짜", value=datetime.date.today())
-        days_c = st.number_input("적용 총 일수", min_value=1, max_value=180, value=30)
+        
+        infinite_repeat = st.checkbox("♾️ 순환 패턴 계속 반복 적용 (시작일부터 선택 월 끝까지 무한 순환)", value=True)
+        days_c = st.number_input("적용 총 일수", min_value=1, max_value=365, value=30, disabled=infinite_repeat)
+        
         c1, c2 = st.columns(2, wrap=False)
         with c1:
             i1 = st.number_input("근무자1 주기", 1, 30, 3)
@@ -426,11 +441,21 @@ def settings_dialog():
         with c2:
             i2 = st.number_input("근무자2 주기", 1, 30, 3)
             w2_names = [st.text_input(f"순번 {i+1}", key=f"w2_{i}").strip() for i in range(int(i2))]
+            
         if st.button("💾 순환 패턴 반영", use_container_width=True, type="primary"):
             df_cur = st.session_state.df
             cur_d = start_d
             v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
-            for i in range(int(days_c)):
+            
+            if infinite_repeat:
+                # 시작일부터 해당 월의 마지막 날까지 무한 순환
+                last_day_of_month = calendar.monthrange(start_d.year, start_d.month)[1]
+                target_end_date = datetime.date(start_d.year, start_d.month, last_day_of_month)
+                delta_days = (target_end_date - start_d).days + 1
+            else:
+                delta_days = int(days_c)
+
+            for i in range(delta_days):
                 idx_m = df_cur[df_cur["날짜"] == pd.Timestamp(cur_d)].index
                 if not idx_m.empty:
                     idx = idx_m[0]
@@ -439,6 +464,7 @@ def settings_dialog():
                     if v2: 
                         df_cur.loc[idx, ["근무자2", "실제근무2"]] = v2[i % len(v2)]
                 cur_d += datetime.timedelta(days=1)
+                
             st.session_state.df = df_cur
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
@@ -525,7 +551,6 @@ with st.sidebar:
         st.session_state.show_exit_dialog = True
         st.rerun()
 
-# 모달 호출 핸들러
 if st.session_state.show_exit_dialog: confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: settings_dialog()
 elif st.session_state.editing_date and st.session_state.editing_duty_info: edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
@@ -587,7 +612,6 @@ with tab1:
             for d in range(1, num_days + 1):
                 c_date = datetime.date(y, m, d)
                 d_str = c_date.strftime("%Y-%m-%d")
-                w_idx = c_date.weekday()
                 t_str = f"🌟 [오늘] {d:02d}일" if c_date == today else f"{d:02d}일"
                 info = duty_map.get(d, {"p1": "-", "p2": "-"})
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""

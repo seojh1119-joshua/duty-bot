@@ -89,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 7열 한눈에 들어오는 퍼펙트 핏 레이아웃)
+# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -107,9 +107,14 @@ dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
+# 테마별 오늘 날짜 하이라이트 스타일 정의
+today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
+today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
+today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
+
 responsive_css = f"""
 <style>
-    /* 기본 바디 및 컨테이너 최적화 */
+    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -118,17 +123,23 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    /* 메인 여백 극소화 (모바일 화면 전체 활용) */
+    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
         padding-left: 2px !important;
         padding-right: 2px !important;
-        padding-top: 0.5rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 0.1rem !important;
+        padding-bottom: 0.2rem !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
+    }}
+
+    h1 {{
+        font-size: clamp(16px, 4vw, 24px) !important;
+        margin-top: 0px !important;
+        padding-top: 0px !important;
     }}
 
     [data-testid="stSidebar"] {{
@@ -146,15 +157,15 @@ responsive_css = f"""
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1px solid {border_color};
-        border-radius: 8px;
-        padding: 6px 10px;
-        margin-top: 2px;
-        margin-bottom: 6px;
+        border-radius: 6px;
+        padding: 3px 8px;
+        margin-top: 1px;
+        margin-bottom: 4px;
         text-align: center;
     }}
     .month-header-card h2 {{
         margin: 0 !important;
-        font-size: clamp(16px, 3.8vw, 22px) !important;
+        font-size: clamp(14px, 3.2vw, 18px) !important;
         font-weight: 800 !important;
         color: {"#60A5FA" if is_dark else "#2563EB"} !important;
     }}
@@ -162,10 +173,10 @@ responsive_css = f"""
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
         color: {"white" if is_dark else "#0F172A"};
-        padding: 8px 10px;
-        border-radius: 8px;
+        padding: 4px 8px;
+        border-radius: 6px;
         border: 1px solid {border_color};
-        margin-bottom: 8px;
+        margin-bottom: 4px;
         width: 100%;
         box-sizing: border-box;
     }}
@@ -175,26 +186,26 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* 🚨 모바일 세로 7열 한눈에 꽉 차는 셀 버튼 스타일 */
+    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 52px !important;
-        padding: 3px 1px !important;
+        min-height: 38px !important;
+        padding: 2px 1px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(7px, 2.0vw, 11px) !important;
+        font-size: clamp(6.5px, 1.8vw, 10px) !important;
         font-weight: 500 !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.15 !important;
+        line-height: 1.1 !important;
     }}
 
     .stButton > button:hover {{
@@ -202,7 +213,7 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 (스크롤 유발 금지) */
+    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -264,40 +275,40 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 & 히든버튼 숨김 & 오늘 날짜 하이라이트 JS
+# 모바일 터치 스와이프 & 오늘 날짜 테마별 음영 처리 JS
 # ---------------------------------------------------------
-calendar_enhancer_js = """
+calendar_enhancer_js = f"""
 <script>
-(function() {
-    function enhanceCalendarUI() {
+(function() {{
+    function enhanceCalendarUI() {{
         const doc = window.parent.document;
         if (!doc) return;
 
         // 1. 스와이프 히든 버튼 숨김
         const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {
+        buttons.forEach(btn => {{
             const txt = btn.innerText || '';
-            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {
+            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
                 const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) {
+                if (container) {{
                     container.style.setProperty('display', 'none', 'important');
                     container.style.setProperty('height', '0px', 'important');
-                }
-            }
+                }}
+            }}
 
-            // 2. 오늘 날짜 강조 스타일
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {
-                btn.style.setProperty('background', 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 'important');
-                btn.style.setProperty('color', '#FFFFFF', 'important');
-                btn.style.setProperty('border', '1.5px solid #F59E0B', 'important');
+            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
+            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
+                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
+                btn.style.setProperty('color', '{today_highlight_text}', 'important');
+                btn.style.setProperty('border', '{today_highlight_border}', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
-            }
-        });
+            }}
+        }});
 
         // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
-        horizBlocks.forEach(block => {
-            if (block.children.length === 7) {
+        horizBlocks.forEach(block => {{
+            if (block.children.length === 7) {{
                 block.style.setProperty('display', 'flex', 'important');
                 block.style.setProperty('flex-direction', 'row', 'important');
                 block.style.setProperty('flex-wrap', 'nowrap', 'important');
@@ -305,53 +316,53 @@ calendar_enhancer_js = """
                 block.style.setProperty('max-width', '100%', 'important');
                 block.style.setProperty('gap', '1px', 'important');
 
-                Array.from(block.children).forEach(child => {
+                Array.from(block.children).forEach(child => {{
                     child.style.setProperty('width', '14.285%', 'important');
                     child.style.setProperty('max-width', '14.285%', 'important');
                     child.style.setProperty('min-width', '0px', 'important');
                     child.style.setProperty('flex', '1 1 14.285%', 'important');
                     child.style.setProperty('padding', '0px', 'important');
-                });
-            }
-        });
-    }
+                }});
+            }}
+        }});
+    }}
 
     // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
-    function triggerMonthChange(dir) {
+    function triggerMonthChange(dir) {{
         const doc = window.parent.document;
         const buttons = Array.from(doc.querySelectorAll('button'));
         const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
         const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
         if (targetBtn) targetBtn.click();
-    }
+    }}
 
-    function handleGesture() {
+    function handleGesture() {{
         const diffX = touchendX - touchstartX;
         const diffY = touchendY - touchstartY;
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {{
             if (diffX < 0) triggerMonthChange('next');
             else triggerMonthChange('prev');
-        }
-    }
+        }}
+    }}
 
     const doc = window.parent.document;
-    if (!doc._enhancerAttached) {
+    if (!doc._enhancerAttached) {{
         doc._enhancerAttached = true;
-        doc.addEventListener('touchstart', function(e) {
+        doc.addEventListener('touchstart', function(e) {{
             touchstartX = e.changedTouches[0].screenX;
             touchstartY = e.changedTouches[0].screenY;
-        }, {passive: true});
+        }}, {{passive: true}});
 
-        doc.addEventListener('touchend', function(e) {
+        doc.addEventListener('touchend', function(e) {{
             touchendX = e.changedTouches[0].screenX;
             touchendY = e.changedTouches[0].screenY;
             handleGesture();
-        }, {passive: true});
-    }
+        }}, {{passive: true}});
+    }}
 
     setInterval(enhanceCalendarUI, 200);
-})();
+}})();
 </script>
 """
 components.html(calendar_enhancer_js, height=0, width=0)
@@ -988,9 +999,16 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 탭 구성
+# 메인 화면 - 제목 및 설정 버튼 상단 배치
 # ---------------------------------------------------------
-st.title("📋 숙직 근무 관리 대시보드")
+col_title, col_settings = st.columns([0.82, 0.18])
+with col_title:
+    st.title("📋 숙직 근무 관리 대시보드")
+with col_settings:
+    st.write("")
+    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+        st.session_state.show_settings_dialog = True
+        st.rerun()
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "📅 달력 메인 화면",
@@ -1060,22 +1078,14 @@ with tab1:
     st.button("HIDDEN_NEXT", key="btn_hidden_next", on_click=go_next_month)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    col_nav1, col_nav2 = st.columns([3.2, 1.0])
-
-    with col_nav1:
-        selected_month = st.selectbox(
-            "📅 조회 월 선택",
-            available_months,
-            key="calendar_month_select",
-            on_change=on_month_change_select,
-            label_visibility="collapsed",
-        )
-        st.session_state.selected_month = selected_month
-
-    with col_nav2:
-        if st.button("⚙️ 설정", use_container_width=True, type="secondary"):
-            st.session_state.show_settings_dialog = True
-            st.rerun()
+    selected_month = st.selectbox(
+        "📅 조회 월 선택",
+        available_months,
+        key="calendar_month_select",
+        on_change=on_month_change_select,
+        label_visibility="collapsed",
+    )
+    st.session_state.selected_month = selected_month
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -1147,7 +1157,7 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 🗓️ [요청 반영] 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃
+            # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1188,7 +1198,6 @@ with tab1:
                         is_today = (curr_date == today)
                         day_label = f"🌟{day_counter}일" if is_today else f"{day_counter}일"
 
-                        # 🚨 [요청 반영] 1줄: 날짜 / 2줄: 실제근무자1 / 3줄: 실제근무자2 / 4줄: 메모
                         cell_lines = [day_label, p1_txt, p2_txt]
                         if day_memo:
                             cell_lines.append(f"📌{day_memo}")

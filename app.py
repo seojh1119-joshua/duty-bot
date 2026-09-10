@@ -89,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 오늘 날짜 음영 강조 & 스와이프 숨김)
+# 동적 CSS (테마별 스타일 & 고정 7열 가로형 그리드 구조)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -197,25 +197,6 @@ responsive_css = f"""
         color: {btn_text} !important;
     }}
 
-    /* 🌟 오늘 날짜 커스텀 강조 음영 스타일링 */
-    .stButton > button:has(div:contains("오늘")),
-    .stButton > button:has(p:contains("오늘")),
-    .stButton > button:has(span:contains("오늘")) {{
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
-        color: #FFFFFF !important;
-        border: 2px solid #F59E0B !important;
-        font-weight: 800 !important;
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.45) !important;
-    }}
-
-    .stButton > button:has(div:contains("오늘")):hover,
-    .stButton > button:has(p:contains("오늘")):hover,
-    .stButton > button:has(span:contains("오늘")):hover {{
-        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%) !important;
-        border-color: #FBBF24 !important;
-        color: #FFFFFF !important;
-    }}
-
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -234,22 +215,28 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
 
+    /* 🗓️ 항상 7열을 유지하는 가로형 달력(Matrix Grid) 컨테이너 */
     .grid-calendar-wrapper {{
         width: 100%;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        padding-bottom: 10px;
     }}
     
-    @media screen and (max-width: 768px) and (orientation: portrait) {{
-        .grid-calendar-inner {{
-            min-width: 650px !important;
-        }}
+    .grid-calendar-inner {{
+        min-width: 680px; /* 모바일 세로화면에서도 7열 달력 형태가 줄바꿈되지 않고 가로 달력 형태 유지 */
+        width: 100%;
     }}
 
-    /* JS 스와이프용 버튼 감추기 (완전 레이아웃 제거) */
-    .swipe-hidden-buttons,
-    div[data-testid="stElementContainer"]:has(.swipe-hidden-buttons),
-    div:has(> .swipe-hidden-buttons) {{
+    .grid-calendar-inner [data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+    }}
+
+    /* JS 스와이프용 버튼 완전 격리 */
+    .swipe-hidden-container {{
         display: none !important;
         height: 0px !important;
         width: 0px !important;
@@ -264,57 +251,82 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프(좌:다음달, 우:이전달) 감지 JS
+# 모바일 터치 스와이프 & 히든버튼 숨김 & 오늘 날짜 하이라이트 JS
 # ---------------------------------------------------------
-swipe_js = """
+calendar_enhancer_js = """
 <script>
 (function() {
-    let touchstartX = 0;
-    let touchstartY = 0;
-    let touchendX = 0;
-    let touchendY = 0;
+    function enhanceCalendarUI() {
+        const doc = window.parent.document;
+        if (!doc) return;
 
+        // 1. 스와이프 전용 히든 버튼 완전 숨김 처리
+        const buttons = Array.from(doc.querySelectorAll('button'));
+        buttons.forEach(btn => {
+            const txt = btn.innerText || '';
+            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {
+                const container = btn.closest('[data-testid="stElementContainer"]');
+                if (container) {
+                    container.style.setProperty('display', 'none', 'important');
+                    container.style.setProperty('height', '0px', 'important');
+                    container.style.setProperty('margin', '0px', 'important');
+                    container.style.setProperty('padding', '0px', 'important');
+                } else {
+                    btn.style.setProperty('display', 'none', 'important');
+                }
+            }
+
+            // 2. 오늘 날짜 음영 및 하이라이트 스타일 강제 적용 (CSS :contains 대체)
+            if (txt.includes('🌟') || txt.includes('[오늘]')) {
+                btn.style.setProperty('background', 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 'important');
+                btn.style.setProperty('color', '#FFFFFF', 'important');
+                btn.style.setProperty('border', '2px solid #F59E0B', 'important');
+                btn.style.setProperty('font-weight', '800', 'important');
+                btn.style.setProperty('box-shadow', '0 0 12px rgba(37, 99, 235, 0.6)', 'important');
+            }
+        });
+    }
+
+    // 터치 스와이프 이벤트
+    let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {
         const doc = window.parent.document;
         const buttons = Array.from(doc.querySelectorAll('button'));
         const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
         const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
-        if (targetBtn) {
-            targetBtn.click();
-        }
+        if (targetBtn) targetBtn.click();
     }
 
     function handleGesture() {
         const diffX = touchendX - touchstartX;
         const diffY = touchendY - touchstartY;
-        
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-            if (diffX < 0) {
-                triggerMonthChange('next');
-            } else {
-                triggerMonthChange('prev');
-            }
+            if (diffX < 0) triggerMonthChange('next');
+            else triggerMonthChange('prev');
         }
     }
 
     const doc = window.parent.document;
-    if (doc._swipeAttached) return;
-    doc._swipeAttached = true;
+    if (!doc._enhancerAttached) {
+        doc._enhancerAttached = true;
+        doc.addEventListener('touchstart', function(e) {
+            touchstartX = e.changedTouches[0].screenX;
+            touchstartY = e.changedTouches[0].screenY;
+        }, {passive: true});
 
-    doc.addEventListener('touchstart', function(e) {
-        touchstartX = e.changedTouches[0].screenX;
-        touchstartY = e.changedTouches[0].screenY;
-    }, {passive: true});
+        doc.addEventListener('touchend', function(e) {
+            touchendX = e.changedTouches[0].screenX;
+            touchendY = e.changedTouches[0].screenY;
+            handleGesture();
+        }, {passive: true});
+    }
 
-    doc.addEventListener('touchend', function(e) {
-        touchendX = e.changedTouches[0].screenX;
-        touchendY = e.changedTouches[0].screenY;
-        handleGesture();
-    }, {passive: true});
+    // 렌더링 동기화를 위해 주기적 실행
+    setInterval(enhanceCalendarUI, 200);
 })();
 </script>
 """
-components.html(swipe_js, height=0, width=0)
+components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
 # 파일 탐색 및 저장 함수 (출력 연동 동기화)
@@ -1057,13 +1069,10 @@ with tab1:
             st.session_state.selected_month = new_m
             st.session_state.calendar_month_select = new_m
 
-    # JS 스와이프 트리거용 완벽 숨김 처리된 버튼
-    st.markdown('<div class="swipe-hidden-buttons">', unsafe_allow_html=True)
-    col_h1, col_h2 = st.columns(2)
-    with col_h1:
-        st.button("HIDDEN_PREV", key="btn_hidden_prev", on_click=go_prev_month)
-    with col_h2:
-        st.button("HIDDEN_NEXT", key="btn_hidden_next", on_click=go_next_month)
+    # JS 스와이프 트리거용 완벽 은닉 처리된 버튼
+    st.markdown('<div class="swipe-hidden-container">', unsafe_allow_html=True)
+    st.button("HIDDEN_PREV", key="btn_hidden_prev", on_click=go_prev_month)
+    st.button("HIDDEN_NEXT", key="btn_hidden_next", on_click=go_next_month)
     st.markdown('</div>', unsafe_allow_html=True)
 
     col_nav1, col_nav2 = st.columns([3.2, 1.0])
@@ -1155,6 +1164,7 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
+            # 🗓️ 항상 7열(일~토) 매트릭스 형태로 표출되는 가로형 달력 (Grid Calendar)
             st.markdown('<div class="grid-calendar-wrapper"><div class="grid-calendar-inner">', unsafe_allow_html=True)
             
             cols_header = st.columns(7)
@@ -1196,7 +1206,7 @@ with tab1:
                         day_memo = st.session_state.memos.get(date_str, "")
 
                         is_today = (curr_date == today)
-                        day_label = f"🌟 [오늘 {day_counter}일]" if is_today else f"{day_counter}일"
+                        day_label = f"🌟 [오늘] {day_counter}일" if is_today else f"{day_counter}일"
 
                         btn_text = f"{day_label}\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_label}\n{p1_txt}\n{p2_txt}"
 

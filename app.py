@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 요일 최적화 및 팝업 규격)
+# 동적 CSS (사이드바 중복 클릭 방지 및 달력 세로 핏 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -119,7 +119,10 @@ today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 🚨 모바일 세로 스크롤 및 화면 핏 */
+    /* 🚨 사이드바 토글 버튼과 설정 버튼 영역 간섭/중복 클릭 방지 (z-index 분리) */
+    [data-testid="stSidebarNav"] {{ z-index: 100000 !important; }}
+    [data-testid="collapsedControl"] {{ z-index: 99999 !important; top: 5px !important; }}
+    
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -131,10 +134,10 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding-left: 1px !important;
-        padding-right: 1px !important;
-        padding-top: 0.1rem !important;
-        padding-bottom: 0.2rem !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        padding-top: 0.05rem !important;
+        padding-bottom: 0.1rem !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
@@ -152,14 +155,15 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    /* 🌟 제목 크기 확대 */
-    h1 {{ font-size: clamp(17px, 4.2vw, 25px) !important; margin-top: 0px !important; padding-top: 0px !important; font-weight: 800 !important; }}
+    /* 🌟 제목 크기 및 상단 여백 최소화 (세로 화면 잘림 방지) */
+    h1 {{ font-size: clamp(16px, 4vw, 22px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; }}
     
-    /* ⚙️ 상단 설정 버튼 폭 축소 및 아이콘 크기 최적화 */
+    /* ⚙️ 상단 설정 버튼 높이 및 패딩 컴팩트화 */
     div[data-testid="column"]:nth-child(2) button {{
-        font-size: clamp(16px, 3.8vw, 22px) !important;
-        padding: 2px 0px !important;
-        min-height: 38px !important;
+        font-size: clamp(15px, 3.5vw, 20px) !important;
+        padding: 0px !important;
+        min-height: 34px !important;
+        margin-top: 2px !important;
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
@@ -167,32 +171,32 @@ responsive_css = f"""
 
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 6px; padding: 2px 4px; margin-top: 1px; margin-bottom: 2px; text-align: center;
+        border: 1px solid {border_color}; border-radius: 4px; padding: 1px 4px; margin-top: 1px; margin-bottom: 2px; text-align: center;
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(12px, 2.8vw, 16px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(11px, 2.5vw, 15px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"}; padding: 3px 6px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 2px; width: 100%; box-sizing: border-box;
+        color: {"white" if is_dark else "#0F172A"}; padding: 2px 4px; border-radius: 4px; border: 1px solid {border_color}; margin-bottom: 2px; width: 100%; box-sizing: border-box;
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 모바일 터치 반응성 대폭 개선 및 오클릭 방지 */
+    /* 🚨 모바일 터치 및 셀 높이 최적화 (요일 및 하단 잘림 해결) */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 44px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 40px !important;
         padding: 1px 0px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: clamp(6.5px, 1.6vw, 9px) !important; font-weight: 600 !important; margin: 0 !important;
+        text-align: center !important; font-size: clamp(6px, 1.5vw, 8.5px) !important; font-weight: 600 !important; margin: 0 !important;
         touch-action: manipulation !important; cursor: pointer !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.1 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.05 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 요일 잘림 방지 */
+    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 요일 헤더 확실한 표출 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -222,7 +226,7 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 📱 모바일 세로 환경에서 팝업창이 한 화면에 완전히 들어오도록 최적화 */
+    /* 📱 모바일 세로 환경에서 팝업창 규격 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -230,8 +234,8 @@ responsive_css = f"""
         max-width: 440px !important;
         max-height: 82vh !important;
         height: auto !important;
-        border-radius: 14px !important;
-        padding: 0.7rem !important;
+        border-radius: 12px !important;
+        padding: 0.5rem !important;
         overflow-y: auto !important;
         border: 1px solid {border_color} !important;
         margin: auto !important;
@@ -249,7 +253,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 및 월 전환 오류 개선 완벽 JS
+# 모바일 터치 스와이프 및 요일/오클릭 방지 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -337,7 +341,7 @@ calendar_enhancer_js = f"""
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > 15 && Math.abs(diffX) > Math.abs(diffY)) {{
+            if (Math.abs(diffX) > 12 && Math.abs(diffX) > Math.abs(diffY)) {{
                 isSwiping = true;
             }}
         }}, {{passive: true}});
@@ -350,7 +354,7 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 28) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
@@ -358,7 +362,7 @@ calendar_enhancer_js = f"""
                     triggerMonthChange('prev');
                 }}
             }}
-            setTimeout(() => {{ isSwiping = false; }}, 300);
+            setTimeout(() => {{ isSwiping = false; }}, 250);
         }}, {{passive: true}});
 
         doc.addEventListener('click', function(e) {{
@@ -369,7 +373,7 @@ calendar_enhancer_js = f"""
         }}, true);
     }}
 
-    setInterval(enhanceCalendarUI, 150);
+    setInterval(enhanceCalendarUI, 120);
 }})();
 </script>
 """
@@ -1050,10 +1054,10 @@ with tab1:
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:11px; opacity:0.9;">🚨 오늘 근무자 ({today_str})</div>
-            <div style="font-size:13px; font-weight:bold;">
+            <div style="font-size:10px; opacity:0.9;">🚨 오늘 근무자 ({today_str})</div>
+            <div style="font-size:12px; font-weight:bold;">
                 1: <span>{p1}</span> | 2: <span>{p2}</span>
-                <span style="font-size:11px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:10px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -1188,7 +1192,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding: 2px 0;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding: 1px 0;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

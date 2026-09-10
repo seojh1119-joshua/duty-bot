@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 터치 최적화 및 팝업 규격)
+# 동적 CSS (모바일 요일 최적화 및 팝업 규격)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -131,8 +131,8 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding-left: 2px !important;
-        padding-right: 2px !important;
+        padding-left: 1px !important;
+        padding-right: 1px !important;
         padding-top: 0.1rem !important;
         padding-bottom: 0.2rem !important;
         max-width: 100vw !important;
@@ -153,13 +153,13 @@ responsive_css = f"""
     }}
 
     /* 🌟 제목 크기 확대 */
-    h1 {{ font-size: clamp(18px, 4.5vw, 26px) !important; margin-top: 0px !important; padding-top: 0px !important; font-weight: 800 !important; }}
+    h1 {{ font-size: clamp(17px, 4.2vw, 25px) !important; margin-top: 0px !important; padding-top: 0px !important; font-weight: 800 !important; }}
     
-    /* ⚙️ 상단 설정 버튼 아이콘 크기 확대 */
+    /* ⚙️ 상단 설정 버튼 폭 축소 및 아이콘 크기 최적화 */
     div[data-testid="column"]:nth-child(2) button {{
-        font-size: clamp(18px, 4vw, 24px) !important;
-        padding: 4px 0px !important;
-        min-height: 42px !important;
+        font-size: clamp(16px, 3.8vw, 22px) !important;
+        padding: 2px 0px !important;
+        min-height: 38px !important;
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
@@ -167,9 +167,9 @@ responsive_css = f"""
 
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 6px; padding: 2px 6px; margin-top: 1px; margin-bottom: 2px; text-align: center;
+        border: 1px solid {border_color}; border-radius: 6px; padding: 2px 4px; margin-top: 1px; margin-bottom: 2px; text-align: center;
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(13px, 3vw, 17px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(12px, 2.8vw, 16px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
@@ -177,22 +177,22 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 모바일 터치 반응성 대폭 개선 */
+    /* 🚨 모바일 터치 반응성 대폭 개선 및 오클릭 방지 */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 48px !important;
-        padding: 2px 0px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 44px !important;
+        padding: 1px 0px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: clamp(7px, 1.7vw, 9.5px) !important; font-weight: 600 !important; margin: 0 !important;
+        text-align: center !important; font-size: clamp(6.5px, 1.6vw, 9px) !important; font-weight: 600 !important; margin: 0 !important;
         touch-action: manipulation !important; cursor: pointer !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.15 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.1 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 */
+    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 요일 잘림 방지 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -249,7 +249,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 오류 개선 JS (달력 드래그 전후 월 변경 완벽 구현)
+# 모바일 터치 스와이프 및 월 전환 오류 개선 완벽 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -337,7 +337,7 @@ calendar_enhancer_js = f"""
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > 25 && Math.abs(diffX) > Math.abs(diffY)) {{
+            if (Math.abs(diffX) > 15 && Math.abs(diffX) > Math.abs(diffY)) {{
                 isSwiping = true;
             }}
         }}, {{passive: true}});
@@ -350,23 +350,21 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
                 }} else {{
                     triggerMonthChange('prev');
                 }}
-            }} else {{
-                isSwiping = false;
             }}
+            setTimeout(() => {{ isSwiping = false; }}, 300);
         }}, {{passive: true}});
 
         doc.addEventListener('click', function(e) {{
             if (isSwiping) {{
                 e.stopPropagation();
                 e.preventDefault();
-                isSwiping = false;
             }}
         }}, true);
     }}
@@ -1017,9 +1015,9 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 및 설정 버튼 상단 배치
+# 메인 화면 - 제목 및 설정 버튼 상단 배치 (비율 최적화: [0.88, 0.12])
 # ---------------------------------------------------------
-col_title, col_settings = st.columns([0.84, 0.16], wrap=False)
+col_title, col_settings = st.columns([0.88, 0.12], wrap=False)
 with col_title:
     st.title("📋 광주교도소 의료과 숙직근무")
 with col_settings:
@@ -1177,7 +1175,7 @@ with tab1:
                         st.session_state.editing_duty_info = duty_info
                         st.rerun()
         else:
-            # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃 (wrap=False 적용)
+            # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 요일 표시 최적화
             cols_header = st.columns(7, wrap=False)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1190,7 +1188,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(9px, 2vw, 12px); padding-bottom: 1px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding: 2px 0;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

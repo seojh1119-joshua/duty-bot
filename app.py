@@ -114,11 +114,11 @@ today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
+    /* 기본 바디 및 컨테이너 최적화 (가로 스크롤 방지 및 화면 핏) */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        width: 100vw !important;
+        width: 100% !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
     }}
@@ -126,11 +126,11 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding-left: 2px !important;
-        padding-right: 2px !important;
-        padding-top: 0.1rem !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        padding-top: 0.2rem !important;
         padding-bottom: 0.2rem !important;
-        max-width: 100vw !important;
+        max-width: 100% !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
@@ -147,7 +147,7 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    h1 {{ font-size: clamp(16px, 4vw, 24px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
+    h1 {{ font-size: clamp(16px, 4vw, 22px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
@@ -163,23 +163,47 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 콤팩트 셀 버튼: "..." 숨김 방지 및 자동 줄바꿈 강제 */
+    /* 🚨 콤팩트 셀 버튼 스타일 및 글자 잘림 방지 */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 50px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 52px !important;
         padding: 2px 1px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
         text-align: center !important; font-size: clamp(6.5px, 1.8vw, 10px) !important; font-weight: 500 !important; margin: 0 !important;
     }}
-    /* 하위 텍스트 요소들까지 강제로 줄바꿈 처리하여 ... 이 나오는 것을 방지 */
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.2 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.15 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    [data-testid="stHorizontalBlock"] {{ display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; gap: 1px !important; margin: 0 !important; }}
-    [data-testid="column"] {{ width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important; flex: 1 1 14.285% !important; padding: 0px 0px !important; margin: 0 !important; box-sizing: border-box !important; }}
-    [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
+    /* 🗓️ 7개 컬럼 강제 가로 한 화면 밀착 정렬 (줄바꿈 방지) */
+    [data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 2px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }}
+
+    [data-testid="column"] {{
+        width: 14.28% !important;
+        max-width: 14.28% !important;
+        min-width: 0 !important;
+        flex: 1 1 14.28% !important;
+        padding: 0px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }}
+
+    [data-testid="stElementContainer"] {{
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
 
     [data-testid="stDialog"] > div:first-child {{ background-color: {dialog_bg} !important; color: {main_text_color} !important; width: clamp(290px, 92vw, 600px) !important; max-width: 95vw !important; max-height: 88vh !important; border-radius: 12px !important; padding: 1rem !important; overflow-y: auto !important; border: 1px solid {border_color} !important; }}
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{ background-color: {input_bg} !important; color: {input_text} !important; border-color: {border_color} !important; }}
@@ -190,7 +214,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 & 레이아웃 강제 JS
+# 모바일 터치 스와이프 & 뒤로가기 제어 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -215,38 +239,28 @@ calendar_enhancer_js = f"""
         }});
     }}
 
-    let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
+    let touchstartX = 0, touchstartY = 0;
+    
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;
         const buttons = Array.from(doc.querySelectorAll('button'));
         const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
         const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
-        if (targetBtn) targetBtn.click();
-    }}
-
-    function handleGesture() {{
-        const diffX = touchendX - touchstartX;
-        const diffY = touchendY - touchstartY;
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {{ // 민감도 조절
-            if (diffX < 0) triggerMonthChange('next');
-            else triggerMonthChange('prev');
+        if (targetBtn) {{
+            targetBtn.click();
         }}
-        // 제스처 후 좌표 초기화로 다중 실행 방지
-        touchstartX = 0; touchstartY = 0; touchendX = 0; touchendY = 0;
     }}
 
     const doc = window.parent.document;
     
-    // 📱 모바일 뒤로가기 버튼(백버튼) 제어 로직
+    /* 📱 모바일 뒤로가기 버튼(백버튼) 제어: 팝업 상태일 때 앱 최소화 방지 */
     if (!window.parent._historyPatched) {{
         window.parent._historyPatched = true;
-        // 강제로 현재 히스토리 추가하여 백버튼 대기
         window.parent.history.pushState(null, null, window.parent.location.href);
         
         window.parent.addEventListener('popstate', function(e) {{
             const dialog = window.parent.document.querySelector('[data-testid="stDialog"]');
             if (dialog) {{
-                // 팝업이 띄워져 있을 경우 앱이 최소화되는 것을 막고 팝업만 닫기
                 window.parent.history.pushState(null, null, window.parent.location.href);
                 const closeBtn = window.parent.document.querySelector('button[aria-label="Close"]');
                 if(closeBtn) closeBtn.click();
@@ -256,19 +270,33 @@ calendar_enhancer_js = f"""
 
     if (!doc._enhancerAttached) {{
         doc._enhancerAttached = true;
+        
         doc.addEventListener('touchstart', function(e) {{
-            touchstartX = e.changedTouches[0].screenX;
-            touchstartY = e.changedTouches[0].screenY;
+            if (e.changedTouches && e.changedTouches.length > 0) {{
+                touchstartX = e.changedTouches[0].clientX;
+                touchstartY = e.changedTouches[0].clientY;
+            }}
         }}, {{passive: true}});
 
         doc.addEventListener('touchend', function(e) {{
-            touchendX = e.changedTouches[0].screenX;
-            touchendY = e.changedTouches[0].screenY;
-            handleGesture();
+            if (!e.changedTouches || e.changedTouches.length === 0) return;
+            let touchendX = e.changedTouches[0].clientX;
+            let touchendY = e.changedTouches[0].clientY;
+            
+            let diffX = touchendX - touchstartX;
+            let diffY = touchendY - touchstartY;
+            
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
+                if (diffX < 0) {{
+                    triggerMonthChange('next');
+                }} else {{
+                    triggerMonthChange('prev');
+                }}
+            }}
         }}, {{passive: true}});
     }}
 
-    setInterval(enhanceCalendarUI, 300);
+    setInterval(enhanceCalendarUI, 200);
 }})();
 </script>
 """
@@ -908,12 +936,12 @@ today = datetime.date.today()
 # ---------------------------------------------------------
 # 메인 화면 - 제목 및 설정 버튼 상단 배치
 # ---------------------------------------------------------
-col_title, col_settings = st.columns([0.85, 0.15])
+col_title, col_settings = st.columns([0.88, 0.12])
 with col_title:
     st.title("📋 광주교도소 의료과 숙직근무")
 with col_settings:
     st.write("")
-    if st.button("⚙️", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+    if st.button("⚙️", type="secondary", key="main_top_settings_btn"):
         st.session_state.show_settings_dialog = True
         st.rerun()
 

@@ -260,10 +260,7 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 # ---------------------------------------------------------
 # 모바일 스와이프 기능 및 버튼 간섭 방지 JS (속도 최적화)
 # ---------------------------------------------------------
-# ---------------------------------------------------------
-# 모바일 스와이프 기능 및 버튼 간섭 방지 JS (속도 최적화)
-# ---------------------------------------------------------
-calendar_enhancer_js = f"""
+calendar_enhancer_js = """
 <script>
 (function() {{
     function enhanceCalendarUI() {{
@@ -278,9 +275,9 @@ calendar_enhancer_js = f"""
                 if (container) {{ container.style.setProperty('display', 'none', 'important'); }}
             }}
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
-                btn.style.setProperty('background', '%s', 'important');
-                btn.style.setProperty('color', '%s', 'important');
-                btn.style.setProperty('border', '%s', 'important');
+                btn.style.setProperty('background', '{bg}', 'important');
+                btn.style.setProperty('color', '{text}', 'important');
+                btn.style.setProperty('border', '{border}', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
@@ -384,9 +381,12 @@ calendar_enhancer_js = f"""
     setInterval(enhanceCalendarUI, 250);
 }})();
 </script>
-""" % (today_highlight_bg, today_highlight_text, today_highlight_border)
+""".format(
+    bg=today_highlight_bg,
+    text=today_highlight_text,
+    border=today_highlight_border
+)
 
-components.html(calendar_enhancer_js, height=0, width=0)
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------

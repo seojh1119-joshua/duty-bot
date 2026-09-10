@@ -220,6 +220,17 @@ responsive_css = f"""
             min-width: 650px !important;
         }}
     }}
+
+    /* JS 스와이프용 오프스크린 숨김 영역 */
+    .swipe-hidden-buttons {{
+        position: absolute !important;
+        top: -9999px !important;
+        left: -9999px !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+    }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -238,7 +249,7 @@ swipe_js = """
     function triggerMonthChange(dir) {
         const doc = window.parent.document;
         const buttons = Array.from(doc.querySelectorAll('button'));
-        const targetText = dir === 'next' ? '다음달' : '이전달';
+        const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
         const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
         if (targetBtn) {
             targetBtn.click();
@@ -801,7 +812,7 @@ def settings_dialog():
 
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그 (수정: 날짜별 Dynamic Key 지정)
+# 근무자 수정 다이얼로그 (날짜별 Dynamic Key 지정)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -979,40 +990,55 @@ with tab1:
         available_months = [today.strftime("%Y-%m")]
 
     current_ym = today.strftime("%Y-%m")
-    default_idx = available_months.index(current_ym) if current_ym in available_months else 0
 
-    if "calendar_month_select" not in st.session_state:
-        st.session_state.calendar_month_select = available_months[default_idx]
+    # 월 선택 세션 상태 초기화 및 안전 검증
+    if "selected_month" not in st.session_state or st.session_state.selected_month not in available_months:
+        st.session_state.selected_month = current_ym if current_ym in available_months else available_months[0]
 
-    if "selected_month_idx" not in st.session_state:
-        st.session_state.selected_month_idx = available_months.index(st.session_state.calendar_month_select) if st.session_state.calendar_month_select in available_months else default_idx
+    if "calendar_month_select" not in st.session_state or st.session_state.calendar_month_select not in available_months:
+        st.session_state.calendar_month_select = st.session_state.selected_month
 
-    col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([0.6, 2.2, 0.6, 1.2])
-    
+    # 드롭다운 직접 변경 시 콜백
+    def on_month_change_select():
+        st.session_state.selected_month = st.session_state.calendar_month_select
+
+    # 모바일 스와이프 전용 월 이동 콜백
+    def go_prev_month():
+        curr_idx = available_months.index(st.session_state.selected_month)
+        if curr_idx > 0:
+            new_m = available_months[curr_idx - 1]
+            st.session_state.selected_month = new_m
+            st.session_state.calendar_month_select = new_m
+
+    def go_next_month():
+        curr_idx = available_months.index(st.session_state.selected_month)
+        if curr_idx < len(available_months) - 1:
+            new_m = available_months[curr_idx + 1]
+            st.session_state.selected_month = new_m
+            st.session_state.calendar_month_select = new_m
+
+    # JS 스와이프 트리거용 화면 밖 숨김 버튼
+    st.markdown('<div class="swipe-hidden-buttons">', unsafe_allow_html=True)
+    col_h1, col_h2 = st.columns(2)
+    with col_h1:
+        st.button("HIDDEN_PREV", key="btn_hidden_prev", on_click=go_prev_month)
+    with col_h2:
+        st.button("HIDDEN_NEXT", key="btn_hidden_next", on_click=go_next_month)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    col_nav1, col_nav2 = st.columns([3.2, 1.0])
+
     with col_nav1:
-        if st.button("◀ 이전달", key="prev_month_btn", help="이전 달로 이동 (스와이프 가능)"):
-            if st.session_state.selected_month_idx > 0:
-                st.session_state.selected_month_idx -= 1
-                st.session_state.calendar_month_select = available_months[st.session_state.selected_month_idx]
-                st.rerun()
-
-    with col_nav2:
         selected_month = st.selectbox(
             "📅 조회 월 선택",
             available_months,
             key="calendar_month_select",
+            on_change=on_month_change_select,
             label_visibility="collapsed",
         )
-        st.session_state.selected_month_idx = available_months.index(selected_month)
+        st.session_state.selected_month = selected_month
 
-    with col_nav3:
-        if st.button("다음달 ▶", key="next_month_btn", help="다음 달로 이동 (스와이프 가능)"):
-            if st.session_state.selected_month_idx < len(available_months) - 1:
-                st.session_state.selected_month_idx += 1
-                st.session_state.calendar_month_select = available_months[st.session_state.selected_month_idx]
-                st.rerun()
-
-    with col_nav4:
+    with col_nav2:
         if st.button("⚙️ 설정", use_container_width=True, type="secondary"):
             settings_dialog()
 
@@ -1053,7 +1079,7 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능합니다.")
+        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능하며, 모바일 화면을 좌우로 스와이프하여 달을 이동할 수 있습니다.")
 
         calendar_view_type = st.session_state.auto_view_type
 

@@ -154,7 +154,7 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ font-size: 16px !important; font-weight: 900 !important; margin: 0 !important; }}
 
-    /* 📌 [핵심 1] 팝업창 가로/세로 비율 반전 적용 (세로모드 시 가로형 넓은 비율, 가로모드 시 세로형 컴팩트 비율) */
+    /* 📌 [핵심 1] 팝업창 가로/세로 화면 고정 비율 설정 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -169,21 +169,21 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 세로 화면(Portrait)일 때 팝업 비율: 가로로 넓게 반전 적용 */
+    /* 세로 화면(Portrait)일 때 팝업 고정 비율 */
     @media (orientation: portrait) {{
         [data-testid="stDialog"] > div:first-child {{
-            width: 96vw !important;
-            max-width: 600px !important;
-            max-height: 85vh !important;
+            width: 90vw !important;
+            max-width: 450px !important;
+            max-height: 80vh !important;
         }}
     }}
 
-    /* 가로 화면(Landscape)일 때 팝업 비율: 세로형 컴팩트 비율로 반전 적용 */
+    /* 가로 화면(Landscape)일 때 팝업 고정 비율 */
     @media (orientation: landscape) {{
         [data-testid="stDialog"] > div:first-child {{
-            width: 50vw !important;
-            max-width: 420px !important;
-            max-height: 90vh !important;
+            width: 70vw !important;
+            max-width: 650px !important;
+            max-height: 85vh !important;
         }}
     }}
 
@@ -213,7 +213,7 @@ responsive_css = f"""
         padding: 2px 4px !important;
     }}
 
-    /* 📌 [핵심 2] 세로 화면에서도 달력 7열이 한눈에 보이도록 강제 가로 정렬 및 패딩/글자 크기 압축 설정 */
+    /* 📌 [핵심 2] 요일 박스와 달력 버튼 폭을 동일하게 7열 균등 배치 및 세로폭 최적화 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -231,6 +231,21 @@ responsive_css = f"""
         padding: 0px !important;
         margin: 0 !important;
     }}
+    
+    /* 요일 박스 컨테이너 스타일 (달력 버튼과 완벽히 같은 폭 유지) */
+    .weekday-box {{
+        text-align: center;
+        font-weight: 900;
+        font-size: clamp(9px, 2.5vw, 12px);
+        padding: 3px 0px;
+        background: rgba(128,128,128,0.1);
+        border-radius: 4px;
+        border: 1px solid {border_color};
+        width: 100%;
+        box-sizing: border-box;
+        margin: 0px;
+    }}
+
     div[data-testid="column"] .stButton > button {{
         width: 100% !important;
         min-height: clamp(55px, 14vw, 95px) !important;
@@ -821,7 +836,7 @@ with tab1:
                 ("토", "#38BDF8" if is_dark else "#2563EB")
             ]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(9px, 2.5vw, 13px); padding: 2px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div class='weekday-box' style='color: {col_c};'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1

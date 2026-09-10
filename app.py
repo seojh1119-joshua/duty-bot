@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (버튼 세로 2배 확대, 요일 노출, 스와이프 영역)
+# 동적 CSS (달력 버튼만 개별 확장 및 요일 박스 2배 확대)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -111,7 +111,7 @@ sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
-input_text = "#F8FAFC" if is_dark else "#0F172A"
+input_text = "#F8FAFC" if is_dark else "#F8FAFC"
 
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
@@ -143,7 +143,7 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 사이드바 엑셀 업로드/다운로드 연한 하늘색 배경 적용 */
+    /* 사이드바 업로드/다운로드 버튼 스타일 */
     [data-testid="stSidebar"] [data-testid="stFileUploader"] > section {{
         background-color: #E0F2FE !important;
         border: 1px dashed #7DD3FC !important;
@@ -155,10 +155,8 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    /* 메인 타이틀 크기 */
     h1 {{ font-size: clamp(16px, 4vw, 22px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; }}
     
-    /* 상단 설정 버튼 */
     div[data-testid="column"]:nth-child(2) button {{
         font-size: clamp(15px, 3.5vw, 20px) !important;
         padding: 0px !important;
@@ -169,7 +167,6 @@ responsive_css = f"""
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
-    /* 달력 위 월 제목 카드를 달력 폰트보다 크고 선명하게 설정 */
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1px solid {border_color}; border-radius: 6px; padding: 6px 8px; margin-top: 4px; margin-bottom: 4px; text-align: center;
@@ -182,14 +179,22 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 가로형 달력 버튼 세로 길이를 2배 정도 확대 (min-height 85px 이상 확보) 및 요일/글씨 보장 */
+    /* 일반 앱 버튼들은 폰트에 비례하도록 컴팩트하게 설정 */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 82px !important;
-        padding: 4px 1px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 34px !important;
+        padding: 4px 8px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: clamp(7.5px, 1.8vw, 10.5px) !important; font-weight: 600 !important; margin: 0 !important;
-        touch-action: pan-y !important; cursor: pointer !important;
+        text-align: center !important; font-size: 13px !important; font-weight: 600 !important; margin: 0 !important;
+        touch-action: manipulation !important; cursor: pointer !important;
     }}
+
+    /* 🚨 달력 내부 셀 버튼만 세로 길이를 약 2배로 확장 (min-height 82px) */
+    div[data-testid="column"] .stButton > button {{
+        min-height: 82px !important;
+        padding: 4px 1px !important;
+        font-size: clamp(7.5px, 1.8vw, 10.5px) !important;
+    }}
+
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.2 !important;
@@ -197,7 +202,7 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 요일 노출 최적화 */
+    /* 7개 컬럼 강제 가로 한 화면 일렬 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -254,7 +259,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 🚨 모바일 스와이프 기능 완벽 복구 및 요일 표출 제어 JS
+# 🚨 모바일 드래그(스와이프)로 전후 월 이동 기능 완벽 복구 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -342,7 +347,7 @@ calendar_enhancer_js = f"""
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > 20 && Math.abs(diffX) > Math.abs(diffY)) {{
+            if (Math.abs(diffX) > 15 && Math.abs(diffX) > Math.abs(diffY)) {{
                 isSwiping = true;
             }}
         }}, {{passive: true}});
@@ -355,7 +360,7 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
@@ -374,7 +379,7 @@ calendar_enhancer_js = f"""
         }}, true);
     }}
 
-    setInterval(enhanceCalendarUI, 120);
+    setInterval(enhanceCalendarUI, 100);
 }})();
 </script>
 """
@@ -1199,7 +1204,7 @@ with tab1:
                         st.session_state.editing_duty_info = duty_info
                         st.rerun()
         else:
-            # 🗓️ 가로형 Grid 달력 요일 표출 (일월화수목금토 명확하게 표시)
+            # 🗓️ 가로형 Grid 달력: 요일 박스 세로 길이 2배 확대 및 달력 폰트보다 크게 키우기
             cols_header = st.columns(7, wrap=False)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1212,7 +1217,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(11px, 2.5vw, 14px); padding: 2px 0;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: 900; font-size: clamp(14px, 3.2vw, 18px); padding: 12px 0; background: { 'rgba(255,255,255,0.05)' if is_dark else 'rgba(0,0,0,0.03)' }; border-radius: 4px; border: 1px solid {border_color};'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

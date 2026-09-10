@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 미디어 쿼리 기반 반응형 스타일 지정
+# 동적 CSS 및 모바일 7열 강제 반응형 스타일 지정
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -86,11 +86,10 @@ btn_bg = "#1E293B" if is_dark else "#FFFFFF"
 btn_text = "#F8FAFC" if is_dark else "#0F172A"
 btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
-sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
+box_bg = "#1E293B" if is_dark else "#F8FAFC"
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#1E293B" if is_dark else "#F8FAFC"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
-box_bg = "#1E293B" if is_dark else "#F8FAFC"
 
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
@@ -107,6 +106,8 @@ responsive_css = f"""
         max-width: 100vw !important;
         overflow-x: hidden !important;
         -webkit-tap-highlight-color: transparent !important;
+        -webkit-touch-callout: none !important;
+        user-select: none !important;
     }}
 
     .main .block-container {{
@@ -119,14 +120,13 @@ responsive_css = f"""
     }}
 
     h1 {{
-        font-size: clamp(22px, 5vw, 36px) !important;
-        margin: 4px 0px 8px 0px !important;
+        font-size: clamp(20px, 4.5vw, 34px) !important;
+        margin: 2px 0px 6px 0px !important;
         padding: 2px 0px !important;
         font-weight: 900 !important;
         white-space: nowrap !important;
         text-align: center !important;
         color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
-        letter-spacing: -0.5px !important;
     }}
 
     .setting-box {{
@@ -134,8 +134,7 @@ responsive_css = f"""
         border: 2px solid {border_color} !important;
         border-radius: 8px !important;
         padding: 6px 8px !important;
-        margin: 6px 0px 10px 0px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+        margin: 4px 0px 8px 0px !important;
     }}
 
     .today-card {{
@@ -143,18 +142,18 @@ responsive_css = f"""
         border: 1.5px solid {border_color} !important;
         border-radius: 8px !important;
         padding: 6px 10px !important;
-        margin-bottom: 8px !important;
+        margin-bottom: 6px !important;
     }}
-    .today-card .today-title {{ font-size: 12px !important; font-weight: 700 !important; opacity: 0.9; }}
-    .today-card .today-content {{ font-size: 14px !important; font-weight: 800 !important; margin-top: 2px; }}
+    .today-card .today-title {{ font-size: 11px !important; font-weight: 700 !important; opacity: 0.9; }}
+    .today-card .today-content {{ font-size: 13px !important; font-weight: 800 !important; margin-top: 2px; }}
 
     .month-header-card {{
-        text-align: center; padding: 4px; margin-bottom: 6px;
+        text-align: center; padding: 4px; margin-bottom: 4px;
         background: {box_bg}; border: 1.5px solid {border_color}; border-radius: 8px;
     }}
-    .month-header-card h2 {{ font-size: 16px !important; font-weight: 900 !important; margin: 0 !important; }}
+    .month-header-card h2 {{ font-size: 15px !important; font-weight: 900 !important; margin: 0 !important; }}
 
-    /* 팝업창 가로/세로 화면 고정 비율 설정 */
+    /* 팝업창 모바일 가로/세로 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -171,8 +170,8 @@ responsive_css = f"""
 
     @media (orientation: portrait) {{
         [data-testid="stDialog"] > div:first-child {{
-            width: 90vw !important;
-            max-width: 450px !important;
+            width: 92vw !important;
+            max-width: 420px !important;
             max-height: 80vh !important;
         }}
     }}
@@ -180,47 +179,26 @@ responsive_css = f"""
     @media (orientation: landscape) {{
         [data-testid="stDialog"] > div:first-child {{
             width: 70vw !important;
-            max-width: 650px !important;
+            max-width: 600px !important;
             max-height: 85vh !important;
         }}
     }}
 
-    [data-testid="stDialog"] [data-testid="stForm"] {{
-        border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important;
-    }}
+    [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
-    [data-testid="stDialog"] div[data-baseweb="select"], 
-    [data-testid="stDialog"] div[data-baseweb="input"],
-    [data-testid="stDialog"] textarea {{
-        min-height: 26px !important;
-        font-size: 11px !important;
-    }}
-    [data-testid="stDialog"] label {{
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        margin-bottom: 0px !important;
-    }}
-    [data-testid="stDialog"] .stTextArea textarea {{
-        height: 45px !important;
-        min-height: 45px !important;
-        font-size: 11px !important;
-    }}
-    [data-testid="stDialog"] .stButton > button {{
-        min-height: 28px !important;
-        font-size: 11px !important;
-        padding: 2px 4px !important;
-    }}
 
-    /* 📌 [핵심] 7열 가로형 달력 그리드 구조 (모바일 세로/가로 모두 7열 유지 및 세로폭 대응) */
+    /* 📌 [결정적 수정] 모바일 환경에서도 한 화면에 7열 전체 강제 고정 레이아웃 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         width: 100% !important;
+        max-width: 100% !important;
         gap: 1px !important;
         margin: 0 !important;
         padding: 0 !important;
     }}
+    
     [data-testid="column"] {{
         width: 14.285% !important;
         max-width: 14.285% !important;
@@ -228,52 +206,55 @@ responsive_css = f"""
         flex: 1 1 14.285% !important;
         padding: 0px !important;
         margin: 0 !important;
+        box-sizing: border-box !important;
     }}
     
     .weekday-box {{
         text-align: center;
         font-weight: 900;
-        font-size: clamp(9px, 2.5vw, 12px);
-        padding: 3px 0px;
+        font-size: clamp(8px, 2.2vw, 11px);
+        padding: 2px 0px;
         background: rgba(128,128,128,0.1);
-        border-radius: 4px;
+        border-radius: 3px;
         border: 1px solid {border_color};
         width: 100%;
         box-sizing: border-box;
         margin: 0px;
     }}
 
-    /* 모바일 세로 화면(Portrait)일 때 달력 버튼 폭은 좁고 높이가 높도록(7열 유지) 컴팩트하게 조정 */
+    /* 📌 모바일 세로 화면(Portrait): 폭이 좁고 높이가 높은 형태의 콤팩트한 7열 달력 그리드 버튼 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 52px !important;
-            max-height: 72px !important;
+            min-height: 56px !important;
+            max-height: 75px !important;
             padding: 1px 0px !important;
-            font-size: clamp(7px, 2vw, 9.5px) !important;
+            font-size: clamp(6.5px, 1.8vw, 9px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: flex-start !important;
             align-items: center !important;
             box-sizing: border-box !important;
+            border-radius: 4px !important;
         }}
     }}
 
-    /* 모바일 가로 화면 또는 일반 화면(Landscape/PC)일 때 달력 버튼 스타일 */
+    /* 모바일 가로 화면 또는 PC(Landscape) 기준 버튼 스타일 */
     @media (orientation: landscape) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 75px !important;
-            max-height: 105px !important;
+            min-height: 72px !important;
+            max-height: 98px !important;
             padding: 1px 0px !important;
-            font-size: clamp(8px, 1.5vw, 11px) !important;
+            font-size: clamp(8px, 1.4vw, 10.5px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: flex-start !important;
             align-items: center !important;
             box-sizing: border-box !important;
+            border-radius: 4px !important;
         }}
     }}
 
@@ -281,12 +262,12 @@ responsive_css = f"""
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow: hidden !important;
-        line-height: 1.02 !important;
+        line-height: 1.01 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
     [data-baseweb="tab-list"] {{ width: 100% !important; display: flex !important; gap: 2px !important; }}
-    [data-baseweb="tab"] {{ flex: 1 1 auto !important; padding: 4px 2px !important; font-size: 11px !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; }}
+    [data-baseweb="tab"] {{ flex: 1 1 auto !important; padding: 3px 2px !important; font-size: 11px !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important; color: {input_text} !important; border: 1.5px solid {border_color} !important; font-weight: 600 !important;
@@ -297,7 +278,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (드래그 팝업 오류 방지 및 스와이프 기능 개선)
+# 브라우저 스크립트 (드래그/스와이프 시 팝업창 오류 완전 차단)
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>
@@ -365,9 +346,16 @@ calendar_enhancer_js_template = """
     if (!doc._swipeAttached) {
         doc._swipeAttached = true;
         
-        // 📌 드래그(텍스트 선택 및 마우스 이동) 시 팝업창이 오동작하는 오류 원인 차단
+        // 📌 드래그 및 텍스트 선택 시 발생하는 오동작 및 의도치 않은 팝업창 생성 원인을 완벽 차단
         doc.addEventListener('dragstart', function(e) {
             e.preventDefault();
+            e.stopPropagation();
+        }, {passive: false});
+
+        doc.addEventListener('selectstart', function(e) {
+            if (e.target.closest('button')) {
+                e.preventDefault();
+            }
         }, {passive: false});
 
         doc.addEventListener('touchstart', function(e) {
@@ -381,13 +369,13 @@ calendar_enhancer_js_template = """
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
                 if (diffX < 0) triggerMonthChange('next');
                 else triggerMonthChange('prev');
             }
         }, {passive: true});
     }
-    setInterval(enhanceCalendarUI, 250);
+    setInterval(enhanceCalendarUI, 200);
 })();
 </script>
 """

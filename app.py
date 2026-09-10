@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 세로 팝업 화면 핏 및 달력 최적화)
+# 동적 CSS (모바일 세로 팝업 100% 핏 및 설정 버튼 확대)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -151,7 +151,16 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    h1 {{ font-size: clamp(14px, 3.5vw, 20px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
+    /* 🌟 제목 크기 대폭 확대 */
+    h1 {{ font-size: clamp(18px, 4.5vw, 26px) !important; margin-top: 0px !important; padding-top: 0px !important; font-weight: 800 !important; }}
+    
+    /* ⚙️ 상단 설정 버튼 아이콘 크기 확대 및 텍스트 제거 대응 스타일 */
+    div[data-testid="column"]:nth-child(2) button {{
+        font-size: clamp(18px, 4vw, 24px) !important;
+        padding: 4px 0px !important;
+        min-height: 42px !important;
+    }}
+
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
@@ -162,7 +171,7 @@ responsive_css = f"""
     .month-header-card h2 {{ margin: 0 !important; font-size: clamp(13px, 3vw, 17px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
 
     .today-card {{
-        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
+        background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
         color: {"white" if is_dark else "#0F172A"}; padding: 3px 6px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 2px; width: 100%; box-sizing: border-box;
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
@@ -210,18 +219,23 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 📱 모바일 세로 팝업 화면 규격 고정 (화면 벗어남 방지) */
+    /* 📱 모바일 세로 환경에서 팝업창이 한 화면에 완전히 들어오도록 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: 92vw !important;
-        max-width: 480px !important;
-        max-height: 85vh !important;
-        border-radius: 12px !important;
-        padding: 0.8rem !important;
+        width: 96vw !important;
+        max-width: 440px !important;
+        max-height: 82vh !important;
+        height: auto !important;
+        border-radius: 14px !important;
+        padding: 0.7rem !important;
         overflow-y: auto !important;
         border: 1px solid {border_color} !important;
         margin: auto !important;
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
     }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{ background-color: {input_bg} !important; color: {input_text} !important; border-color: {border_color} !important; }}
@@ -232,7 +246,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 & 뒤로가기 제어 JS
+# 모바일 터치 스와이프 (드래그 시 버튼 오클릭 방지 로직 적용)
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -277,6 +291,7 @@ calendar_enhancer_js = f"""
     }}
 
     let touchstartX = 0, touchstartY = 0;
+    let isSwiping = false;
     
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;
@@ -311,6 +326,16 @@ calendar_enhancer_js = f"""
             if (e.changedTouches && e.changedTouches.length > 0) {{
                 touchstartX = e.changedTouches[0].clientX;
                 touchstartY = e.changedTouches[0].clientY;
+                isSwiping = false;
+            }}
+        }}, {{passive: true}});
+
+        doc.addEventListener('touchmove', function(e) {{
+            if (!e.changedTouches || e.changedTouches.length === 0) return;
+            let diffX = e.changedTouches[0].clientX - touchstartX;
+            let diffY = e.changedTouches[0].clientY - touchstartY;
+            if (Math.abs(diffX) > 15 && Math.abs(diffX) > Math.abs(diffY)) {{
+                isSwiping = true;
             }}
         }}, {{passive: true}});
 
@@ -322,7 +347,8 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
+                isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
                 }} else {{
@@ -330,6 +356,15 @@ calendar_enhancer_js = f"""
                 }}
             }}
         }}, {{passive: true}});
+
+        // 🚨 스와이프 도중 날짜 버튼이 눌려 팝업이 뜨는 충돌 원천 차단
+        doc.addEventListener('click', function(e) {{
+            if (isSwiping) {{
+                e.stopPropagation();
+                e.preventDefault();
+                isSwiping = false;
+            }}
+        }}, true);
     }}
 
     setInterval(enhanceCalendarUI, 150);
@@ -978,14 +1013,14 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 및 설정 버튼 상단 배치 (wrap=False로 세로 꺾임 방지)
+# 메인 화면 - 제목 및 설정 버튼 상단 배치 (설정 글씨 제거 및 아이콘 확대)
 # ---------------------------------------------------------
-col_title, col_settings = st.columns([0.82, 0.18], wrap=False)
+col_title, col_settings = st.columns([0.84, 0.16], wrap=False)
 with col_title:
     st.title("📋 광주교도소 의료과 숙직근무")
 with col_settings:
     st.write("")
-    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+    if st.button("⚙️", use_container_width=True, type="secondary", key="main_top_settings_btn"):
         st.session_state.show_settings_dialog = True
         st.rerun()
 

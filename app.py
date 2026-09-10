@@ -120,14 +120,30 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    h1 {{
-        font-size: clamp(18px, 4.2vw, 32px) !important;
-        margin: 2px 0px 4px 0px !important;
-        padding: 2px 0px !important;
+    /* 📌 헤드라인 스타일로 확대된 타이틀 및 텍스트 */
+    .calendar-main-title {{
+        font-size: 2.2rem !important;
         font-weight: 900 !important;
-        white-space: nowrap !important;
-        text-align: center !important;
+        margin-bottom: 0.5rem !important;
         color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
+        text-align: center !important;
+    }}
+
+    .duty-header-title {{
+        font-size: 1.8rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 0.8rem !important;
+        text-align: center !important;
+    }}
+
+    .today-worker-box {{
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        padding: 10px 14px;
+        background: rgba(128, 128, 128, 0.08);
+        border-radius: 6px;
+        border-left: 4px solid #2563EB;
+        margin-bottom: 1rem;
     }}
 
     .setting-box {{
@@ -188,50 +204,48 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
 
-    /* 📌 [핵심 수정] 가로폭 초과 방지 및 7열 완벽 고정 */
+    /* 📌 세로폭 초과 방지 및 7열 완벽 고정 (가로폭 강제 고정 해제) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 100% !important;
+        box-sizing: border-box !important;
         gap: 0px !important;
         margin: 0 !important;
         padding: 0 !important;
-        box-sizing: border-box !important;
     }}
     
     [data-testid="column"] {{
         width: 14.285% !important;
-        max-width: 14.285% !important;
-        min-width: 14.285% !important;
         flex: 0 0 14.285% !important;
-        padding: 0px 0.5px !important;
+        max-width: 14.285% !important;
+        padding: 0px 1px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
     }}
-    
+
+    /* 📌 요일 박스 글씨 크기 및 디자인 헤드라인 급 확대 */
     .weekday-box {{
         text-align: center;
         font-weight: 900;
-        font-size: clamp(9.5px, 2.5vw, 12px);
-        padding: 2px 0px;
-        background: rgba(128,128,128,0.1);
-        border-radius: 3px;
+        font-size: clamp(12px, 3.2vw, 15px) !important;
+        padding: 6px 0px !important;
+        background: rgba(128,128,128,0.12);
+        border-radius: 4px;
         border: 1px solid {border_color};
         width: 100%;
         box-sizing: border-box;
         margin: 0px;
     }}
 
+    /* 세로 모드 날짜 버튼 최적화 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 65px !important;
-            max-height: 88px !important;
+            min-height: 60px !important;
+            max-height: 80px !important;
             padding: 1px 0px !important;
-            font-size: clamp(8.5px, 2.3vw, 11px) !important;
+            font-size: clamp(9px, 2.5vw, 12px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
@@ -242,13 +256,14 @@ responsive_css = f"""
         }}
     }}
 
+    /* 가로 모드 날짜 버튼 최적화 */
     @media (orientation: landscape) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 75px !important;
-            max-height: 100px !important;
+            min-height: 70px !important;
+            max-height: 95px !important;
             padding: 2px 0px !important;
-            font-size: clamp(10px, 1.6vw, 12px) !important;
+            font-size: clamp(11px, 1.8vw, 13px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
@@ -762,9 +777,9 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면
+# 메인 화면 (헤드라인 스타일 적용)
 # ---------------------------------------------------------
-st.title("📋 광주교도소 의료과 숙직근무")
+st.markdown("<div class='calendar-main-title'>📅 광주교도소 의료과 숙직근무</div>", unsafe_allow_html=True)
 
 st.markdown('<div class="setting-box">', unsafe_allow_html=True)
 if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width=True, type="secondary"):
@@ -784,7 +799,9 @@ with tab1:
         p1 = f"{tr['실제근무1']}(대)" if sub1_t and sub1_t not in ["nan", "None", ""] else tr["실제근무1"]
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
-        st.markdown(f'<div class="today-card"><div class="today-title">🚨 오늘 근무자 ({today.strftime("%m월 %d일")})</div><div class="today-content">1: {p1} | 2: {p2}{memo_txt}</div></div>', unsafe_allow_html=True)
+        
+        # 오늘의 근무자 박스 적용
+        st.markdown(f'<div class="today-worker-box">👤 오늘 근무자 ({today.strftime("%m월 %d일")})<br>1: {p1} | 2: {p2}{memo_txt}</div>', unsafe_allow_html=True)
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
@@ -811,7 +828,8 @@ with tab1:
 
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
-        st.markdown(f'<div class="month-header-card"><h2>🗓️ {y}년 {m}월 숙직 근무표</h2></div>', unsafe_allow_html=True)
+        # 숙직근무표 헤더 타이틀 적용
+        st.markdown(f"<div class='duty-header-title'>🏢 {y}년 {m}월 숙직근무표</div>", unsafe_allow_html=True)
         
         num_days = calendar.monthrange(y, m)[1]
         m_df = df[df["년월"] == sel_month]

@@ -84,7 +84,7 @@ if "kakao_api_key" not in st.session_state:
 
 # 앱이 종료된 경우 화면 표시
 if st.session_state.is_app_closed:
-    st.title("👋 시스템이 종료되었습니다.")
+    st.title("👋 앱이 종료되었습니다.")
     st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
     st.stop()
 
@@ -123,7 +123,6 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -136,119 +135,56 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 제목 폰트 크기 확대 적용 */
-    h1 {{
-        font-size: clamp(20px, 5.5vw, 28px) !important;
-        margin-top: 0px !important;
-        padding-top: 0px !important;
+    /* 🎨 사이드바 엑셀 업로드/다운로드 연한 하늘색 배경 적용 */
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] > section {{
+        background-color: #E0F2FE !important;
+        border: 1px dashed #7DD3FC !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stDownloadButton"] > button {{
+        background-color: #E0F2FE !important;
+        color: #0369A1 !important;
+        border: 1px solid #7DD3FC !important;
+        font-weight: 700 !important;
     }}
 
-    [data-testid="stSidebar"] {{
-        background-color: {sidebar_bg} !important;
-        color: {main_text_color} !important;
-    }}
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{
-        color: {main_text_color} !important;
-    }}
-
-    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{
-        color: {main_text_color} !important;
-    }}
+    h1 {{ font-size: clamp(16px, 4vw, 24px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
+    [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
+    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color};
-        border-radius: 6px;
-        padding: 3px 8px;
-        margin-top: 1px;
-        margin-bottom: 4px;
-        text-align: center;
+        border: 1px solid {border_color}; border-radius: 6px; padding: 3px 8px; margin-top: 1px; margin-bottom: 4px; text-align: center;
     }}
-    .month-header-card h2 {{
-        margin: 0 !important;
-        font-size: clamp(14px, 3.2vw, 18px) !important;
-        font-weight: 800 !important;
-        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
-    }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(14px, 3.2vw, 18px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"};
-        padding: 4px 8px;
-        border-radius: 6px;
-        border: 1px solid {border_color};
-        margin-bottom: 4px;
-        width: 100%;
-        box-sizing: border-box;
+        color: {"white" if is_dark else "#0F172A"}; padding: 4px 8px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 4px; width: 100%; box-sizing: border-box;
     }}
-    
-    .today-card span {{
-        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
-        font-weight: bold;
-    }}
+    .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 콤팩트 셀 버튼 기본 설정 */
+    /* 🚨 콤팩트 셀 버튼: "..." 숨김 방지 및 자동 줄바꿈 강제 */
     .stButton > button {{
-        width: 100% !important;
-        min-width: 0 !important;
-        height: auto !important;
-        min-height: 38px !important;
-        padding: 2px 1px !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 4px !important;
-        background-color: {btn_bg} !important;
-        color: {btn_text} !important;
-        box-sizing: border-box !important;
-        text-align: center !important;
-        font-size: clamp(6.5px, 1.8vw, 10px) !important;
-        font-weight: 500 !important;
-        margin: 0 !important;
-        white-space: pre-wrap !important;
-        word-break: break-all !important;
-        overflow-wrap: anywhere !important;
-        line-height: 1.1 !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 50px !important;
+        padding: 2px 1px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
+        background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
+        text-align: center !important; font-size: clamp(6.5px, 1.8vw, 10px) !important; font-weight: 500 !important; margin: 0 !important;
     }}
+    /* 하위 텍스트 요소들까지 강제로 줄바꿈 처리하여 ... 이 나오는 것을 방지 */
+    .stButton > button span, .stButton > button p, .stButton > button div {{
+        white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.2 !important;
+    }}
+    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    .stButton > button:hover {{
-        border-color: {btn_hover_border} !important;
-        background-color: {btn_hover_bg} !important;
-    }}
+    [data-testid="stHorizontalBlock"] {{ display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; gap: 1px !important; margin: 0 !important; }}
+    [data-testid="column"] {{ width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important; flex: 1 1 14.285% !important; padding: 0px 0px !important; margin: 0 !important; box-sizing: border-box !important; }}
+    [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    [data-testid="stElementContainer"] {{
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }}
+    [data-testid="stDialog"] > div:first-child {{ background-color: {dialog_bg} !important; color: {main_text_color} !important; width: clamp(290px, 92vw, 600px) !important; max-width: 95vw !important; max-height: 88vh !important; border-radius: 12px !important; padding: 1rem !important; overflow-y: auto !important; border: 1px solid {border_color} !important; }}
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{ background-color: {input_bg} !important; color: {input_text} !important; border-color: {border_color} !important; }}
 
-    /* 팝업 스타일 */
-    [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important;
-        color: {main_text_color} !important;
-        width: clamp(290px, 92vw, 600px) !important;
-        max-width: 95vw !important;
-        max-height: 88vh !important;
-        border-radius: 12px !important;
-        padding: 1rem !important;
-        overflow-y: auto !important;
-        border: 1px solid {border_color} !important;
-    }}
-
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
-        background-color: {input_bg} !important;
-        color: {input_text} !important;
-        border-color: {border_color} !important;
-    }}
-
-    /* JS 히든 스와이프 버튼 은닉 */
-    .swipe-hidden-container {{
-        display: none !important;
-        height: 0px !important;
-        width: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        position: absolute !important;
-        left: -9999px !important;
-    }}
+    .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -263,18 +199,13 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
 
-        // 1. 스와이프 히든 버튼 숨김 및 오늘 날짜 테마 음영
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
             if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
                 const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) {{
-                    container.style.setProperty('display', 'none', 'important');
-                    container.style.setProperty('height', '0px', 'important');
-                }}
+                if (container) {{ container.style.setProperty('display', 'none', 'important'); }}
             }}
-
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -282,67 +213,8 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
-
-        // 3. 컬럼 강제 가로 정렬 (달력 7열 & 헤더 2열)
-        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
-        horizBlocks.forEach(block => {{
-            
-            // [A] 달력 7개 컬럼 강제 가로 한 화면 정렬
-            if (block.children.length === 7) {{
-                block.style.setProperty('display', 'flex', 'important');
-                block.style.setProperty('flex-direction', 'row', 'important');
-                block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                block.style.setProperty('width', '100%', 'important');
-                block.style.setProperty('max-width', '100%', 'important');
-                block.style.setProperty('gap', '1px', 'important');
-
-                Array.from(block.children).forEach(child => {{
-                    child.style.setProperty('width', '14.285%', 'important');
-                    child.style.setProperty('max-width', '14.285%', 'important');
-                    child.style.setProperty('min-width', '0px', 'important');
-                    child.style.setProperty('flex', '1 1 14.285%', 'important');
-                    child.style.setProperty('padding', '0px', 'important');
-                }});
-
-                // 가로형 달력 버튼 높이 세로로 2~3배 키우기 (100px)
-                const gridBtns = block.querySelectorAll('button');
-                gridBtns.forEach(b => {{
-                    b.style.setProperty('min-height', '100px', 'important');
-                    b.style.setProperty('height', '100%', 'important');
-                }});
-            }}
-            
-            // [B] 상단 헤더 2열 (제목 + 톱니바퀴) 모바일 줄바꿈 방지
-            else if (block.children.length === 2) {{
-                const text = block.innerText || '';
-                if (text.includes('광주교도소') || text.includes('⚙️')) {{
-                    block.style.setProperty('display', 'flex', 'important');
-                    block.style.setProperty('flex-direction', 'row', 'important');
-                    block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                    block.style.setProperty('align-items', 'center', 'important');
-                    
-                    const col1 = block.children[0];
-                    const col2 = block.children[1];
-                    
-                    col1.style.setProperty('width', '85%', 'important');
-                    col1.style.setProperty('flex', '1 1 85%', 'important');
-                    col1.style.setProperty('min-width', '0', 'important');
-                    
-                    col2.style.setProperty('width', '15%', 'important');
-                    col2.style.setProperty('flex', '1 1 15%', 'important');
-                    col2.style.setProperty('min-width', '40px', 'important');
-                    
-                    const gearBtn = col2.querySelector('button');
-                    if (gearBtn) {{
-                        gearBtn.style.setProperty('padding', '0px', 'important');
-                        gearBtn.style.setProperty('min-height', '40px', 'important');
-                    }}
-                }}
-            }}
-        }});
     }}
 
-    // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;
@@ -355,13 +227,33 @@ calendar_enhancer_js = f"""
     function handleGesture() {{
         const diffX = touchendX - touchstartX;
         const diffY = touchendY - touchstartY;
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {{
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {{ // 민감도 조절
             if (diffX < 0) triggerMonthChange('next');
             else triggerMonthChange('prev');
         }}
+        // 제스처 후 좌표 초기화로 다중 실행 방지
+        touchstartX = 0; touchstartY = 0; touchendX = 0; touchendY = 0;
     }}
 
     const doc = window.parent.document;
+    
+    // 📱 모바일 뒤로가기 버튼(백버튼) 제어 로직
+    if (!window.parent._historyPatched) {{
+        window.parent._historyPatched = true;
+        // 강제로 현재 히스토리 추가하여 백버튼 대기
+        window.parent.history.pushState(null, null, window.parent.location.href);
+        
+        window.parent.addEventListener('popstate', function(e) {{
+            const dialog = window.parent.document.querySelector('[data-testid="stDialog"]');
+            if (dialog) {{
+                // 팝업이 띄워져 있을 경우 앱이 최소화되는 것을 막고 팝업만 닫기
+                window.parent.history.pushState(null, null, window.parent.location.href);
+                const closeBtn = window.parent.document.querySelector('button[aria-label="Close"]');
+                if(closeBtn) closeBtn.click();
+            }}
+        }});
+    }}
+
     if (!doc._enhancerAttached) {{
         doc._enhancerAttached = true;
         doc.addEventListener('touchstart', function(e) {{
@@ -376,7 +268,7 @@ calendar_enhancer_js = f"""
         }}, {{passive: true}});
     }}
 
-    setInterval(enhanceCalendarUI, 200);
+    setInterval(enhanceCalendarUI, 300);
 }})();
 </script>
 """

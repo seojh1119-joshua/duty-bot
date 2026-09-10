@@ -114,7 +114,6 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: clamp(13px, 3.2vw, 16px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; }}
 
-    /* 요구사항: 달력 위 숙직근무표 폰트 크기를 제목과 조화롭게 수정 */
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
         color: {"white" if is_dark else "#0F172A"}; padding: 6px 9px; border-radius: 6px; border: 1px solid {border_color}; margin-bottom: 4px; width: 100%; box-sizing: border-box;
@@ -131,7 +130,6 @@ responsive_css = f"""
         cursor: pointer !important;
     }}
 
-    /* 요구사항: 모바일 세로 화면에서 가로달력이 한눈에 보이도록 높이 슬림화 및 최적화 */
     div[data-testid="column"] .stButton > button {{
         min-height: clamp(62px, 13vw, 85px) !important;
         max-height: 90px !important;
@@ -149,7 +147,6 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 7개 컬럼 강제 가로 고정 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; max-width: 100% !important; min-width: 0 !important; gap: 1px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -185,22 +182,19 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 브라우저 뒤로가기 버튼 처리 및 UI 보정 JS
+# 모바일 브라우저 뒤로가기 버튼 처리 및 UI 보정 JS (오류 수정 완료)
 # ---------------------------------------------------------
-calendar_enhancer_js = """
+calendar_enhancer_js_template = """
 <script>
 (function() {
     const doc = window.parent.document;
     if (!doc) return;
 
-    // 히스토리 상태 초기화 (뒤로가기 제어를 위함)
     if (!window.history.state || !window.history.state.appInitialized) {
         window.history.replaceState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
     }
 
-    // 모바일 뒤로가기(popstate) 이벤트 핸들러
     window.addEventListener('popstate', function(event) {
-        // 1. 열려있는 다이얼로그나 팝업 닫기 시도
         const closeButtons = Array.from(doc.querySelectorAll('button')).filter(b => {
             const txt = (b.innerText || '').trim();
             return txt.includes('🚪 닫기') || txt.includes('❌ 취소');
@@ -211,10 +205,8 @@ calendar_enhancer_js = """
             return;
         }
 
-        // 2. 달력 메뉴 외의 탭/페이지에 있을 때 달력 화면으로 복귀시키기 위해 스트림릿 탭 중 첫 번째(달력 메인) 클릭
         const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
         if (tabs.length > 0) {
-            // 첫 번째 탭이 달력 메인이라고 가정하고 클릭 유도
             tabs[0].click();
         }
         window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
@@ -229,9 +221,9 @@ calendar_enhancer_js = """
                 if (container) { container.style.setProperty('display', 'none', 'important'); }
             }
             if (txt.includes('🌟') || txt.includes('[오늘]')) {
-                btn.style.setProperty('background', '{bg}', 'important');
-                btn.style.setProperty('color', '{text}', 'important');
-                btn.style.setProperty('border', '{border}', 'important');
+                btn.style.setProperty('background', '___BG___', 'important');
+                btn.style.setProperty('color', '___TEXT___', 'important');
+                btn.style.setProperty('border', '___BORDER___', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
             }
         });
@@ -274,7 +266,14 @@ calendar_enhancer_js = """
     setInterval(enhanceCalendarUI, 200);
 })();
 </script>
-""".format(bg=today_highlight_bg, text=today_highlight_text, border=today_highlight_border)
+"""
+
+calendar_enhancer_js = (
+    calendar_enhancer_js_template
+    .replace('___BG___', today_highlight_bg)
+    .replace('___TEXT___', today_highlight_text)
+    .replace('___BORDER___', today_highlight_border)
+)
 
 components.html(calendar_enhancer_js, height=0, width=0)
 
@@ -641,7 +640,6 @@ with tab1:
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
-            # 요구사항: 요일 폰트 크기를 달력(버튼) 폰트보다 크고 명확하게 설정 및 공휴일/주말 색상 다르게 표시
             cols_h = st.columns(7)
             h_names = [
                 ("일", "#FF6B6B" if is_dark else "#DC2626"), 

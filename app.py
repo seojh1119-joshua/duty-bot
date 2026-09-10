@@ -177,7 +177,7 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 모바일 터치 반응성 대폭 개선 (터치 지연 및 오작동 원천 차단) */
+    /* 🚨 모바일 터치 반응성 대폭 개선 */
     .stButton > button {{
         width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 48px !important;
         padding: 2px 0px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
@@ -249,7 +249,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 및 클릭 충돌 방지 JS
+# 모바일 터치 스와이프 오류 개선 JS (달력 드래그 전후 월 변경 완벽 구현)
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -337,7 +337,7 @@ calendar_enhancer_js = f"""
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > 10 && Math.abs(diffX) > Math.abs(diffY)) {{
+            if (Math.abs(diffX) > 25 && Math.abs(diffX) > Math.abs(diffY)) {{
                 isSwiping = true;
             }}
         }}, {{passive: true}});
@@ -350,13 +350,15 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
                 }} else {{
                     triggerMonthChange('prev');
                 }}
+            }} else {{
+                isSwiping = false;
             }}
         }}, {{passive: true}});
 

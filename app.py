@@ -73,6 +73,12 @@ if "show_settings_dialog" not in st.session_state:
 if "show_exit_dialog" not in st.session_state:
     st.session_state.show_exit_dialog = False
 
+if "editing_date" not in st.session_state:
+    st.session_state.editing_date = None
+
+if "editing_duty_info" not in st.session_state:
+    st.session_state.editing_duty_info = None
+
 if "auto_view_type" not in st.session_state:
     st.session_state.auto_view_type = local_cfg["auto_view_type"]
 
@@ -89,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (모바일 가로달력 강제 1열 밀착 및 화면 핏)
+# 동적 CSS (모바일 세로 팝업 화면 핏 및 달력 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -113,7 +119,7 @@ today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 🚨 모바일 가로 스크롤 완전 차단 및 100% 핏 */
+    /* 🚨 모바일 세로 스크롤 및 화면 핏 */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -161,7 +167,7 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 콤팩트 셀 버튼 스타일 및 글자 잘림 방지 (모바일 가로 핏 최적화) */
+    /* 🚨 콤팩트 셀 버튼 스타일 및 글자 잘림 방지 */
     .stButton > button {{
         width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 46px !important;
         padding: 1px 0px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
@@ -174,7 +180,7 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 (절대 줄바꿈 방지) */
+    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -204,7 +210,20 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    [data-testid="stDialog"] > div:first-child {{ background-color: {dialog_bg} !important; color: {main_text_color} !important; width: clamp(290px, 92vw, 600px) !important; max-width: 95vw !important; max-height: 88vh !important; border-radius: 12px !important; padding: 1rem !important; overflow-y: auto !important; border: 1px solid {border_color} !important; }}
+    /* 📱 모바일 세로 팝업 화면 규격 고정 (화면 벗어남 방지) */
+    [data-testid="stDialog"] > div:first-child {{
+        background-color: {dialog_bg} !important;
+        color: {main_text_color} !important;
+        width: 92vw !important;
+        max-width: 480px !important;
+        max-height: 85vh !important;
+        border-radius: 12px !important;
+        padding: 0.8rem !important;
+        overflow-y: auto !important;
+        border: 1px solid {border_color} !important;
+        margin: auto !important;
+    }}
+
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{ background-color: {input_bg} !important; color: {input_text} !important; border-color: {border_color} !important; }}
 
     .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; }}
@@ -668,7 +687,7 @@ if "batch_patterns" not in st.session_state:
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
     st.write("정말로 숙직 근무 관리 시스템을 종료하시겠습니까?")
-    col_e1, col_e2 = st.columns(2)
+    col_e1, col_e2 = st.columns(2, wrap=False)
     with col_e1:
         if st.button("❌ 취소", use_container_width=True):
             st.session_state.show_exit_dialog = False
@@ -720,13 +739,13 @@ def settings_dialog():
         today_default = datetime.date.today()
         saved_pat = st.session_state.get("batch_patterns", {})
 
-        col_b1, col_b2 = st.columns(2)
+        col_b1, col_b2 = st.columns(2, wrap=False)
         with col_b1:
             start_date_input = st.date_input("시작 날짜", value=today_default, key="dlg_batch_start")
         with col_b2:
             total_days_count = st.number_input("적용 총 일수", min_value=1, max_value=180, value=30, step=1, key="dlg_batch_days")
 
-        col_p1, col_p2 = st.columns(2)
+        col_p1, col_p2 = st.columns(2, wrap=False)
         with col_p1:
             st.markdown("**:blue[근무자 1 패턴]**")
             default_w1_int = saved_pat.get("interval1", 3)
@@ -814,7 +833,7 @@ def settings_dialog():
 
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그
+# 근무자 수정 다이얼로그 (안전한 세션 기반 호출)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -844,7 +863,7 @@ def edit_worker_dialog(date_str, duty_info):
         )
 
     with st.form(key=f"dialog_form_{date_str}"):
-        col_f1, col_f2 = st.columns(2)
+        col_f1, col_f2 = st.columns(2, wrap=False)
 
         with col_f1:
             st.markdown("**:blue[근무자 1 / 대직자 1]**")
@@ -865,7 +884,7 @@ def edit_worker_dialog(date_str, duty_info):
         st.divider()
         edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=70, key=f"edit_memo_{date_str}")
 
-        c_sub1, c_sub2 = st.columns([2, 1])
+        c_sub1, c_sub2 = st.columns([2, 1], wrap=False)
         with c_sub1:
             submitted = st.form_submit_button("💾 저장 및 반영", use_container_width=True)
         with c_sub2:
@@ -891,10 +910,14 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.df = st.session_state.df.sort_values(by="날짜").reset_index(drop=True)
 
             save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
+            st.session_state.editing_date = None
+            st.session_state.editing_duty_info = None
             st.success("✅ 저장되었습니다.")
             st.rerun()
 
         if close_dialog:
+            st.session_state.editing_date = None
+            st.session_state.editing_duty_info = None
             st.rerun()
 
 
@@ -946,6 +969,10 @@ if st.session_state.show_settings_dialog:
 
 if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
+
+# 달력 셀 클릭 시 지정된 다이얼로그 안전 호출
+if st.session_state.editing_date and st.session_state.editing_duty_info:
+    edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -1107,7 +1134,9 @@ with tab1:
 
                 if st.button(btn_label, key=f"btn_v_card_{date_str}"):
                     if duty_info:
-                        edit_worker_dialog(date_str, duty_info)
+                        st.session_state.editing_date = date_str
+                        st.session_state.editing_duty_info = duty_info
+                        st.rerun()
         else:
             # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃 (wrap=False 적용)
             cols_header = st.columns(7, wrap=False)
@@ -1158,7 +1187,9 @@ with tab1:
 
                         if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
                             if duty_info:
-                                edit_worker_dialog(date_str, duty_info)
+                                st.session_state.editing_date = date_str
+                                st.session_state.editing_duty_info = duty_info
+                                st.rerun()
                         day_counter += 1
 
 # ---------------------------------------------------------
@@ -1170,7 +1201,7 @@ with tab2:
     current_ym = today.strftime("%Y-%m")
     default_edit_idx = edit_months.index(current_ym) if current_ym in edit_months else 0
 
-    col_ctrl1, col_ctrl2 = st.columns([1, 1])
+    col_ctrl1, col_ctrl2 = st.columns(2, wrap=False)
     with col_ctrl1:
         selected_edit_month = st.selectbox("📅 근무 월 선택 검색", edit_months, index=default_edit_idx, key="edit_month_filter")
 
@@ -1215,7 +1246,7 @@ with tab3:
     available_stat_months = ["전체 기간"] + sorted(duty_stat_df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = available_stat_months.index(current_ym) if current_ym in available_stat_months else 0
 
-    stat_col1, stat_col2 = st.columns([1, 2])
+    stat_col1, stat_col2 = st.columns([1, 2], wrap=False)
     with stat_col1:
         selected_stat_month = st.selectbox("📅 통계조회 월선택", available_stat_months, index=default_stat_idx, key="stat_month_select")
 
@@ -1246,7 +1277,7 @@ with tab3:
         stats_df["총 근무 횟수"] = stats_df[type_cols].sum(axis=1)
         stats_df = stats_df[type_cols + ["휴일근무 횟수", "총 근무 횟수", "총 근무시간(h)"]].sort_values(by="총 근무시간(h)", ascending=False)
 
-        m1, m2, m3 = st.columns(3)
+        m1, m2, m3 = st.columns(3, wrap=False)
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
         m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
         m3.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")

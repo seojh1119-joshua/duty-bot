@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 가독성 개선형 7열 반응형 스타일 지정
+# 동적 CSS 및 7열 강제 고정 레이아웃 (세로 화면 대응)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -113,15 +113,15 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.1rem 2px 0.1rem 2px !important;
+        padding: 0.1rem 1px 0.1rem 1px !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: clamp(20px, 4.5vw, 34px) !important;
-        margin: 2px 0px 6px 0px !important;
+        font-size: clamp(18px, 4.2vw, 32px) !important;
+        margin: 2px 0px 4px 0px !important;
         padding: 2px 0px !important;
         font-weight: 900 !important;
         white-space: nowrap !important;
@@ -133,25 +133,25 @@ responsive_css = f"""
         background-color: {box_bg} !important;
         border: 2px solid {border_color} !important;
         border-radius: 8px !important;
-        padding: 6px 8px !important;
-        margin: 4px 0px 8px 0px !important;
+        padding: 4px 6px !important;
+        margin: 2px 0px 6px 0px !important;
     }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" } !important;
         border: 1.5px solid {border_color} !important;
         border-radius: 8px !important;
-        padding: 6px 10px !important;
-        margin-bottom: 6px !important;
+        padding: 5px 8px !important;
+        margin-bottom: 4px !important;
     }}
     .today-card .today-title {{ font-size: 11px !important; font-weight: 700 !important; opacity: 0.9; }}
-    .today-card .today-content {{ font-size: 13px !important; font-weight: 800 !important; margin-top: 2px; }}
+    .today-card .today-content {{ font-size: 12.5px !important; font-weight: 800 !important; margin-top: 2px; }}
 
     .month-header-card {{
-        text-align: center; padding: 4px; margin-bottom: 4px;
+        text-align: center; padding: 3px; margin-bottom: 3px;
         background: {box_bg}; border: 1.5px solid {border_color}; border-radius: 8px;
     }}
-    .month-header-card h2 {{ font-size: 15px !important; font-weight: 900 !important; margin: 0 !important; }}
+    .month-header-card h2 {{ font-size: 14px !important; font-weight: 900 !important; margin: 0 !important; }}
 
     /* 팝업창 최적화 */
     [data-testid="stDialog"] > div:first-child {{
@@ -187,13 +187,14 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
 
-    /* 📌 7열 전체 강제 고정 레이아웃 (세로 화면에서도 7개 모두 한 눈에 완벽 배치) */
+    /* 📌 [핵심 수정] 세로 화면에서도 절대 줄바꿈되지 않고 가로 7열을 100% 고정 유지하도록 강제 설정 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
         width: 100% !important;
         max-width: 100% !important;
+        min-width: 100% !important;
         gap: 1px !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -202,8 +203,8 @@ responsive_css = f"""
     [data-testid="column"] {{
         width: 14.285% !important;
         max-width: 14.285% !important;
-        min-width: 0 !important;
-        flex: 1 1 14.285% !important;
+        min-width: 14.285% !important;
+        flex: 0 0 14.285% !important;
         padding: 0px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
@@ -212,8 +213,8 @@ responsive_css = f"""
     .weekday-box {{
         text-align: center;
         font-weight: 900;
-        font-size: clamp(10px, 2.8vw, 12.5px);
-        padding: 3px 0px;
+        font-size: clamp(9.5px, 2.5vw, 12px);
+        padding: 2px 0px;
         background: rgba(128,128,128,0.1);
         border-radius: 3px;
         border: 1px solid {border_color};
@@ -222,25 +223,24 @@ responsive_css = f"""
         margin: 0px;
     }}
 
-    /* 📌 모바일 세로 화면(Portrait): 폭은 슬림하게 채우되, 글씨 크기와 높이는 적당히 키워서 가독성 대폭 향상 */
+    /* 📌 세로 화면(Portrait) 버튼 버튼 스타일 및 폰트 압축 최적화 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
-            min-height: 70px !important;
-            max-height: 95px !important;
-            padding: 2px 0px !important;
-            font-size: clamp(9.5px, 2.6vw, 12px) !important;
+            min-height: 65px !important;
+            max-height: 88px !important;
+            padding: 1px 0px !important;
+            font-size: clamp(8.5px, 2.3vw, 11px) !important;
             overflow: hidden !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: flex-start !important;
             align-items: center !important;
             box-sizing: border-box !important;
-            border-radius: 4px !important;
+            border-radius: 3px !important;
         }}
     }}
 
-    /* 모바일 가로 화면 또는 PC(Landscape) 기준 버튼 스타일 */
     @media (orientation: landscape) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
@@ -262,7 +262,7 @@ responsive_css = f"""
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow: hidden !important;
-        line-height: 1.15 !important;
+        line-height: 1.1 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
@@ -278,7 +278,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (드래그/스와이프 및 달력 기능 제어)
+# 브라우저 스크립트 (스와이프 및 달력 인터랙션 제어)
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>

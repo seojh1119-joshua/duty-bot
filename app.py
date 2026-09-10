@@ -16,7 +16,7 @@ PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 CONFIG_PATH = os.path.join("DATA", "local_config.json")
 
 # ---------------------------------------------------------
-# 페이지 기본 설정[cite: 1]
+# 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="광주교도소 의료과 숙직근무",
@@ -46,7 +46,7 @@ def save_local_config(key, value):
 
 local_cfg = load_local_config()
 
-# 세션 상태 초기화[cite: 1]
+# 세션 상태 초기화
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
@@ -62,7 +62,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 최적화 스타일 (세로폭 2배 확대 및 7열 가로폭 최적화)
+# 동적 CSS 및 모바일 최적화 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -130,7 +130,6 @@ responsive_css = f"""
         cursor: pointer !important;
     }}
 
-    /* 모바일 가로달력 7열이 한눈에 보이도록 가로폭 조절 및 세로폭 2배 확대 */
     div[data-testid="column"] .stButton > button {{
         min-height: clamp(104px, 22vw, 150px) !important;
         max-height: 156px !important;
@@ -148,7 +147,6 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 7개 컬럼 간격 및 여백 최소화로 한눈에 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; max-width: 100% !important; min-width: 0 !important; gap: 0.5px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -159,7 +157,6 @@ responsive_css = f"""
     }}
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 순환 등록 팝업 및 대화상자 모바일 세로 화면 맞춤 비율 조정 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 98vw !important; max-width: 420px !important; max-height: 85vh !important;
@@ -185,7 +182,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (뒤로가기 연동 및 키보드 제어 보조)[cite: 1]
+# 브라우저 스크립트
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>
@@ -298,7 +295,7 @@ calendar_enhancer_js = (
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 공통 엑셀 및 데이터 유틸함수[cite: 1]
+# 공통 엑셀 및 데이터 유틸함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -440,7 +437,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의[cite: 1]
+# 다이얼로그 정의
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -568,7 +565,7 @@ def edit_worker_dialog(date_str, duty_info):
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바[cite: 1]
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 근무표 파일 관리")
@@ -599,7 +596,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면[cite: 1]
+# 메인 화면
 # ---------------------------------------------------------
 st.title("📋 광주교도소 의료과 숙직근무")
 if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width=True, type="secondary"):
@@ -712,7 +709,7 @@ with tab3:
     sel_st_m = st.selectbox("📅 통계 월선택", stat_ms)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-  comb = pd.concat(
+    comb = pd.concat(
         [
             f_df[["실제근무1", "근무구분_원본"]].rename(
                 columns={"실제근무1": "근무자", "근무구분_원본": "구분"}
@@ -741,4 +738,3 @@ with tab3:
 with tab4:
     st.subheader("🔍 시트 데이터 원본 확인")
     st.dataframe(df, use_container_width=True)
-```[cite: 1]

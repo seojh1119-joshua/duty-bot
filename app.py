@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 7열 강제 고정 레이아웃 (세로 화면 대응)
+# 동적 CSS 및 7열 강제 고정 레이아웃 (세로 화면 폭 초과 방지 적용)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -113,10 +113,11 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.1rem 1px 0.1rem 1px !important;
+        padding: 0.1rem 2px 0.1rem 2px !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        overflow-x: hidden !important;
     }}
 
     h1 {{
@@ -187,7 +188,7 @@ responsive_css = f"""
     [data-testid="stDialog"] [data-testid="stForm"] {{ border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }}
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
 
-    /* 📌 [핵심 수정] 세로 화면에서도 절대 줄바꿈되지 않고 가로 7열을 100% 고정 유지하도록 강제 설정 */
+    /* 📌 [핵심 수정] 가로폭 초과 방지 및 7열 완벽 고정 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -195,9 +196,10 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important;
-        gap: 1px !important;
+        gap: 0px !important;
         margin: 0 !important;
         padding: 0 !important;
+        box-sizing: border-box !important;
     }}
     
     [data-testid="column"] {{
@@ -205,7 +207,7 @@ responsive_css = f"""
         max-width: 14.285% !important;
         min-width: 14.285% !important;
         flex: 0 0 14.285% !important;
-        padding: 0px !important;
+        padding: 0px 0.5px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
     }}
@@ -223,7 +225,6 @@ responsive_css = f"""
         margin: 0px;
     }}
 
-    /* 📌 세로 화면(Portrait) 버튼 버튼 스타일 및 폰트 압축 최적화 */
     @media (orientation: portrait) {{
         div[data-testid="column"] .stButton > button {{
             width: 100% !important;
@@ -272,7 +273,7 @@ responsive_css = f"""
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important; color: {input_text} !important; border: 1.5px solid {border_color} !important; font-weight: 600 !important;
     }}
-    .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; }}
+    .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; width: 0px !important; height: 0px !important; overflow: hidden !important; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)

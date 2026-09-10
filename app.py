@@ -129,7 +129,7 @@ responsive_css = f"""
         letter-spacing: -0.5px !important;
     }}
 
-    /* 설정박스 전용 카드 스타일 (상하 여백 확보) */
+    /* 설정박스 전용 카드 스타일 */
     .setting-box {{
         background-color: {box_bg} !important;
         border: 2px solid {border_color} !important;
@@ -195,7 +195,7 @@ responsive_css = f"""
     /* 4. 달력 버튼 가로폭 축소 및 7열 모바일 세로 화면 맞춤 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-        width: 100% !important; max-width: 100vw !important; min-width: 0 !important; gap: 1px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
+        width: 100% !important; max-width: 100vw !important; min-width: 0 !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
     }}
     [data-testid="column"] {{
         width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important;
@@ -226,13 +226,63 @@ responsive_css = f"""
 
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 5, 6. 달력/설정 팝업창 휴대폰 세로 화면 폭 맞춤 */
+    /* 5, 6. 달력/설정 팝업창 모바일 세로 화면 가로폭 자동 맞춤 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
-        width: 92vw !important; max-width: 95vw !important; max-height: 88vh !important;
-        border-radius: 12px !important; padding: 10px 10px !important; overflow-y: auto !important;
+        width: 94vw !important; max-width: 480px !important; max-height: 90vh !important;
+        border-radius: 12px !important; padding: 12px 10px !important; overflow-y: auto !important;
         border: 2px solid {border_color} !important; margin: auto !important; position: fixed !important;
         top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
+        box-sizing: border-box !important;
+    }}
+
+    /* 팝업 내부 입력박스 및 레이아웃 자동비율 조절 스타일 */
+    [data-testid="stDialog"] [data-testid="stForm"] {{
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }}
+
+    [data-testid="stDialog"] [data-testid="stHorizontalBlock"] {{
+        gap: 6px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }}
+
+    [data-testid="stDialog"] [data-testid="column"] {{
+        width: 50% !important;
+        max-width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 0 !important;
+        padding: 0 2px !important;
+        box-sizing: border-box !important;
+    }}
+
+    [data-testid="stDialog"] input, 
+    [data-testid="stDialog"] select, 
+    [data-testid="stDialog"] textarea,
+    [data-testid="stDialog"] [data-baseweb="select"],
+    [data-testid="stDialog"] div[role="combobox"] {{
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        font-size: clamp(12px, 3.4vw, 15px) !important;
+    }}
+
+    [data-testid="stDialog"] label {{
+        font-size: clamp(12px, 3.2vw, 14px) !important;
+        font-weight: 700 !important;
+        margin-bottom: 2px !important;
+        white-space: nowrap !important;
+    }}
+
+    [data-testid="stDialog"] .stButton > button {{
+        min-height: 38px !important;
+        font-size: clamp(13px, 3.6vw, 15px) !important;
+        padding: 4px 6px !important;
+        width: 100% !important;
         box-sizing: border-box !important;
     }}
 
@@ -534,7 +584,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (모바일 폭 맞춤 조절)
+# 다이얼로그 정의 (모바일 세로 화면 맞춤 조절)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -634,40 +684,83 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
     
-    all_workers = set(st.session_state.df["근무자1"].dropna().unique()) | set(st.session_state.df["근무자2"].dropna().unique())
-    all_workers.discard("미지정")
+    # 근무자 목록 수집
+    all_workers = set()
+    for col in ["근무자1", "근무자2", "대직1", "대직2"]:
+        if col in st.session_state.df.columns:
+            vals = st.session_state.df[col].dropna().unique()
+            for v in vals:
+                v_str = str(v).strip()
+                if v_str and v_str not in ["미지정", "nan", "None"]:
+                    all_workers.add(v_str)
+
     worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
-    def get_idx(val): return worker_options.index(val) if val in worker_options else 0
+    
+    def get_idx(val):
+        if not val or pd.isna(val):
+            return 0
+        val_str = str(val).strip()
+        if not val_str or val_str in ["nan", "None", "미지정"]:
+            return 0
+        if val_str in worker_options:
+            return worker_options.index(val_str)
+        return len(worker_options) - 1  # 목록에 없는 이름인 경우 '(직접 입력)' 선택
+
+    curr_p1 = str(curr_row.get("근무자1", "")).strip() if pd.notnull(curr_row.get("근무자1")) else ""
+    curr_p2 = str(curr_row.get("근무자2", "")).strip() if pd.notnull(curr_row.get("근무자2")) else ""
+    curr_sub1 = str(curr_row.get("대직1", "")).strip() if pd.notnull(curr_row.get("대직1")) else ""
+    curr_sub2 = str(curr_row.get("대직2", "")).strip() if pd.notnull(curr_row.get("대직2")) else ""
 
     with st.form(f"form_{date_str}"):
         c1, c2 = st.columns(2)
         with c1:
-            p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_row.get("근무자1", "")))
-            p1_c = st.text_input("직접입력1", value=curr_row.get("근무자1", "")) if p1_s == "(직접 입력)" else ""
-            sub1 = st.text_input("대직자1", value=str(curr_row.get("대직1", "")) if pd.notnull(curr_row.get("대직1")) else "")
+            p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
+            p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
+
+            # 대직자1 드롭다운 메뉴 적용
+            sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"sub1_s_{date_str}")
+            sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"sub1_c_{date_str}") if sub1_s == "(직접 입력)" else ""
+
         with c2:
-            p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_row.get("근무자2", "")))
-            p2_c = st.text_input("직접입력2", value=curr_row.get("근무자2", "")) if p2_s == "(직접 입력)" else ""
-            sub2 = st.text_input("대직자2", value=str(curr_row.get("대직2", "")) if pd.notnull(curr_row.get("대직2")) else "")
+            p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"p2_s_{date_str}")
+            p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"p2_c_{date_str}") if p2_s == "(직접 입력)" else ""
+
+            # 대직자2 드롭다운 메뉴 적용
+            sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"sub2_s_{date_str}")
+            sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"sub2_c_{date_str}") if sub2_s == "(직접 입력)" else ""
         
-        memo_in = st.text_area("📌 메모", value=st.session_state.memos.get(date_str, ""))
+        memo_in = st.text_area("📌 메모", value=st.session_state.memos.get(date_str, ""), key=f"memo_{date_str}")
         
-        col_sub1, col_sub2 = st.columns([1, 1])
-        with col_sub1: submitted = st.form_submit_button("💾 저장", use_container_width=True)
-        with col_sub2: closed = st.form_submit_button("🚪 닫기", use_container_width=True)
+        col_sub1, col_sub2 = st.columns(2)
+        with col_sub1:
+            submitted = st.form_submit_button("💾 저장", use_container_width=True)
+        with col_sub2:
+            closed = st.form_submit_button("🚪 닫기", use_container_width=True)
 
         if submitted:
             f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
             f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
+            f_sub1 = sub1_c if sub1_s == "(직접 입력)" else ("" if sub1_s == "(선택 안함)" else sub1_s)
+            f_sub2 = sub2_c if sub2_s == "(직접 입력)" else ("" if sub2_s == "(선택 안함)" else sub2_s)
             
-            st.session_state.df.loc[row_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [f_p1, f_p2, sub1 or None, sub2 or None]
-            st.session_state.df.loc[row_idx, "실제근무1"] = sub1 if sub1 else f_p1
-            st.session_state.df.loc[row_idx, "실제근무2"] = sub2 if sub2 else f_p2
-            st.session_state.memos[date_str] = memo_in.strip()
+            st.session_state.df.loc[row_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [
+                f_p1 if f_p1 else "미지정", 
+                f_p2 if f_p2 else "미지정", 
+                f_sub1 if f_sub1 else None, 
+                f_sub2 if f_sub2 else None
+            ]
+            st.session_state.df.loc[row_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
+            st.session_state.df.loc[row_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
+            
+            if memo_in.strip():
+                st.session_state.memos[date_str] = memo_in.strip()
+            else:
+                st.session_state.memos.pop(date_str, None)
             
             save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.update({"editing_date": None, "editing_duty_info": None})
             st.rerun()
+
         if closed:
             st.session_state.update({"editing_date": None, "editing_duty_info": None})
             st.rerun()

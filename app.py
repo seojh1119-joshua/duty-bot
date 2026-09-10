@@ -75,7 +75,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 팝업창 내부 요소 컴팩트 스타일 지정
+# 동적 CSS 및 미디어 쿼리 기반 반응형 스타일 지정
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -112,15 +112,15 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.1rem 1px 0.1rem 1px !important;
+        padding: 0.1rem 2px 0.1rem 2px !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: clamp(24px, 6vw, 36px) !important;
-        margin: 6px 0px 10px 0px !important;
+        font-size: clamp(22px, 5vw, 36px) !important;
+        margin: 4px 0px 8px 0px !important;
         padding: 2px 0px !important;
         font-weight: 900 !important;
         white-space: nowrap !important;
@@ -133,8 +133,8 @@ responsive_css = f"""
         background-color: {box_bg} !important;
         border: 2px solid {border_color} !important;
         border-radius: 8px !important;
-        padding: 8px 10px !important;
-        margin: 10px 0px 14px 0px !important;
+        padding: 6px 8px !important;
+        margin: 6px 0px 10px 0px !important;
         box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }}
 
@@ -142,27 +142,24 @@ responsive_css = f"""
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" } !important;
         border: 1.5px solid {border_color} !important;
         border-radius: 8px !important;
-        padding: 8px 12px !important;
-        margin-bottom: 10px !important;
+        padding: 6px 10px !important;
+        margin-bottom: 8px !important;
     }}
-    .today-card .today-title {{ font-size: 13px !important; font-weight: 700 !important; opacity: 0.9; }}
-    .today-card .today-content {{ font-size: 15px !important; font-weight: 800 !important; margin-top: 2px; }}
+    .today-card .today-title {{ font-size: 12px !important; font-weight: 700 !important; opacity: 0.9; }}
+    .today-card .today-content {{ font-size: 14px !important; font-weight: 800 !important; margin-top: 2px; }}
 
     .month-header-card {{
-        text-align: center; padding: 6px; margin-bottom: 8px;
+        text-align: center; padding: 4px; margin-bottom: 6px;
         background: {box_bg}; border: 1.5px solid {border_color}; border-radius: 8px;
     }}
-    .month-header-card h2 {{ font-size: 18px !important; font-weight: 900 !important; margin: 0 !important; }}
+    .month-header-card h2 {{ font-size: 16px !important; font-weight: 900 !important; margin: 0 !important; }}
 
-    /* 📌 [핵심] 근무 수정 팝업창 내부 공간 최적화 및 요소 컴팩트화 설정 */
+    /* 📌 [핵심 1] 팝업창 가로/세로 비율 반전 적용 (세로모드 시 가로형 넓은 비율, 가로모드 시 세로형 컴팩트 비율) */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: 94vw !important;
-        max-width: 400px !important;
-        max-height: 90vh !important;
         border-radius: 10px !important;
-        padding: 8px 10px !important;
+        padding: 8px 12px !important;
         overflow-y: auto !important;
         border: 2px solid {border_color} !important;
         margin: auto !important;
@@ -172,61 +169,91 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
+    /* 세로 화면(Portrait)일 때 팝업 비율: 가로로 넓게 반전 적용 */
+    @media (orientation: portrait) {{
+        [data-testid="stDialog"] > div:first-child {{
+            width: 96vw !important;
+            max-width: 600px !important;
+            max-height: 85vh !important;
+        }}
+    }}
+
+    /* 가로 화면(Landscape)일 때 팝업 비율: 세로형 컴팩트 비율로 반전 적용 */
+    @media (orientation: landscape) {{
+        [data-testid="stDialog"] > div:first-child {{
+            width: 50vw !important;
+            max-width: 420px !important;
+            max-height: 90vh !important;
+        }}
+    }}
+
     [data-testid="stDialog"] [data-testid="stForm"] {{
         border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important;
     }}
-
-    /* 팝업 내부 위젯 간격 및 여백 축소 */
-    [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{
-        gap: 2px !important;
-    }}
+    [data-testid="stDialog"] [data-testid="stVerticalBlock"] {{ gap: 2px !important; }}
     [data-testid="stDialog"] div[data-baseweb="select"], 
     [data-testid="stDialog"] div[data-baseweb="input"],
     [data-testid="stDialog"] textarea {{
-        min-height: 28px !important;
+        min-height: 26px !important;
         font-size: 11px !important;
     }}
     [data-testid="stDialog"] label {{
         font-size: 11px !important;
         font-weight: 700 !important;
         margin-bottom: 0px !important;
-        padding-bottom: 0px !important;
     }}
     [data-testid="stDialog"] .stTextArea textarea {{
-        height: 50px !important;
-        min-height: 50px !important;
+        height: 45px !important;
+        min-height: 45px !important;
         font-size: 11px !important;
     }}
     [data-testid="stDialog"] .stButton > button {{
-        min-height: 30px !important;
-        font-size: 12px !important;
+        min-height: 28px !important;
+        font-size: 11px !important;
         padding: 2px 4px !important;
     }}
 
-    /* 달력 그리드 7열 고정 */
+    /* 📌 [핵심 2] 세로 화면에서도 달력 7열이 한눈에 보이도록 강제 가로 정렬 및 패딩/글자 크기 압축 설정 */
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-        width: 100% !important; gap: 1px !important; margin: 0 !important; padding: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        gap: 1px !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }}
     [data-testid="column"] {{
-        width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important;
-        flex: 1 1 14.285% !important; padding: 0px !important; margin: 0 !important;
+        width: 14.285% !important;
+        max-width: 14.285% !important;
+        min-width: 0 !important;
+        flex: 1 1 14.285% !important;
+        padding: 0px !important;
+        margin: 0 !important;
     }}
     div[data-testid="column"] .stButton > button {{
-        min-height: clamp(80px, 18vw, 130px) !important;
-        max-height: 150px !important;
-        padding: 2px 0px !important;
-        font-size: clamp(8px, 2vw, 11px) !important;
+        width: 100% !important;
+        min-height: clamp(55px, 14vw, 95px) !important;
+        max-height: 110px !important;
+        padding: 1px 0px !important;
+        font-size: clamp(7px, 1.8vw, 10px) !important;
         overflow: hidden !important;
-        display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
-        white-space: pre-wrap !important; word-break: break-all !important; overflow: hidden !important; line-height: 1.1 !important;
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+        overflow: hidden !important;
+        line-height: 1.05 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
     [data-baseweb="tab-list"] {{ width: 100% !important; display: flex !important; gap: 2px !important; }}
-    [data-baseweb="tab"] {{ flex: 1 1 auto !important; padding: 4px 2px !important; font-size: 12px !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; }}
+    [data-baseweb="tab"] {{ flex: 1 1 auto !important; padding: 4px 2px !important; font-size: 11px !important; font-weight: 800 !important; text-align: center !important; justify-content: center !important; }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important; color: {input_text} !important; border: 1.5px solid {border_color} !important; font-weight: 600 !important;
@@ -492,7 +519,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (수정 팝업창 크기 최적화 적용)
+# 다이얼로그 정의
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -794,7 +821,7 @@ with tab1:
                 ("토", "#38BDF8" if is_dark else "#2563EB")
             ]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(10px, 3vw, 14px); padding: 2px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(9px, 2.5vw, 13px); padding: 2px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1

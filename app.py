@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (렌더링 최적화 및 UI 스타일)
+# 동적 CSS (버튼 충돌 원천 방지 및 스타일 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -158,8 +158,8 @@ responsive_css = f"""
     /* 제목 한줄 가득 차게 최적화 */
     h1 {{ font-size: clamp(15px, 4.2vw, 21px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; white-space: nowrap !important; }}
     
-    /* 설정 버튼 스타일 */
-    div.stButton > button[kind="secondary"] {{
+    /* ⚙️ 설정 버튼 전용 클래스 지정으로 달력 버튼과 충돌 원천 차단 */
+    div.stButton > button[key*="main_top_settings_btn"], div.stButton > button[id*="main_top_settings_btn"] {{
         background-color: { "rgba(255,255,255,0.08)" if is_dark else "rgba(0,0,0,0.04)" } !important;
         border: 1px solid {border_color} !important;
         border-radius: 6px !important;
@@ -268,13 +268,11 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 스와이프 기능 및 렌더링 부하 최소화 JS (속도 최적화)
+# 모바일 스와이프 기능 및 버튼 간섭 방지 JS (속도 최적화)
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
 (function() {{
-    let isInitialized = false;
-
     function enhanceCalendarUI() {{
         const doc = window.parent.document;
         if (!doc) return;
@@ -390,7 +388,6 @@ calendar_enhancer_js = f"""
         }}, true);
     }}
 
-    // 버퍼링 최소화를 위해 인터벌 주기를 250ms로 완화하여 CPU 부하 감소
     setInterval(enhanceCalendarUI, 250);
 }})();
 </script>

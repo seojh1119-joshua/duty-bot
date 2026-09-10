@@ -89,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 모바일 7열 가로형 달력 완전 보장)
+# 동적 CSS (테마별 스타일 & 모바일 7열 세로화면 자동맞춤 및 줄바꿈)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -114,16 +114,16 @@ responsive_css = f"""
         color: {main_text_color} !important;
         width: 100vw !important;
         max-width: 100vw !important;
+        overflow-x: hidden !important;
     }}
 
-    /* 모바일 가로 스크롤 보장 */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.5rem 0.5rem !important;
+        padding: 0.5rem 0.2rem !important;
         max-width: 100% !important;
         width: 100% !important;
-        overflow-x: auto !important;
+        box-sizing: border-box !important;
     }}
 
     [data-testid="stSidebar"] {{
@@ -142,15 +142,15 @@ responsive_css = f"""
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 2px solid {border_color};
         border-radius: 12px;
-        padding: 12px 20px;
-        margin-top: 10px;
-        margin-bottom: 15px;
+        padding: 10px 15px;
+        margin-top: 5px;
+        margin-bottom: 10px;
         text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }}
     .month-header-card h2 {{
         margin: 0 !important;
-        font-size: clamp(20px, 4vw, 28px) !important;
+        font-size: clamp(18px, 4vw, 26px) !important;
         font-weight: 800 !important;
         color: {"#60A5FA" if is_dark else "#2563EB"} !important;
     }}
@@ -158,10 +158,10 @@ responsive_css = f"""
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
         color: {"white" if is_dark else "#0F172A"};
-        padding: 12px 16px;
+        padding: 10px 14px;
         border-radius: 10px;
         border: 1px solid {border_color};
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         width: 100%;
         box-sizing: border-box;
     }}
@@ -171,24 +171,25 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
+    /* 버튼 스타일 및 줄바꿈 처리 */
     .stButton > button {{
         width: 100% !important;
         height: auto !important;
-        min-height: 48px !important;
-        padding: 6px 4px !important;
+        min-height: 42px !important;
+        padding: 4px 1px !important;
         border: 1px solid {border_color} !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(10px, 2.2vw, 13px) !important;
+        font-size: clamp(8px, 2.2vw, 12px) !important;
         font-weight: 500 !important;
-        margin-bottom: 4px !important;
+        margin-bottom: 2px !important;
         white-space: pre-wrap !important;
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
-        line-height: 1.35 !important;
+        word-break: break-all !important;
+        overflow-wrap: anywhere !important;
+        line-height: 1.2 !important;
         transition: all 0.2s ease !important;
     }}
 
@@ -201,11 +202,11 @@ responsive_css = f"""
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(320px, 92vw, 680px) !important;
+        width: clamp(300px, 92vw, 680px) !important;
         max-width: 95vw !important;
         max-height: 88vh !important;
         border-radius: 12px !important;
-        padding: 1.5rem !important;
+        padding: 1.2rem !important;
         overflow-y: auto !important;
         border: 1px solid {border_color} !important;
     }}
@@ -216,19 +217,21 @@ responsive_css = f"""
         border-color: {border_color} !important;
     }}
 
-    /* 🚨 7열 가로형 달력 모바일 세로모드 무너짐 완벽 방지 */
-    @media (max-width: 768px) {{
-        [data-testid="stHorizontalBlock"] {{
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            min-width: 680px !important; /* 모바일에서도 일~토 7열 형태 강제 고정 */
-        }}
-        [data-testid="column"] {{
-            width: 14.28% !important;
-            min-width: 90px !important;
-            flex: 1 1 0% !important;
-        }}
+    /* 🚨 세로화면 폭 축소 및 7열 가로 매트릭스 고정 (스크롤 없이 화면 내부 표출) */
+    [data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        gap: 2px !important;
+    }}
+
+    [data-testid="column"] {{
+        width: 14.28% !important;
+        min-width: 0 !important;
+        flex: 1 1 0% !important;
+        padding: 0 !important;
     }}
 
     /* JS 스와이프용 버튼 완전 격리 */
@@ -276,20 +279,20 @@ calendar_enhancer_js = """
             if (txt.includes('🌟') || txt.includes('[오늘]')) {
                 btn.style.setProperty('background', 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)', 'important');
                 btn.style.setProperty('color', '#FFFFFF', 'important');
-                btn.style.setProperty('border', '2px solid #F59E0B', 'important');
+                btn.style.setProperty('border', '1.5px solid #F59E0B', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
-                btn.style.setProperty('box-shadow', '0 0 12px rgba(37, 99, 235, 0.6)', 'important');
             }
         });
 
-        // 3. 7열 달력 행(stHorizontalBlock)에 min-width 680px 강제 부여 (모바일 세로 세움 방지)
+        // 3. 7열 달력 행(stHorizontalBlock)에 폭 100% 강제 부여 (화면 맞춤)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
         horizBlocks.forEach(block => {
             if (block.children.length === 7) {
                 block.style.setProperty('display', 'flex', 'important');
                 block.style.setProperty('flex-direction', 'row', 'important');
                 block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                block.style.setProperty('min-width', '680px', 'important');
+                block.style.setProperty('width', '100%', 'important');
+                block.style.setProperty('min-width', '0px', 'important');
             }
         });
     }
@@ -328,7 +331,6 @@ calendar_enhancer_js = """
         }, {passive: true});
     }
 
-    // 렌더링 동기화를 위해 주기적 실행
     setInterval(enhanceCalendarUI, 200);
 })();
 </script>
@@ -1034,10 +1036,10 @@ with tab1:
             f"""
         <div class="today-card">
             <div style="font-size:12px; opacity:0.9; margin-bottom:2px;">🚨 오늘의 숙직 근무자 ({today_str})</div>
-            <div style="font-size:15px; font-weight:bold;">
+            <div style="font-size:14px; font-weight:bold;">
                 근무자 1: <span>{p1}</span> &nbsp;|&nbsp; 
                 근무자 2: <span>{p2}</span>
-                <span style="font-size:13px; font-weight:normal;">{memo_str}</span>
+                <span style="font-size:12px; font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -1132,7 +1134,7 @@ with tab1:
                 "p2_display": p2_display,
             }
 
-        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능하며, 모바일 화면을 좌우로 스와이프하여 달을 이동할 수 있습니다.")
+        st.caption("💡 각 날짜 항목을 클릭하면 근무자 수정 및 메모 작성이 가능하며, 화면 좌우 스와이프로 달을 이동할 수 있습니다.")
 
         calendar_view_type = st.session_state.auto_view_type
 
@@ -1167,7 +1169,7 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 🗓️ 항상 7열(일~토) 매트릭스 형태로 표출되는 가로형 달력 (Grid Calendar)
+            # 🗓️ 화면 100% 폭에 맞춰 세로 모드에서도 스크롤 없이 7열 표출 + 자동 줄바꿈 달력
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1180,11 +1182,11 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(12px, 2.5vw, 15px); padding-bottom: 5px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(11px, 2.3vw, 14px); padding-bottom: 2px;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 
-            st.divider()
+            st.markdown("<div style='margin-bottom: 4px;'></div>", unsafe_allow_html=True)
             first_day_weekday = calendar.monthrange(year, month)[0]
             start_offset = (first_day_weekday + 1) % 7
             day_counter = 1
@@ -1207,7 +1209,7 @@ with tab1:
                         day_memo = st.session_state.memos.get(date_str, "")
 
                         is_today = (curr_date == today)
-                        day_label = f"🌟 [오늘] {day_counter}일" if is_today else f"{day_counter}일"
+                        day_label = f"🌟{day_counter}일" if is_today else f"{day_counter}일"
 
                         btn_text = f"{day_label}\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_label}\n{p1_txt}\n{p2_txt}"
 

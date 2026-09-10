@@ -225,7 +225,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 4. 모바일 터치 스와이프(좌:다음달, 우:이전달) 감지 JS (오류 수정)
+# 모바일 터치 스와이프(좌:다음달, 우:이전달) 감지 JS
 # ---------------------------------------------------------
 swipe_js = """
 <script>
@@ -249,7 +249,6 @@ swipe_js = """
         const diffX = touchendX - touchstartX;
         const diffY = touchendY - touchstartY;
         
-        // 수평 드래그 여부(X축 이동 > Y축 이동) 및 50px 이상 이동 감지
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
             if (diffX < 0) {
                 triggerMonthChange('next');
@@ -297,7 +296,6 @@ def save_to_excel_file(df, file_path):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
 
-        # 달력 날짜별 메모 정보를 엑셀 내 '메모' 컬럼으로 통합 동기화
         memos = st.session_state.get("memos", {})
         save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
 
@@ -508,7 +506,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["대직2"] = df[sub2_col].astype(str).str.strip() if sub2_col else None
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    # 엑셀 내 메모 열 자동 감지 및 세션 메모 동기화
     memo_col = next((c for c in cols if "메모" in c or "비고" in c), None)
     if memo_col:
         if "memos" not in st.session_state:
@@ -804,7 +801,7 @@ def settings_dialog():
 
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그
+# 근무자 수정 다이얼로그 (수정: 날짜별 Dynamic Key 지정)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -838,22 +835,22 @@ def edit_worker_dialog(date_str, duty_info):
 
         with col_f1:
             st.markdown("**:blue[근무자 1 / 대직자 1]**")
-            p1_sel = st.selectbox("근무자1 선택", options=worker_options, index=get_opt_idx(val_p1), key="p1_sel")
-            p1_custom = st.text_input("근무자1 직접입력", value=val_p1 if p1_sel == "(직접 입력)" else "", key="p1_custom") if p1_sel == "(직접 입력)" else ""
+            p1_sel = st.selectbox("근무자1 선택", options=worker_options, index=get_opt_idx(val_p1), key=f"p1_sel_{date_str}")
+            p1_custom = st.text_input("근무자1 직접입력", value=val_p1 if p1_sel == "(직접 입력)" else "", key=f"p1_custom_{date_str}") if p1_sel == "(직접 입력)" else ""
 
-            sub1_sel = st.selectbox("대직자1 선택", options=worker_options, index=get_opt_idx(val_sub1), key="sub1_sel")
-            sub1_custom = st.text_input("대직자1 직접입력", value=val_sub1 if sub1_sel == "(직접 입력)" else "", key="sub1_custom") if sub1_sel == "(직접 입력)" else ""
+            sub1_sel = st.selectbox("대직자1 선택", options=worker_options, index=get_opt_idx(val_sub1), key=f"sub1_sel_{date_str}")
+            sub1_custom = st.text_input("대직자1 직접입력", value=val_sub1 if sub1_sel == "(직접 입력)" else "", key=f"sub1_custom_{date_str}") if sub1_sel == "(직접 입력)" else ""
 
         with col_f2:
             st.markdown("**:blue[근무자 2 / 대직자 2]**")
-            p2_sel = st.selectbox("근무자2 선택", options=worker_options, index=get_opt_idx(val_p2), key="p2_sel")
-            p2_custom = st.text_input("근무자2 직접입력", value=val_p2 if p2_sel == "(직접 입력)" else "", key="p2_custom") if p2_sel == "(직접 입력)" else ""
+            p2_sel = st.selectbox("근무자2 선택", options=worker_options, index=get_opt_idx(val_p2), key=f"p2_sel_{date_str}")
+            p2_custom = st.text_input("근무자2 직접입력", value=val_p2 if p2_sel == "(직접 입력)" else "", key=f"p2_custom_{date_str}") if p2_sel == "(직접 입력)" else ""
 
-            sub2_sel = st.selectbox("대직자2 선택", options=worker_options, index=get_opt_idx(val_sub2), key="sub2_sel")
-            sub2_custom = st.text_input("대직자2 직접입력", value=val_sub2 if sub2_sel == "(직접 입력)" else "", key="sub2_custom") if sub2_sel == "(직접 입력)" else ""
+            sub2_sel = st.selectbox("대직자2 선택", options=worker_options, index=get_opt_idx(val_sub2), key=f"sub2_sel_{date_str}")
+            sub2_custom = st.text_input("대직자2 직접입력", value=val_sub2 if sub2_sel == "(직접 입력)" else "", key=f"sub2_custom_{date_str}") if sub2_sel == "(직접 입력)" else ""
 
         st.divider()
-        edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=80)
+        edit_memo = st.text_area("📌 날짜별 메모 (달력 표출)", value=current_memo, height=80, key=f"edit_memo_{date_str}")
 
         c_sub1, c_sub2 = st.columns([2, 1])
         with c_sub1:
@@ -920,7 +917,6 @@ with st.sidebar:
         st.success(f"✅ '{used_sheet}' 데이터 로드 완료")
         st.rerun()
 
-    # 수정된 최신 엑셀 파일 다운로드 버튼 (출력 동기화)
     if "file_bytes" in st.session_state and st.session_state.file_bytes:
         st.download_button(
             label="📥 수정된 엑셀 파일 다운로드",
@@ -979,17 +975,18 @@ with tab1:
         )
 
     available_months = sorted(df["년월"].dropna().unique())
+    if not available_months:
+        available_months = [today.strftime("%Y-%m")]
+
     current_ym = today.strftime("%Y-%m")
     default_idx = available_months.index(current_ym) if current_ym in available_months else 0
 
-    # 세션 키 기반 동기화 보장
     if "calendar_month_select" not in st.session_state:
-        st.session_state.calendar_month_select = available_months[default_idx] if available_months else ""
+        st.session_state.calendar_month_select = available_months[default_idx]
 
     if "selected_month_idx" not in st.session_state:
         st.session_state.selected_month_idx = available_months.index(st.session_state.calendar_month_select) if st.session_state.calendar_month_select in available_months else default_idx
 
-    # 월 이동 및 설정 상단 툴바
     col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([0.6, 2.2, 0.6, 1.2])
     
     with col_nav1:

@@ -157,21 +157,11 @@ responsive_css = f"""
 
     /* 제목 한줄 가득 차게 최적화 */
     h1 {{ font-size: clamp(15px, 4.2vw, 21px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; white-space: nowrap !important; }}
-    
-    /* ⚙️ 설정 버튼 전용 클래스 지정으로 달력 버튼과 충돌 원천 차단 */
-    div.stButton > button[key*="main_top_settings_btn"], div.stButton > button[id*="main_top_settings_btn"] {{
-        background-color: { "rgba(255,255,255,0.08)" if is_dark else "rgba(0,0,0,0.04)" } !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 6px !important;
-        font-weight: 700 !important;
-        font-size: 13px !important;
-        min-height: 32px !important;
-    }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
-    /* 월 타이틀(숙직근무표 박스) 0.7배 크기 조절 */
+    /* 월 타이틀(숙직근무표 박스) 크기 조절 */
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1px solid {border_color}; border-radius: 5px; padding: 4px 6px; margin-top: 3px; margin-bottom: 3px; text-align: center;
@@ -389,7 +379,7 @@ calendar_enhancer_js = f"""
     }}
 
     setInterval(enhanceCalendarUI, 250);
-}})();
+})();
 </script>
 """
 components.html(calendar_enhancer_js, height=0, width=0)
@@ -423,7 +413,7 @@ def update_excel_download_bytes(df):
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             save_df.to_excel(writer, index=False)
         st.session_state.file_bytes = output.getvalue()
-    except Exception as e:
+    except Exception:
         pass
 
 def save_to_excel_file(df, file_path):
@@ -469,7 +459,6 @@ def save_app_state(df, sheet_name, memos, batch_patterns=None):
     except Exception as e:
         st.error(f"상태 저장 중 오류가 발생했습니다: {e}")
 
-
 def load_app_state():
     if os.path.exists(PERSISTENCE_STATE_PATH):
         try:
@@ -491,7 +480,6 @@ def load_app_state():
         except Exception:
             return None, None, None, None
     return None, None, None, None
-
 
 # ---------------------------------------------------------
 # 스마트 엑셀 파서
@@ -671,7 +659,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df = df[reordered_cols]
     return df, target_sheet, sheet_names, df_raw, file_bytes
 
-
 def get_all_workers_list(df):
     worker_cols = ["근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]
     names = set()
@@ -683,7 +670,6 @@ def get_all_workers_list(df):
                     names.add(name)
     sorted_names = sorted(list(names))
     return ["(선택 안함)"] + sorted_names + ["(직접 입력)"]
-
 
 # ---------------------------------------------------------
 # 세션 상태 초기화 및 파일 로드
@@ -769,7 +755,6 @@ def confirm_exit_dialog():
             st.session_state.show_exit_dialog = False
             st.session_state.is_app_closed = True
             st.rerun()
-
 
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
@@ -903,7 +888,6 @@ def settings_dialog():
                 except Exception as ex:
                     st.error(f"오류 발생: {ex}")
 
-
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
     st.write(f"📅 **{date_str} 근무 정보 수정**")
@@ -989,7 +973,6 @@ def edit_worker_dialog(date_str, duty_info):
             st.session_state.editing_duty_info = None
             st.rerun()
 
-
 # ---------------------------------------------------------
 # 사이드바
 # ---------------------------------------------------------
@@ -1049,7 +1032,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 한줄 가득 배치 및 설정 버튼을 바로 아래줄로 배치
+# 메인 화면 - 제목 한줄 가득 배치 및 설정 버튼 배치
 # ---------------------------------------------------------
 st.title("📋 광주교도소 의료과 숙직근무")
 if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width=True, type="secondary", key="main_top_settings_btn"):
@@ -1205,7 +1188,7 @@ with tab1:
                         st.session_state.editing_duty_info = duty_info
                         st.rerun()
         else:
-            # 🗓️ 가로형 Grid 달력: 요일 박스 잘림 방지용 패딩 및 높이 최적화
+            # 🗓️ 가로형 Grid 달력: 요일 표시 프레임 세로 방향 확장 (padding 12px 0 적용)
             cols_header = st.columns(7, wrap=False)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1218,7 +1201,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: 800; font-size: clamp(11px, 2.8vw, 15px); padding: 6px 0; line-height: 1.2; background: { 'rgba(255,255,255,0.06)' if is_dark else 'rgba(0,0,0,0.04)' }; border-radius: 4px; border: 1px solid {border_color};'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: 800; font-size: clamp(11px, 2.8vw, 15px); padding: 12px 0; line-height: 1.3; background: { 'rgba(255,255,255,0.06)' if is_dark else 'rgba(0,0,0,0.04)' }; border-radius: 4px; border: 1px solid {border_color};'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

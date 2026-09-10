@@ -978,7 +978,13 @@ with tab2:
 with tab3:
     st.subheader("📊 숙직근무자 월별 통계 및 근무시간")
     stat_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
-    sel_st_m = st.selectbox("📅 통계 월선택", stat_ms)
+    
+    # 📌 통계 월 선택 박스의 초기값을 현재 달로 설정
+    cur_ym = today.strftime("%Y-%m")
+    default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
+    
+    sel_st_m = st.selectbox("📅 통계 월선택", stat_ms, index=default_stat_idx)
+    
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m].copy()
     
     if not f_df.empty and "날짜" in f_df.columns:

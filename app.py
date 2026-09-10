@@ -67,6 +67,12 @@ local_cfg = load_local_config()
 if "is_app_closed" not in st.session_state:
     st.session_state.is_app_closed = False
 
+if "show_settings_dialog" not in st.session_state:
+    st.session_state.show_settings_dialog = False
+
+if "show_exit_dialog" not in st.session_state:
+    st.session_state.show_exit_dialog = False
+
 if "auto_view_type" not in st.session_state:
     st.session_state.auto_view_type = local_cfg["auto_view_type"]
 
@@ -83,7 +89,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마별 스타일 & 가로형 달력 회전/스크롤 대응)
+# 동적 CSS (테마별 스타일 & 오늘 날짜 음영 강조 & 스와이프 숨김)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -191,6 +197,25 @@ responsive_css = f"""
         color: {btn_text} !important;
     }}
 
+    /* 🌟 오늘 날짜 커스텀 강조 음영 스타일링 */
+    .stButton > button:has(div:contains("오늘")),
+    .stButton > button:has(p:contains("오늘")),
+    .stButton > button:has(span:contains("오늘")) {{
+        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+        color: #FFFFFF !important;
+        border: 2px solid #F59E0B !important;
+        font-weight: 800 !important;
+        box-shadow: 0 0 12px rgba(37, 99, 235, 0.45) !important;
+    }}
+
+    .stButton > button:has(div:contains("오늘")):hover,
+    .stButton > button:has(p:contains("오늘")):hover,
+    .stButton > button:has(span:contains("오늘")):hover {{
+        background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%) !important;
+        border-color: #FBBF24 !important;
+        color: #FFFFFF !important;
+    }}
+
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -221,14 +246,17 @@ responsive_css = f"""
         }}
     }}
 
-    /* JS 스와이프용 오프스크린 숨김 영역 */
-    .swipe-hidden-buttons {{
+    /* JS 스와이프용 버튼 감추기 (완전 레이아웃 제거) */
+    .swipe-hidden-buttons,
+    div[data-testid="stElementContainer"]:has(.swipe-hidden-buttons),
+    div:has(> .swipe-hidden-buttons) {{
+        display: none !important;
+        height: 0px !important;
+        width: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
         position: absolute !important;
-        top: -9999px !important;
         left: -9999px !important;
-        opacity: 0 !important;
-        height: 0 !important;
-        width: 0 !important;
         overflow: hidden !important;
     }}
 </style>
@@ -632,7 +660,7 @@ if "batch_patterns" not in st.session_state:
 
 
 # ---------------------------------------------------------
-# 상위 메뉴용 종료 확인 다이얼로그
+# 다이얼로그 정의 (팝업 유지 세션 관리)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -642,16 +670,15 @@ def confirm_exit_dialog():
     col_e1, col_e2 = st.columns(2)
     with col_e1:
         if st.button("❌ 취소", use_container_width=True):
+            st.session_state.show_exit_dialog = False
             st.rerun()
     with col_e2:
         if st.button("🔴 예 (종료)", use_container_width=True, type="primary"):
+            st.session_state.show_exit_dialog = False
             st.session_state.is_app_closed = True
             st.rerun()
 
 
-# ---------------------------------------------------------
-# 설정 다이얼로그
-# ---------------------------------------------------------
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
     tab_s1, tab_s2, tab_s3 = st.tabs([
@@ -685,6 +712,7 @@ def settings_dialog():
             st.session_state.app_theme = new_theme
             save_local_config("auto_view_type", new_view_type)
             save_local_config("app_theme", new_theme)
+            st.session_state.show_settings_dialog = False
             st.success("✅ 화면 설정이 이 기기에 저장되었습니다.")
             st.rerun()
 
@@ -750,6 +778,7 @@ def settings_dialog():
 
             st.session_state.df = df
             save_app_state(df, st.session_state.selected_sheet, st.session_state.memos, st.session_state.batch_patterns)
+            st.session_state.show_settings_dialog = False
             st.success("✅ 순환 반복 패턴이 저장 및 적용되었습니다.")
             st.rerun()
 
@@ -939,7 +968,18 @@ with st.sidebar:
 
     st.divider()
     if st.button("🔴 앱종료", use_container_width=True):
-        confirm_exit_dialog()
+        st.session_state.show_exit_dialog = True
+        st.rerun()
+
+
+# ---------------------------------------------------------
+# 세션 기반 다이얼로그 호출 처리 (팝업 유지 적용)
+# ---------------------------------------------------------
+if st.session_state.show_settings_dialog:
+    settings_dialog()
+
+if st.session_state.show_exit_dialog:
+    confirm_exit_dialog()
 
 
 df = st.session_state.df
@@ -1017,7 +1057,7 @@ with tab1:
             st.session_state.selected_month = new_m
             st.session_state.calendar_month_select = new_m
 
-    # JS 스와이프 트리거용 화면 밖 숨김 버튼
+    # JS 스와이프 트리거용 완벽 숨김 처리된 버튼
     st.markdown('<div class="swipe-hidden-buttons">', unsafe_allow_html=True)
     col_h1, col_h2 = st.columns(2)
     with col_h1:
@@ -1040,7 +1080,8 @@ with tab1:
 
     with col_nav2:
         if st.button("⚙️ 설정", use_container_width=True, type="secondary"):
-            settings_dialog()
+            st.session_state.show_settings_dialog = True
+            st.rerun()
 
     if selected_month in available_months:
         year, month = map(int, selected_month.split("-"))
@@ -1092,7 +1133,11 @@ with tab1:
                 weekday_str = weekdays_kr[weekday_idx]
                 duty_info = duty_map.get(day)
 
-                if weekday_idx == 6 or curr_date in kr_holidays:
+                is_today = (curr_date == today)
+
+                if is_today:
+                    day_title = f"🌟 [오늘] {day:02d}일({weekday_str})"
+                elif weekday_idx == 6 or curr_date in kr_holidays:
                     day_title = f"🔴 {day:02d}일({weekday_str})"
                 elif weekday_idx == 5:
                     day_title = f"🔵 {day:02d}일({weekday_str})"
@@ -1150,7 +1195,10 @@ with tab1:
                         p2_txt = duty_info["p2_display"] if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
 
-                        btn_text = f"{day_counter}일\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_counter}일\n{p1_txt}\n{p2_txt}"
+                        is_today = (curr_date == today)
+                        day_label = f"🌟 [오늘 {day_counter}일]" if is_today else f"{day_counter}일"
+
+                        btn_text = f"{day_label}\n{p1_txt}\n{p2_txt}\n📌{day_memo}" if day_memo else f"{day_label}\n{p1_txt}\n{p2_txt}"
 
                         if grid_cols[c].button(btn_text, key=f"btn_grid_card_{date_str}"):
                             if duty_info:

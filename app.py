@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (달력 버튼만 개별 확장 및 요일 박스 2배 확대)
+# 동적 CSS (달력 버튼 개별 확장 및 요일 박스 2배 확대)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -179,7 +179,7 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 일반 앱 버튼들은 폰트에 비례하도록 컴팩트하게 설정 */
+    /* 일반 앱 버튼 컴팩트화 */
     .stButton > button {{
         width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 34px !important;
         padding: 4px 8px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
@@ -188,7 +188,7 @@ responsive_css = f"""
         touch-action: manipulation !important; cursor: pointer !important;
     }}
 
-    /* 🚨 달력 내부 셀 버튼만 세로 길이를 약 2배로 확장 (min-height 82px) */
+    /* 달력 내부 셀 버튼만 세로 길이를 약 2배로 확장 (min-height 82px) */
     div[data-testid="column"] .stButton > button {{
         min-height: 82px !important;
         padding: 4px 1px !important;
@@ -259,7 +259,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 🚨 모바일 드래그(스와이프)로 전후 월 이동 기능 완벽 복구 JS
+# 모바일 드래그(스와이프)로 전후 월 이동 기능 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -746,18 +746,18 @@ if "batch_patterns" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의
+# 다이얼로그 정의 (동시 충돌 방지 구조)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
     st.write("정말로 숙직 근무 관리 시스템을 종료하시겠습니까?")
     col_e1, col_e2 = st.columns(2, wrap=False)
     with col_e1:
-        if st.button("❌ 취소", use_container_width=True):
+        if st.button("❌ 취소", use_container_width=True, key="dlg_exit_cancel"):
             st.session_state.show_exit_dialog = False
             st.rerun()
     with col_e2:
-        if st.button("🔴 예 (종료)", use_container_width=True, type="primary"):
+        if st.button("🔴 예 (종료)", use_container_width=True, type="primary", key="dlg_exit_yes"):
             st.session_state.show_exit_dialog = False
             st.session_state.is_app_closed = True
             st.rerun()
@@ -789,7 +789,7 @@ def settings_dialog():
             key="cfg_theme_radio",
         )
 
-        if st.button("💾 화면 설정 적용하기", use_container_width=True, type="primary"):
+        if st.button("💾 화면 설정 적용하기", use_container_width=True, type="primary", key="cfg_save_screen"):
             st.session_state.auto_view_type = new_view_type
             st.session_state.app_theme = new_theme
             save_local_config("auto_view_type", new_view_type)
@@ -824,7 +824,7 @@ def settings_dialog():
             default_w2_slots = saved_pat.get("w2_names", [])
             w2_names = [st.text_input(f"근무자2 순번 {i+1}", value=default_w2_slots[i] if i < len(default_w2_slots) else "", key=f"dlg_w2_{i}").strip() for i in range(int(interval2))]
 
-        if st.button("💾 반복 순서 저장 및 근무표 반영", use_container_width=True, type="primary"):
+        if st.button("💾 반복 순서 저장 및 근무표 반영", use_container_width=True, type="primary", key="dlg_batch_save"):
             st.session_state.batch_patterns = {
                 "interval1": int(interval1),
                 "w1_names": w1_names,
@@ -880,7 +880,7 @@ def settings_dialog():
             msg_content = f"📢 [{send_date.strftime('%Y-%m-%d')} 숙직근무 안내]\n해당 날짜의 근무 정보가 없습니다."
 
         st.text_area("미리보기", value=msg_content, height=100)
-        if st.button("💬 나에게 카카오톡 메시지 전송", use_container_width=True, type="primary"):
+        if st.button("💬 나에게 카카오톡 메시지 전송", use_container_width=True, type="primary", key="dlg_kakao_send"):
             if not kakao_key:
                 st.warning("⚠️ API 키를 입력해주세요.")
             else:
@@ -896,9 +896,6 @@ def settings_dialog():
                     st.error(f"오류 발생: {ex}")
 
 
-# ---------------------------------------------------------
-# 근무자 수정 다이얼로그 (안전한 세션 기반 호출)
-# ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
     st.write(f"📅 **{date_str} 근무 정보 수정**")
@@ -993,7 +990,7 @@ with st.sidebar:
     if "file_name" in st.session_state:
         st.info(f"📄 파일: `{st.session_state.file_name}`")
 
-    uploaded_file = st.file_uploader("새 엑셀 업로드", type=["xlsx"])
+    uploaded_file = st.file_uploader("새 엑셀 업로드", type=["xlsx"], key="sidebar_file_uploader")
     if uploaded_file is not None:
         file_bytes = uploaded_file.getvalue()
         save_path = os.path.join("DATA", uploaded_file.name)
@@ -1023,21 +1020,22 @@ with st.sidebar:
             file_name=st.session_state.get("file_name", "숙직근무표_수정본.xlsx"),
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
+            key="sidebar_download_btn",
         )
 
     st.divider()
-    if st.button("🔴 앱종료", use_container_width=True):
+    if st.button("🔴 앱종료", use_container_width=True, key="sidebar_exit_btn"):
         st.session_state.show_exit_dialog = True
         st.rerun()
 
-if st.session_state.show_settings_dialog:
-    settings_dialog()
-
+# ---------------------------------------------------------
+# 🚨 단일 다이얼로그 호출 보장 (StreamlitInvalidLayoutContextError 방지)
+# ---------------------------------------------------------
 if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
-
-# 달력 셀 클릭 시 지정된 다이얼로그 안전 호출
-if st.session_state.editing_date and st.session_state.editing_duty_info:
+elif st.session_state.show_settings_dialog:
+    settings_dialog()
+elif st.session_state.editing_date and st.session_state.editing_duty_info:
     edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
 
 df = st.session_state.df

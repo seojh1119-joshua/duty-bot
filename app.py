@@ -9,12 +9,6 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-try:
-    import holidays
-    kr_holidays = holidays.KR()
-except ImportError:
-    kr_holidays = {}
-
 os.makedirs("DATA", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
@@ -37,8 +31,8 @@ def load_local_config():
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 default_config.update(json.load(f))
-        except Exception:
-            pass
+        except Exception as e:
+            st.sidebar.warning(f"⚠️ 설정 로드 실패: {e}")
     return default_config
 
 def save_local_config(key, value):
@@ -47,8 +41,8 @@ def save_local_config(key, value):
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 설정 저장 실패: {e}")
 
 local_cfg = load_local_config()
 
@@ -281,8 +275,8 @@ def update_excel_download_bytes(df):
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             save_df.to_excel(writer, index=False)
         st.session_state.file_bytes = output.getvalue()
-    except Exception:
-        pass
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 엑셀 다운로드 데이터 생성 실패: {e}")
 
 def save_to_excel_file(df, file_path):
     try:
@@ -294,7 +288,8 @@ def save_to_excel_file(df, file_path):
         save_df.to_excel(file_path, index=False)
         update_excel_download_bytes(df)
         return True
-    except Exception:
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 엑셀 파일 저장 실패: {e}")
         return False
 
 def save_app_state(df, sheet_name, memos, batch_patterns=None):
@@ -309,8 +304,8 @@ def save_app_state(df, sheet_name, memos, batch_patterns=None):
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()))
-    except Exception:
-        pass
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
 def load_app_state():
     if os.path.exists(PERSISTENCE_STATE_PATH):
@@ -322,8 +317,8 @@ def load_app_state():
                 df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
                 df = df[["날짜"] + [c for c in df.columns if c != "날짜"]]
             return df, state_data.get("selected_sheet", "숙직근무자"), state_data.get("memos", {}), state_data.get("batch_patterns", {})
-        except Exception:
-            pass
+        except Exception as e:
+            st.sidebar.warning(f"⚠️ 저장된 상태 불러오기 실패: {e}")
     return None, None, None, None
 
 def load_excel_smart(file_input, selected_sheet=None):
@@ -406,7 +401,7 @@ update_excel_download_bytes(st.session_state.df)
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
     st.write("정말로 시스템을 종료하시겠습니까?")
-    c1, c2 = st.columns(2, wrap=False)
+    c1, c2 = st.columns(2)
     with c1:
         if st.button("❌ 취소", use_container_width=True): 
             st.session_state.show_exit_dialog = False
@@ -434,7 +429,7 @@ def settings_dialog():
         infinite_repeat = st.checkbox("♾️ 순환 패턴 계속 반복 적용 (시작일부터 선택 월 끝까지 무한 순환)", value=True)
         days_c = st.number_input("적용 총 일수", min_value=1, max_value=365, value=30, disabled=infinite_repeat)
         
-        c1, c2 = st.columns(2, wrap=False)
+        c1, c2 = st.columns(2)
         with c1:
             i1 = st.number_input("근무자1 주기", 1, 30, 3)
             w1_names = [st.text_input(f"순번 {i+1}", key=f"w1_{i}").strip() for i in range(int(i1))]
@@ -491,11 +486,14 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
     
-    worker_options = ["(선택 안함)"] + sorted(list(set(st.session_state.df["근무자1"].dropna().unique()))) + ["(직접 입력)"]
+    # 수정: 근무자1, 근무자2 컬럼 모두에서 이름을 모아 선택지를 구성 (기존에는 근무자1만 사용해 누락 발생)
+    all_workers = set(st.session_state.df["근무자1"].dropna().unique()) | set(st.session_state.df["근무자2"].dropna().unique())
+    all_workers.discard("미지정")
+    worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
     def get_idx(val): return worker_options.index(val) if val in worker_options else 0
 
     with st.form(f"form_{date_str}"):
-        c1, c2 = st.columns(2, wrap=False)
+        c1, c2 = st.columns(2)
         with c1:
             p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_row.get("근무자1", "")))
             p1_c = st.text_input("직접입력1", value=curr_row.get("근무자1", "")) if p1_s == "(직접 입력)" else ""
@@ -507,7 +505,7 @@ def edit_worker_dialog(date_str, duty_info):
         
         memo_in = st.text_area("📌 메모", value=st.session_state.memos.get(date_str, ""))
         
-        col_sub1, col_sub2 = st.columns([2, 1], wrap=False)
+        col_sub1, col_sub2 = st.columns([2, 1])
         with col_sub1: submitted = st.form_submit_button("💾 저장", use_container_width=True)
         with col_sub2: closed = st.form_submit_button("🚪 닫기", use_container_width=True)
 
@@ -620,7 +618,7 @@ with tab1:
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
-            cols_h = st.columns(7, wrap=False)
+            cols_h = st.columns(7)
             h_names = [("일", "#FF6B6B" if is_dark else "#DC2626"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#38BDF8" if is_dark else "#2563EB")]
             for idx, (h_n, col_c) in enumerate(h_names):
                 cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: clamp(10px, 2.5vw, 14px); padding: 8px 0; background: rgba(128,128,128,0.08); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
@@ -628,7 +626,7 @@ with tab1:
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
             for r in range((offset + num_days + 6) // 7):
-                g_cols = st.columns(7, wrap=False)
+                g_cols = st.columns(7)
                 for c in range(7):
                     if (r * 7 + c) < offset or day_cnt > num_days:
                         g_cols[c].write("")

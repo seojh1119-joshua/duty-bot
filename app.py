@@ -35,7 +35,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 1. 하드웨어/기기 개별 설정 저장 및 로드 함수 (웹 공유 방지)
+# 하드웨어/기기 개별 설정 저장 및 로드 함수 (웹 공유 방지)
 # ---------------------------------------------------------
 def load_local_config():
     default_config = {
@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (사이드바 중복 클릭 방지 및 달력 세로 핏 최적화)
+# 동적 CSS (버튼 세로 2배 확대, 요일 노출, 스와이프 영역)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -119,7 +119,7 @@ today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 🚨 사이드바 토글 버튼과 설정 버튼 영역 간섭/중복 클릭 방지 (z-index 분리) */
+    /* 사이드바 토글 버튼과 설정 버튼 영역 간섭/중복 클릭 방지 */
     [data-testid="stSidebarNav"] {{ z-index: 100000 !important; }}
     [data-testid="collapsedControl"] {{ z-index: 99999 !important; top: 5px !important; }}
     
@@ -143,7 +143,7 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 🎨 사이드바 엑셀 업로드/다운로드 연한 하늘색 배경 적용 */
+    /* 사이드바 엑셀 업로드/다운로드 연한 하늘색 배경 적용 */
     [data-testid="stSidebar"] [data-testid="stFileUploader"] > section {{
         background-color: #E0F2FE !important;
         border: 1px dashed #7DD3FC !important;
@@ -155,10 +155,10 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    /* 🌟 제목 크기 및 상단 여백 최소화 (세로 화면 잘림 방지) */
+    /* 메인 타이틀 크기 */
     h1 {{ font-size: clamp(16px, 4vw, 22px) !important; margin: 0px !important; padding: 0px !important; font-weight: 800 !important; }}
     
-    /* ⚙️ 상단 설정 버튼 높이 및 패딩 컴팩트화 */
+    /* 상단 설정 버튼 */
     div[data-testid="column"]:nth-child(2) button {{
         font-size: clamp(15px, 3.5vw, 20px) !important;
         padding: 0px !important;
@@ -169,11 +169,12 @@ responsive_css = f"""
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
+    /* 달력 위 월 제목 카드를 달력 폰트보다 크고 선명하게 설정 */
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 4px; padding: 1px 4px; margin-top: 1px; margin-bottom: 2px; text-align: center;
+        border: 1px solid {border_color}; border-radius: 6px; padding: 6px 8px; margin-top: 4px; margin-bottom: 4px; text-align: center;
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(11px, 2.5vw, 15px) !important; font-weight: 800 !important; color: {"#60A5FA" if is_dark else "#2563EB"} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: clamp(16px, 4vw, 21px) !important; font-weight: 900 !important; color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; }}
 
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 100%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 100%, #BAE6FD 100%)" };
@@ -181,22 +182,22 @@ responsive_css = f"""
     }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: bold; }}
 
-    /* 🚨 모바일 터치 및 셀 높이 최적화 (요일 및 하단 잘림 해결) */
+    /* 🚨 가로형 달력 버튼 세로 길이를 2배 정도 확대 (min-height 85px 이상 확보) 및 요일/글씨 보장 */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 40px !important;
-        padding: 1px 0px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 82px !important;
+        padding: 4px 1px !important; border: 1px solid {border_color} !important; border-radius: 4px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: clamp(6px, 1.5vw, 8.5px) !important; font-weight: 600 !important; margin: 0 !important;
-        touch-action: manipulation !important; cursor: pointer !important;
+        text-align: center !important; font-size: clamp(7.5px, 1.8vw, 10.5px) !important; font-weight: 600 !important; margin: 0 !important;
+        touch-action: pan-y !important; cursor: pointer !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.05 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: visible !important; line-height: 1.2 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 요일 헤더 확실한 표출 */
+    /* 7개 컬럼 강제 가로 한 화면 일렬 정렬 및 요일 노출 최적화 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -226,7 +227,7 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 📱 모바일 세로 환경에서 팝업창 규격 */
+    /* 모바일 팝업 규격 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -253,7 +254,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 터치 스와이프 및 요일/오클릭 방지 JS
+# 🚨 모바일 스와이프 기능 완벽 복구 및 요일 표출 제어 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -341,7 +342,7 @@ calendar_enhancer_js = f"""
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            if (Math.abs(diffX) > 12 && Math.abs(diffX) > Math.abs(diffY)) {{
+            if (Math.abs(diffX) > 20 && Math.abs(diffX) > Math.abs(diffY)) {{
                 isSwiping = true;
             }}
         }}, {{passive: true}});
@@ -354,7 +355,7 @@ calendar_enhancer_js = f"""
             let diffX = touchendX - touchstartX;
             let diffY = touchendY - touchstartY;
             
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 28) {{
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {{
                 isSwiping = true;
                 if (diffX < 0) {{
                     triggerMonthChange('next');
@@ -362,7 +363,7 @@ calendar_enhancer_js = f"""
                     triggerMonthChange('prev');
                 }}
             }}
-            setTimeout(() => {{ isSwiping = false; }}, 250);
+            setTimeout(() => {{ isSwiping = false; }}, 300);
         }}, {{passive: true}});
 
         doc.addEventListener('click', function(e) {{
@@ -380,7 +381,7 @@ calendar_enhancer_js = f"""
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 파일 탐색 및 저장 함수
+# 파일 탐색 및 최신 다운로드 동기화 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -391,6 +392,25 @@ def get_initial_excel_file():
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
     return valid_files[0] if valid_files else os.path.join("DATA", "숙직근무표.xlsx")
 
+def update_excel_download_bytes(df):
+    try:
+        save_df = df.copy()
+        if "날짜" in save_df.columns:
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+
+        memos = st.session_state.get("memos", {})
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
+
+        if "날짜" in save_df.columns:
+            cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
+            save_df = save_df[cols]
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            save_df.to_excel(writer, index=False)
+        st.session_state.file_bytes = output.getvalue()
+    except Exception as e:
+        pass
 
 def save_to_excel_file(df, file_path):
     try:
@@ -406,15 +426,11 @@ def save_to_excel_file(df, file_path):
             save_df = save_df[cols]
 
         save_df.to_excel(file_path, index=False)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            save_df.to_excel(writer, index=False)
-        st.session_state.file_bytes = output.getvalue()
+        update_excel_download_bytes(df)
         return True
     except Exception as e:
         st.error(f"엑셀 파일 저장 중 오류가 발생했습니다: {e}")
         return False
-
 
 def save_app_state(df, sheet_name, memos, batch_patterns=None):
     try:
@@ -721,6 +737,8 @@ if "df" not in st.session_state:
 if "batch_patterns" not in st.session_state:
     st.session_state.batch_patterns = {}
 
+# 최신 엑셀 바이트 동기화 보장
+update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
 # 다이얼로그 정의
@@ -991,6 +1009,8 @@ with st.sidebar:
         st.success("✅ 파일 로드 완료")
         st.rerun()
 
+    # 최신 바이트를 다운로드 버튼에 반영
+    update_excel_download_bytes(st.session_state.df)
     if "file_bytes" in st.session_state and st.session_state.file_bytes:
         st.download_button(
             label="📥 엑셀 파일 다운로드",
@@ -1019,7 +1039,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 및 설정 버튼 상단 배치 (비율 최적화: [0.88, 0.12])
+# 메인 화면 - 제목 및 설정 버튼 상단 배치
 # ---------------------------------------------------------
 col_title, col_settings = st.columns([0.88, 0.12], wrap=False)
 with col_title:
@@ -1179,7 +1199,7 @@ with tab1:
                         st.session_state.editing_duty_info = duty_info
                         st.rerun()
         else:
-            # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 요일 표시 최적화
+            # 🗓️ 가로형 Grid 달력 요일 표출 (일월화수목금토 명확하게 표시)
             cols_header = st.columns(7, wrap=False)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1192,7 +1212,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding: 1px 0;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(11px, 2.5vw, 14px); padding: 2px 0;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

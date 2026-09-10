@@ -29,7 +29,7 @@ CONFIG_PATH = os.path.join("DATA", "local_config.json")
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="광주교도소 의료과 숙직근무",
-    page_icon="📋",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded",
 )

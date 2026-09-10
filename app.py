@@ -145,7 +145,7 @@ responsive_css = f"""
         font-weight: 700 !important;
     }}
 
-    h1 {{ font-size: clamp(15px, 3.8vw, 22px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
+    h1 {{ font-size: clamp(14px, 3.5vw, 20px) !important; margin-top: 0px !important; padding-top: 0px !important; }}
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
@@ -237,7 +237,6 @@ calendar_enhancer_js = f"""
             }}
         }});
 
-        // 7개 컬럼 강제 가로 정렬 주입 (JS 보완)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
         horizBlocks.forEach(block => {{
             if (block.children.length === 7) {{
@@ -952,14 +951,14 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 및 설정 버튼 상단 배치
+# 메인 화면 - 제목 및 설정 버튼 상단 배치 (wrap=False로 세로 꺾임 방지)
 # ---------------------------------------------------------
-col_title, col_settings = st.columns([0.88, 0.12])
+col_title, col_settings = st.columns([0.82, 0.18], wrap=False)
 with col_title:
     st.title("📋 광주교도소 의료과 숙직근무")
 with col_settings:
     st.write("")
-    if st.button("⚙️", type="secondary", key="main_top_settings_btn"):
+    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
         st.session_state.show_settings_dialog = True
         st.rerun()
 
@@ -1110,8 +1109,8 @@ with tab1:
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃
-            cols_header = st.columns(7)
+            # 🗓️ 모바일 세로 7열 한눈에 들어오는 가로 달력 레이아웃 (wrap=False 적용)
+            cols_header = st.columns(7, wrap=False)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
             color_weekday = "#F1F5F9" if is_dark else "#0F172A"
@@ -1134,7 +1133,7 @@ with tab1:
             num_rows = (total_cells + 6) // 7
 
             for r in range(num_rows):
-                grid_cols = st.columns(7)
+                grid_cols = st.columns(7, wrap=False)
                 for c in range(7):
                     cell_index = r * 7 + c
                     if cell_index < start_offset or day_counter > num_days:

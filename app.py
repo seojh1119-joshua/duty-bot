@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (메트릭 박스 간격 축소 및 달력 버튼 최적화)
+# 동적 CSS (통계 메트릭 박스 세로 배치 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -175,19 +175,20 @@ responsive_css = f"""
         font-weight: 900;
     }}
 
-    /* 📌 통계 메트릭 박스 간격 압축 (세로 화면 핏 최적화) */
+    /* 📌 통계 메트릭 박스 세로 배치 스타일 최적화 */
     [data-testid="stMetric"] {{
         background-color: {card_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 6px !important;
-        padding: 4px 6px !important;
-        margin: 1px 0px !important;
+        padding: 6px 10px !important;
+        margin-bottom: 4px !important;
+        width: 100% !important;
     }}
     [data-testid="stMetricLabel"] {{
-        font-size: clamp(10px, 2.2vw, 12px) !important;
+        font-size: clamp(11px, 2.5vw, 13px) !important;
     }}
     [data-testid="stMetricValue"] {{
-        font-size: clamp(13px, 3.2vw, 16px) !important;
+        font-size: clamp(15px, 3.8vw, 18px) !important;
     }}
 
     [data-testid="stSidebar"] {{
@@ -1187,7 +1188,7 @@ with tab1:
                         day_counter += 1
 
 # ---------------------------------------------------------
-# TAB 2: 근무표 전체 수정 (요청사항 반영: '열_' 컬럼 제거 및 날짜 열 고정)
+# TAB 2: 근무표 전체 수정 ('열_' 컬럼 제거 및 날짜 열 고정)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
@@ -1199,7 +1200,6 @@ with tab2:
 
     target_editor_df = st.session_state.df.copy() if selected_edit_month == "전체 기간" else st.session_state.df[st.session_state.df["년월"] == selected_edit_month].copy()
 
-    # '열_'로 시작하는 불필요한 자동 생성 컬럼 숨김(제거) 처리
     target_editor_df = target_editor_df.loc[:, ~target_editor_df.columns.str.startswith("열_")]
 
     if "날짜" in target_editor_df.columns:
@@ -1208,7 +1208,6 @@ with tab2:
 
     save_btn_clicked = st.button("💾 변경사항 적용 및 엑셀 저장", key="top_save_btn", use_container_width=True, type="primary")
 
-    # 날짜 열 고정 설정 적용
     column_config_dict = {}
     if "날짜" in target_editor_df.columns:
         column_config_dict["날짜"] = st.column_config.DateColumn("날짜", format="YYYY-MM-DD", disabled=True)
@@ -1243,7 +1242,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: 월별 근무 통계 (요청사항 반영: 박스 공백 줄임)
+# TAB 3: 월별 근무 통계 (요청사항 반영: 통계 박스 세로 배치)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -1251,9 +1250,7 @@ with tab3:
     available_stat_months = ["전체 기간"] + sorted(duty_stat_df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = available_stat_months.index(current_ym) if current_ym in available_stat_months else 0
 
-    stat_col1, stat_col2 = st.columns([1, 2])
-    with stat_col1:
-        selected_stat_month = st.selectbox("📅 통계조회 월선택", available_stat_months, index=default_stat_idx, key="stat_month_select")
+    selected_stat_month = st.selectbox("📅 통계조회 월선택", available_stat_months, index=default_stat_idx, key="stat_month_select")
 
     filtered_df = duty_stat_df.copy() if selected_stat_month == "전체 기간" else duty_stat_df[duty_stat_df["년월"] == selected_stat_month].copy()
     w1 = filtered_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "근무구분"})
@@ -1282,10 +1279,11 @@ with tab3:
         stats_df["총 근무 횟수"] = stats_df[type_cols].sum(axis=1)
         stats_df = stats_df[type_cols + ["휴일근무 횟수", "총 근무 횟수", "총 근무시간(h)"]].sort_values(by="총 근무시간(h)", ascending=False)
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("총 근무 인원", f"{len(stats_df)}명")
-        m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
-        m3.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")
+        # 📌 통계 박스를 세로(1열)로 배치하여 모바일 세로 화면을 벗어나지 않도록 수정
+        st.metric("총 근무 인원", f"{len(stats_df)}명")
+        st.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
+        st.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")
+        
         st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
         st.dataframe(stats_df, use_container_width=True)
     else:

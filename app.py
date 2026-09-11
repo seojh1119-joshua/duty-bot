@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import gc
 import glob
 import io
 import json
@@ -8,6 +9,20 @@ import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+
+# ---------------------------------------------------------
+# 자동 메모리 및 로그 정제 함수 (메모리 누수 및 속도 저하 방지)
+# ---------------------------------------------------------
+def cleanup_memory_and_logs():
+    """불필요한 세션 로그 정제 및 메모리 가비지 컬렉션 실행"""
+    if "memos" in st.session_state and isinstance(st.session_state.memos, dict):
+        # 빈 메모 항목 자동 제거하여 세션 크기 최소화
+        st.session_state.memos = {k: v for k, v in st.session_state.memos.items() if v and str(v).strip()}
+    
+    # 누적 메모리 강제 해제
+    gc.collect()
+
+cleanup_memory_and_logs()
 
 os.makedirs("DATA", exist_ok=True)
 os.makedirs("data", exist_ok=True)
@@ -20,7 +35,7 @@ CONFIG_PATH = os.path.join("DATA", "local_config.json")
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="광주교도소 의료과 숙직근무",
-    page_icon="",
+    page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -62,7 +77,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 최적화 스타일 (가로달력 7열 한눈에 보기 & 팝업 비율 조절)
+# 동적 CSS 및 모바일 최적화 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -98,7 +113,7 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.02rem 1px 0.05rem 1px !important;
+        padding: 0.02rem 0px 0.05rem 0px !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
@@ -122,36 +137,41 @@ responsive_css = f"""
     .today-card .today-content {{ font-size: clamp(12px, 3.5vw, 16px) !important; font-weight: 800; }}
     .today-card span {{ color: {"#FDE047" if is_dark else "#1D4ED8"} !important; font-weight: 900; }}
 
+    /* 일반 버튼 스타일 */
     .stButton > button {{
         width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 28px !important;
-        padding: 2px 4px !important; border: 1px solid {border_color} !important; border-radius: 3px !important;
+        padding: 2px 4px !important; border: 1.5px solid {border_color} !important; border-radius: 3px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
         text-align: center !important; font-size: 12px !important; font-weight: 600 !important; margin: 0 !important;
         cursor: pointer !important;
     }}
 
-    /* 모바일 가로달력 7열이 한눈에 보이도록 간격 및 버튼 높이 극대화 슬림화 */
+    /* 7열 달력 Grid 버튼: 가로 폭 밀착 및 세로 높이 2배 확대 */
     div[data-testid="column"] .stButton > button {{
-        min-height: clamp(52px, 11vw, 75px) !important;
-        max-height: 78px !important;
-        padding: 0px 0px !important;
-        font-size: clamp(7.5px, 1.8vw, 10.5px) !important;
+        min-height: clamp(190px, 34vw, 270px) !important;
+        max-height: 300px !important;
+        padding: 2px 1px !important;
+        font-size: clamp(8px, 2.2vw, 12px) !important;
         color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
         overflow: hidden !important;
         flex-shrink: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
     }}
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.05 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.25 !important;
         pointer-events: none !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
-    /* 7개 컬럼 간격 및 여백 최소화로 한눈에 정렬 */
+    /* 모바일 세로 화면 7열 한눈에 들어오도록 좌우 여백 및 커스텀 컬럼 설정 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-        width: 100% !important; max-width: 100% !important; min-width: 0 !important; gap: 0.5px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
+        width: 100% !important; max-width: 100vw !important; min-width: 0 !important; gap: 0.5px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
     }}
     [data-testid="column"] {{
         width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important;
@@ -159,7 +179,6 @@ responsive_css = f"""
     }}
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 순환 등록 팝업 및 대화상자 모바일 세로 화면 맞춤 비율 조정 (내용 잘림 방지) */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 98vw !important; max-width: 420px !important; max-height: 85vh !important;
@@ -185,7 +204,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (뒤로가기 연동 및 키보드 제어 보조)
+# 브라우저 스크립트 (가상키보드 제어 & 휴대폰 뒤로가기 연동)
 # ---------------------------------------------------------
 calendar_enhancer_js_template = """
 <script>
@@ -193,29 +212,60 @@ calendar_enhancer_js_template = """
     const doc = window.parent.document;
     if (!doc) return;
 
-    if (!window.history.state || !window.history.state.appInitialized) {
-        window.history.replaceState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
+    // 히스토리 상태 초기화 (뒤로가기 루프 캡처)
+    if (!window.history.state || !window.history.state.calendarApp) {
+        window.history.pushState({ calendarApp: true, view: 'main' }, '', window.location.href);
     }
 
+    // 휴대폰 물리/제스처 뒤로가기 버튼 이벤트 제어
     window.addEventListener('popstate', function(event) {
-        const closeButtons = Array.from(doc.querySelectorAll('button')).filter(b => {
-            const txt = (b.innerText || '').trim();
-            return txt.includes('🚪 닫기') || txt.includes('❌ 취소');
-        });
-        if (closeButtons.length > 0) {
-            closeButtons[0].click();
-            window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
-            return;
+        // 1. 팝업 / 다이얼로그가 열려있으면 팝업부터 닫기
+        const dialogs = doc.querySelectorAll('[data-testid="stDialog"]');
+        if (dialogs.length > 0) {
+            const closeButtons = Array.from(doc.querySelectorAll('button')).filter(b => {
+                const txt = (b.innerText || '').trim();
+                return txt.includes('🚪 닫기') || txt.includes('❌ 취소') || txt.includes('닫기');
+            });
+            if (closeButtons.length > 0) {
+                closeButtons[0].click();
+                window.history.pushState({ calendarApp: true }, '', window.location.href);
+                return;
+            }
         }
 
+        // 2. 다른 탭에 있을 때 뒤로가기 누르면 '달력 메인' 탭으로 이동
         const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
         if (tabs.length > 0) {
-            tabs[0].click();
+            const activeTab = doc.querySelector('[data-baseweb="tab"][aria-selected="true"]');
+            if (activeTab && activeTab !== tabs[0]) {
+                tabs[0].click();
+                window.history.pushState({ calendarApp: true }, '', window.location.href);
+                return;
+            }
         }
-        window.history.pushState({ appInitialized: true, view: 'calendar' }, '', window.location.href);
+
+        // 3. 달력 메인 화면 상태 유지
+        window.history.pushState({ calendarApp: true }, '', window.location.href);
     });
 
+    // 드롭다운 메뉴(selectbox) 클릭 시 가상키보드가 바로 뜨는 것 차단 (텍스트 입력창은 정상 작동)
+    function preventUnwantedKeyboard() {
+        const selectInputs = doc.querySelectorAll('[data-baseweb="select"] input');
+        selectInputs.forEach(el => {
+            if (!el.hasAttribute('data-kb-handled')) {
+                el.setAttribute('data-kb-handled', 'true');
+                el.setAttribute('inputmode', 'none');
+                el.setAttribute('readonly', 'readonly');
+            }
+        });
+        const selects = doc.querySelectorAll('select');
+        selects.forEach(el => {
+            el.setAttribute('inputmode', 'none');
+        });
+    }
+
     function enhanceCalendarUI() {
+        preventUnwantedKeyboard();
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {
             const txt = btn.innerText || '';
@@ -266,7 +316,7 @@ calendar_enhancer_js_template = """
         }, {passive: true});
     }
 
-    setInterval(enhanceCalendarUI, 200);
+    setInterval(enhanceCalendarUI, 250);
 })();
 </script>
 """
@@ -423,7 +473,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (순환등록 팝업 모바일 세로 비율 및 키보드 충돌 방지 적용)
+# 다이얼로그 정의
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -695,10 +745,13 @@ with tab3:
     sel_st_m = st.selectbox("📅 통계 월선택", stat_ms)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    comb = pd.concat([f_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"}), f_df[["실제근무2", "근무구분_원본"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})], ignore_index=True)
+    comb = pd.concat([
+        f_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"}),
+        f_df[["실제근무2", "근무구분_원본"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})
+    ], ignore_index=True)
     comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
-    
-    , if not comb.empty:
+
+    if not comb.empty:
         stats = pd.crosstab(comb["근무자"], comb["구분"])
         stats["총 근무 횟수"] = stats.sum(axis=1)
         st.dataframe(stats.sort_values(by="총 근무 횟수", ascending=False), use_container_width=True)

@@ -483,16 +483,16 @@ def settings_dialog():
         except:
             default_start_date = datetime.date.today()
 
-        # 1열 정렬로 컴포넌트 배치
-        start_d = st.date_input("시작 날짜", value=default_start_date)
-        infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False))
-        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat)
+        # 각 위젯에 고유 key 부여
+        start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
+        infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
+        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat, key="batch_days_c_input")
         
-        i1 = st.number_input("근무자1 주기", 1, 30, int(cfg.get("batch_i1", 3)))
+        i1 = st.number_input("근무자1 주기", 1, 30, int(cfg.get("batch_i1", 3)), key="batch_i1_input")
         saved_w1 = cfg.get("batch_w1_names", ["", "", ""])
         w1_names = [st.text_input(f"1-{i+1}", value=saved_w1[i] if i < len(saved_w1) else "", key=f"w1_{i}").strip() for i in range(int(i1))]
         
-        i2 = st.number_input("근무자2 주기", 1, 30, int(cfg.get("batch_i2", 3)))
+        i2 = st.number_input("근무자2 주기", 1, 30, int(cfg.get("batch_i2", 3)), key="batch_i2_input")
         saved_w2 = cfg.get("batch_w2_names", ["", "", ""])
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
         st.markdown('</div>', unsafe_allow_html=True)
@@ -540,6 +540,7 @@ def settings_dialog():
 
         # 순환적용초기화 버튼 (저장버튼 아래, 동일한 크기로 1열 배치)
         if st.button("순환적용초기화", use_container_width=True):
+            # 1. 로컬 설정 저장값 초기화
             save_local_config("batch_start_date", str(datetime.date.today()))
             save_local_config("batch_infinite", False)
             save_local_config("batch_days_c", 30)
@@ -547,6 +548,20 @@ def settings_dialog():
             save_local_config("batch_w1_names", ["", "", ""])
             save_local_config("batch_i2", 3)
             save_local_config("batch_w2_names", ["", "", ""])
+            
+            # 2. 세션 스테이트(Session State)의 위젯 값들을 강제로 초기화하여 즉시 반영
+            st.session_state["batch_start_date_input"] = datetime.date.today()
+            st.session_state["batch_infinite_input"] = False
+            st.session_state["batch_days_c_input"] = 30
+            st.session_state["batch_i1_input"] = 3
+            st.session_state["batch_i2_input"] = 3
+            
+            for i in range(30):
+                if f"w1_{i}" in st.session_state:
+                    st.session_state[f"w1_{i}"] = ""
+                if f"w2_{i}" in st.session_state:
+                    st.session_state[f"w2_{i}"] = ""
+
             st.success("🧹 순환 등록 설정이 초기화되었습니다.")
             st.rerun()
 

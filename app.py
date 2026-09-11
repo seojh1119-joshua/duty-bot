@@ -74,28 +74,26 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 닌텐도 디자인 시스템 기반 동적 CSS 및 모바일 맞춤 스타일
+# 동적 CSS 및 모바일 세로 화면 맞춤 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-# 닌텐도 토큰 색상 매핑 (nintendo-dark.md 기반)
-theme_bg = "#1A1A1A" if is_dark else "#FFFFFF"
-main_text_color = "#FFFFFF" if is_dark else "#1A1A1A"
-border_color = "#3A3A3A" if is_dark else "#F0F0F0"
-btn_bg = "#2D2D2D" if is_dark else "#FAFAFA"
-btn_text = "#FFFFFF" if is_dark else "#1A1A1A"
-btn_hover_bg = "#3A3A3A" if is_dark else "#F0F0F0"
-btn_hover_border = "#FF606A" if is_dark else "#E60012"
-sidebar_bg = "#161618" if is_dark else "#FAFAFA"
-dialog_bg = "#2D2D2D" if is_dark else "#FFFFFF"
-input_bg = "#2D2D2D" if is_dark else "#FAFAFA"
-input_text = "#FFFFFF" if is_dark else "#1A1A1A"
-box_bg = "#2D2D2D" if is_dark else "#FAFAFA"
-primary_accent = "#FF606A" if is_dark else "#E60012"
+theme_bg = "#0F172A" if is_dark else "#FFFFFF"
+main_text_color = "#F8FAFC" if is_dark else "#0F172A"
+border_color = "#334155" if is_dark else "#CBD5E1"
+btn_bg = "#1E293B" if is_dark else "#FFFFFF"
+btn_text = "#F8FAFC" if is_dark else "#0F172A"
+btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
+btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
+sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
+dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
+input_bg = "#1E293B" if is_dark else "#F8FAFC"
+input_text = "#F8FAFC" if is_dark else "#0F172A"
+box_bg = "#1E293B" if is_dark else "#F8FAFC"
 
-today_highlight_bg = "linear-gradient(135deg, #FF3644 0%, #C90010 100%)" if is_dark else "linear-gradient(135deg, #FFE9EA 0%, #FFC4C7 100%)"
-today_highlight_text = "#FFFFFF" if is_dark else "#8C000A"
-today_highlight_border = "2px solid #FF606A" if is_dark else "2px solid #E60012"
+today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
+today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
+today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
@@ -108,7 +106,6 @@ responsive_css = f"""
         max-width: 100vw !important;
         overflow-x: hidden !important;
         -webkit-tap-highlight-color: transparent !important;
-        font-family: 'Nintendo Std', 'Arial Rounded MT Bold', 'Pretendard', sans-serif !important;
     }}
 
     .main .block-container {{
@@ -124,70 +121,70 @@ responsive_css = f"""
         font-size: clamp(26px, 6.5vw, 36px) !important;
         margin: 10px 0px 20px 0px !important;
         padding: 4px 0px !important;
-        font-weight: 700 !important;
+        font-weight: 900 !important;
         white-space: nowrap !important;
         text-align: center !important;
-        color: {primary_accent} !important;
-        letter-spacing: -0.02em !important;
+        color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
+        letter-spacing: -0.5px !important;
     }}
 
     .setting-box {{
         background-color: {box_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 20px !important;
-        padding: 12px 16px !important;
+        border: 2px solid {border_color} !important;
+        border-radius: 10px !important;
+        padding: 10px 12px !important;
         margin: 14px 0px 18px 0px !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.40) !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }}
 
     .today-card {{
-        background: { "linear-gradient(135deg, #2D2D2D 0%, #1A1A1A 100%)" if is_dark else "linear-gradient(135deg, #FAFAFA 0%, #F0F0F0 100%)" } !important;
-        color: {main_text_color} !important;
-        padding: 14px 16px !important;
-        border-radius: 20px !important;
-        border: 2px solid {primary_accent} !important;
+        background: { "linear-gradient(135deg, #1E3A8A 0%, #2563EB 50%, #1D4ED8 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)" } !important;
+        color: {"#FFFFFF" if is_dark else "#1E3A8A"} !important;
+        padding: 12px 14px !important;
+        border-radius: 12px !important;
+        border: 2px solid {"#60A5FA" if is_dark else "#3B82F6"} !important;
         margin-bottom: 16px !important;
         width: 100% !important;
         box-sizing: border-box !important;
-        box-shadow: 0 6px 18px rgba(230,0,18,0.2) !important;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
     }}
     .today-card .today-title {{ 
         font-size: clamp(16px, 4.5vw, 20px) !important; 
-        font-weight: 700 !important; 
-        margin-bottom: 6px !important;
-        color: {primary_accent} !important;
+        font-weight: 900 !important; 
+        margin-bottom: 4px !important;
+        letter-spacing: -0.3px !important;
     }}
     .today-card .today-content {{ 
         font-size: clamp(17px, 5vw, 23px) !important; 
-        font-weight: 700 !important; 
+        font-weight: 900 !important; 
         line-height: 1.4 !important;
     }}
     .today-card span {{ 
-        color: {primary_accent} !important; 
+        color: {"#FDE047" if is_dark else "#1D4ED8"} !important; 
         font-size: clamp(18px, 5.2vw, 24px) !important;
-        font-weight: 700 !important; 
+        font-weight: 900 !important; 
     }}
 
     .month-header-card {{
-        background: { "linear-gradient(135deg, #2D2D2D 0%, #1A1A1A 100%)" if is_dark else "linear-gradient(135deg, #FAFAFA 0%, #F0F0F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 14px; padding: 8px 10px; margin: 6px 0 10px 0; text-align: center;
+        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
+        border: 1px solid {border_color}; border-radius: 6px; padding: 6px 8px; margin: 6px 0 10px 0; text-align: center;
     }}
     .month-header-card h2 {{ 
         margin: 0 !important; 
         font-size: clamp(20px, 5.5vw, 28px) !important; 
-        font-weight: 700 !important; 
-        color: {primary_accent} !important; 
+        font-weight: 900 !important; 
+        color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; 
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 38px !important;
-        padding: 8px 12px !important; border: 1.5px solid {border_color} !important; border-radius: 14px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 36px !important;
+        padding: 6px 8px !important; border: 1.5px solid {border_color} !important; border-radius: 6px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
         text-align: center !important; font-size: 14px !important; font-weight: 700 !important; margin: 0 !important;
-        cursor: pointer !important; transition: transform 150ms ease, box-shadow 150ms ease !important;
+        cursor: pointer !important;
     }}
 
     [data-testid="stHorizontalBlock"] {{
@@ -202,10 +199,9 @@ responsive_css = f"""
     div[data-testid="column"] .stButton > button {{
         min-height: clamp(140px, 28vw, 220px) !important;
         max-height: 280px !important;
-        padding: 4px 2px !important;
-        border-radius: 14px !important;
+        padding: 3px 1px !important;
         font-size: clamp(9px, 2.5vw, 12px) !important;
-        color: { main_text_color } !important;
+        color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
         overflow: hidden !important;
         flex-shrink: 0 !important;
         display: flex !important;
@@ -220,129 +216,40 @@ responsive_css = f"""
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.25 !important;
         pointer-events: none !important;
     }}
-    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
+    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
 
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 94vw !important; max-width: 480px !important; max-height: 90vh !important;
-        border-radius: 20px !important; padding: 16px 12px !important; overflow-y: auto !important;
-        border: 2px solid {primary_accent} !important; margin: auto !important; position: fixed !important;
+        border-radius: 12px !important; padding: 14px 10px !important; overflow-y: auto !important;
+        border: 2px solid {border_color} !important; margin: auto !important; position: fixed !important;
         top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
         box-sizing: border-box !important;
-        box-shadow: 0 20px 48px rgba(0,0,0,0.60) !important;
     }}
 
     [data-testid="stDialog"] [data-testid="stForm"] {{
-        border: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
+        border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; box-sizing: border-box !important;
     }}
-
     [data-testid="stDialog"] [data-testid="stHorizontalBlock"] {{
-        gap: 8px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
+        gap: 6px !important; width: 100% !important; box-sizing: border-box !important;
     }}
-
     [data-testid="stDialog"] [data-testid="column"] {{
-        width: 50% !important;
-        max-width: 50% !important;
-        flex: 1 1 50% !important;
-        min-width: 0 !important;
-        padding: 0 2px !important;
-        box-sizing: border-box !important;
-    }}
-
-    [data-testid="stDialog"] input, 
-    [data-testid="stDialog"] select, 
-    [data-testid="stDialog"] textarea,
-    [data-testid="stDialog"] [data-baseweb="select"],
-    [data-testid="stDialog"] div[role="combobox"],
-    [data-testid="stDialog"] [data-testid="stTextInput"],
-    [data-testid="stDialog"] [data-testid="stSelectbox"],
-    [data-testid="stDialog"] [data-testid="stTextArea"] {{
-        width: 100% !important;
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-        border-radius: 14px !important;
-    }}
-
-    [data-testid="stDialog"] label {{
-        font-size: clamp(12px, 3.2vw, 14px) !important;
-        font-weight: 700 !important;
-        margin-bottom: 4px !important;
-        white-space: nowrap !important;
-    }}
-
-    [data-testid="stDialog"] .stButton > button {{
-        min-height: 42px !important;
-        font-size: clamp(13px, 3.6vw, 15px) !important;
-        padding: 6px 8px !important;
-        border-radius: 9999px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        background-color: {primary_accent} !important;
-        color: #FFFFFF !important;
-        border: none !important;
-    }}
-
-    @media screen and (max-width: 600px) {{
-        [data-testid="stDialog"] > div:first-child {{
-            width: 95vw !important;
-            padding: 12px 10px !important;
-        }}
-        [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] {{
-            flex-direction: column !important;
-        }}
-        [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
-            width: 100% !important;
-            max-width: 100% !important;
-            flex: 1 1 100% !important;
-        }}
-        [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child {{
-            flex-direction: row !important;
-        }}
-        [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child > [data-testid="column"] {{
-            width: 50% !important;
-            max-width: 50% !important;
-            flex: 1 1 50% !important;
-        }}
+        width: 50% !important; max-width: 50% !important; flex: 1 1 50% !important; min-width: 0 !important; padding: 0 2px !important; box-sizing: border-box !important;
     }}
 
     [data-baseweb="tab-list"] {{
-        width: 100% !important;
-        display: flex !important;
-        gap: 4px !important;
-        padding: 0 !important;
+        width: 100% !important; display: flex !important; gap: 2px !important; padding: 0 !important;
     }}
     [data-baseweb="tab"] {{
-        flex: 1 1 auto !important;
-        padding: 10px 6px !important;
-        font-size: clamp(11px, 3.2vw, 15px) !important;
-        font-weight: 700 !important;
-        text-align: center !important;
-        justify-content: center !important;
-        min-width: 0 !important;
-        border-radius: 14px 14px 0 0 !important;
+        flex: 1 1 auto !important; padding: 8px 4px !important; font-size: clamp(11px, 3.2vw, 15px) !important;
+        font-weight: 800 !important; text-align: center !important; justify-content: center !important; min-width: 0 !important;
     }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], input[type="date"] {{
-        background-color: {input_bg} !important;
-        color: {input_text} !important;
-        border: 1.5px solid {border_color} !important;
-        border-radius: 14px !important;
-        font-weight: 600 !important;
-        max-width: 100% !important;
+        background-color: {input_bg} !important; color: {input_text} !important; border: 1.5px solid {border_color} !important; font-weight: 600 !important; max-width: 100% !important;
     }}
-    [data-baseweb="input"] input {{
-        color: {input_text} !important;
-        -webkit-text-fill-color: {input_text} !important;
-    }}
-
     .swipe-hidden-container {{ display: none !important; position: absolute !important; left: -9999px !important; }}
 </style>
 """
@@ -361,68 +268,6 @@ calendar_enhancer_js_template = """
         window.history.pushState({ calendarApp: true, view: 'main' }, '', window.location.href);
     }
 
-    window.addEventListener('popstate', function(event) {
-        const dialogs = doc.querySelectorAll('[data-testid="stDialog"]');
-        if (dialogs.length > 0) {
-            const closeButtons = Array.from(doc.querySelectorAll('button')).filter(b => {
-                const txt = (b.innerText || '').trim();
-                return txt.includes('🚪 닫기') || txt.includes('❌ 취소') || txt.includes('닫기');
-            });
-            if (closeButtons.length > 0) {
-                closeButtons[0].click();
-                window.history.pushState({ calendarApp: true }, '', window.location.href);
-                return;
-            }
-        }
-
-        const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
-        if (tabs.length > 0) {
-            const activeTab = doc.querySelector('[data-baseweb="tab"][aria-selected="true"]');
-            if (activeTab && activeTab !== tabs[0]) {
-                tabs[0].click();
-                window.history.pushState({ calendarApp: true }, '', window.location.href);
-                return;
-            }
-        }
-
-        window.history.pushState({ calendarApp: true }, '', window.location.href);
-    });
-
-    function preventUnwantedKeyboard() {
-        const selectInputs = doc.querySelectorAll('[data-baseweb="select"] input');
-        selectInputs.forEach(el => {
-            if (!el.hasAttribute('data-kb-handled')) {
-                el.setAttribute('data-kb-handled', 'true');
-                el.setAttribute('inputmode', 'none');
-                el.setAttribute('readonly', 'readonly');
-            }
-        });
-        const selects = doc.querySelectorAll('select');
-        selects.forEach(el => {
-            el.setAttribute('inputmode', 'none');
-        });
-    }
-
-    function enhanceCalendarUI() {
-        preventUnwantedKeyboard();
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {
-            const txt = btn.innerText || '';
-            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {
-                const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) { container.style.setProperty('display', 'none', 'important'); }
-            }
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {
-                btn.style.setProperty('background', '___BG___', 'important');
-                btn.style.setProperty('color', '___TEXT___', 'important');
-                btn.style.setProperty('border', '___BORDER___', 'important');
-                btn.style.setProperty('font-weight', '700', 'important');
-            }
-        });
-    }
-
-    let touchstartX = 0, touchstartY = 0;
-    
     function triggerMonthChange(dir) {
         const buttons = Array.from(doc.querySelectorAll('button'));
         const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
@@ -430,9 +275,9 @@ calendar_enhancer_js_template = """
         if (targetBtn) targetBtn.click();
     }
 
+    let touchstartX = 0, touchstartY = 0;
     if (!doc._swipeAttached) {
         doc._swipeAttached = true;
-        
         doc.addEventListener('touchstart', function(e) {
             if (e.changedTouches && e.changedTouches.length > 0) {
                 touchstartX = e.changedTouches[0].clientX;
@@ -444,30 +289,16 @@ calendar_enhancer_js_template = """
             if (!e.changedTouches || e.changedTouches.length === 0) return;
             let diffX = e.changedTouches[0].clientX - touchstartX;
             let diffY = e.changedTouches[0].clientY - touchstartY;
-            
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-                if (diffX < 0) {
-                    triggerMonthChange('next');
-                } else {
-                    triggerMonthChange('prev');
-                }
+                if (diffX < 0) { triggerMonthChange('next'); } 
+                else { triggerMonthChange('prev'); }
             }
         }, {passive: true});
     }
-
-    setInterval(enhanceCalendarUI, 250);
 })();
 </script>
 """
-
-calendar_enhancer_js = (
-    calendar_enhancer_js_template
-    .replace('___BG___', today_highlight_bg)
-    .replace('___TEXT___', today_highlight_text)
-    .replace('___BORDER___', today_highlight_border)
-)
-
-components.html(calendar_enhancer_js, height=0, width=0)
+components.html(calendar_enhancer_js_template, height=0, width=0)
 
 # ---------------------------------------------------------
 # 공통 엑셀 및 데이터 유틸함수
@@ -589,14 +420,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["대직2"] = df[sub2_col].astype(str).str.strip() if sub2_col else None
     df["년월"] = df["날짜"].dt.strftime("%Y-%m")
 
-    memo_col = next((c for c in df.columns if "메모" in c or "비고" in c), None)
-    if memo_col:
-        if "memos" not in st.session_state: st.session_state.memos = {}
-        for _, r in df.iterrows():
-            m_val = str(r[memo_col]).strip()
-            if m_val and m_val not in ["nan", "None"]:
-                st.session_state.memos[r["날짜"].strftime("%Y-%m-%d")] = m_val
-
     df["실제근무1"] = df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자1"]).fillna("미지정")
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     return df[["날짜"] + [c for c in df.columns if c != "날짜"]], target_sheet, sheet_names, df_raw, file_bytes
@@ -662,7 +485,6 @@ def settings_dialog():
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         st.markdown("📅 **입력된 근무자만 규칙적으로 순환 등록됩니다.**")
         start_d = st.date_input("시작 날짜", value=datetime.date.today())
-        
         infinite_repeat = st.checkbox("♾️ 시작일부터 월말까지 순환 적용", value=True)
         days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=30, disabled=infinite_repeat)
         
@@ -751,13 +573,10 @@ def edit_worker_dialog(date_str, duty_info):
     worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
     
     def get_idx(val):
-        if not val or pd.isna(val):
-            return 0
+        if not val or pd.isna(val): return 0
         val_str = str(val).strip()
-        if not val_str or val_str in ["nan", "None", "미지정"]:
-            return 0
-        if val_str in worker_options:
-            return worker_options.index(val_str)
+        if not val_str or val_str in ["nan", "None", "미지정"]: return 0
+        if val_str in worker_options: return worker_options.index(val_str)
         return len(worker_options) - 1
 
     curr_p1 = str(curr_row.get("근무자1", "")).strip() if pd.notnull(curr_row.get("근무자1")) else ""
@@ -770,24 +589,20 @@ def edit_worker_dialog(date_str, duty_info):
         with c1:
             p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
             p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
-
             sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"sub1_s_{date_str}")
             sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"sub1_c_{date_str}") if sub1_s == "(직접 입력)" else ""
 
         with c2:
             p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"p2_s_{date_str}")
             p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"p2_c_{date_str}") if p2_s == "(직접 입력)" else ""
-
             sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"sub2_s_{date_str}")
             sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"sub2_c_{date_str}") if sub2_s == "(직접 입력)" else ""
         
         memo_in = st.text_area("📌 메모", value=st.session_state.memos.get(date_str, ""), key=f"memo_{date_str}")
         
         col_sub1, col_sub2 = st.columns(2)
-        with col_sub1:
-            submitted = st.form_submit_button("💾 저장", use_container_width=True)
-        with col_sub2:
-            closed = st.form_submit_button("🚪 닫기", use_container_width=True)
+        with col_sub1: submitted = st.form_submit_button("💾 저장", use_container_width=True)
+        with col_sub2: closed = st.form_submit_button("🚪 닫기", use_container_width=True)
 
         if submitted:
             f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
@@ -796,18 +611,14 @@ def edit_worker_dialog(date_str, duty_info):
             f_sub2 = sub2_c if sub2_s == "(직접 입력)" else ("" if sub2_s == "(선택 안함)" else sub2_s)
             
             st.session_state.df.loc[row_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [
-                f_p1 if f_p1 else "미지정", 
-                f_p2 if f_p2 else "미지정", 
-                f_sub1 if f_sub1 else None, 
-                f_sub2 if f_sub2 else None
+                f_p1 if f_p1 else "미지정", f_p2 if f_p2 else "미지정", 
+                f_sub1 if f_sub1 else None, f_sub2 if f_sub2 else None
             ]
             st.session_state.df.loc[row_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
             st.session_state.df.loc[row_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
             
-            if memo_in.strip():
-                st.session_state.memos[date_str] = memo_in.strip()
-            else:
-                st.session_state.memos.pop(date_str, None)
+            if memo_in.strip(): st.session_state.memos[date_str] = memo_in.strip()
+            else: st.session_state.memos.pop(date_str, None)
             
             save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.update({"editing_date": None, "editing_duty_info": None})
@@ -911,16 +722,10 @@ with tab1:
             sub1_val = str(row.get("대직1", "")).strip() if pd.notnull(row.get("대직1")) else ""
             sub2_val = str(row.get("대직2", "")).strip() if pd.notnull(row.get("대직2")) else ""
             
-            if sub1_val and sub1_val not in ["nan", "None", ""]:
-                p1_name = f"{p1_name}(대)"
-            if sub2_val and sub2_val not in ["nan", "None", ""]:
-                p2_name = f"{p2_name}(대)"
+            if sub1_val and sub1_val not in ["nan", "None", ""]: p1_name = f"{p1_name}(대)"
+            if sub2_val and sub2_val not in ["nan", "None", ""]: p2_name = f"{p2_name}(대)"
                 
-            duty_map[row["날짜"].day] = {
-                "idx": i,
-                "p1": p1_name,
-                "p2": p2_name
-            }
+            duty_map[row["날짜"].day] = {"idx": i, "p1": p1_name, "p2": p2_name}
 
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             for d in range(1, num_days + 1):
@@ -936,16 +741,12 @@ with tab1:
         else:
             cols_h = st.columns(7)
             h_names = [
-                ("일", "#FF606A" if is_dark else "#E60012"), 
-                ("월", main_text_color), 
-                ("화", main_text_color), 
-                ("수", main_text_color), 
-                ("목", main_text_color), 
-                ("금", main_text_color), 
-                ("토", "#69A9FF" if is_dark else "#1565D8")
+                ("일", "#FF6B6B" if is_dark else "#DC2626"), ("월", main_text_color), ("화", main_text_color), 
+                ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), 
+                ("토", "#38BDF8" if is_dark else "#2563EB")
             ]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 700; font-size: clamp(11px, 3.2vw, 15px); padding: 4px 0; background: rgba(128,128,128,0.1); border-radius: 8px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(11px, 3.2vw, 15px); padding: 3px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -958,67 +759,42 @@ with tab1:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
                         info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
-                        memo_s = f"📌{st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
+                        memo_s = f"\n📌{st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
+                        btn_label = f"{day_cnt}일\n\n1:{info['p1']}\n2:{info['p2']}{memo_s}"
                         
-                        btn_txt = f"🌟{day_cnt}일\n{info['p1']}\n{info['p2']}" if c_date == today else f"{day_cnt}일\n{info['p1']}\n{info['p2']}"
-                        if memo_s: btn_txt += f"\n{memo_s}"
-
-                        if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
+                        if g_cols[c].button(btn_label, key=f"grid_{d_str}"):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
                         day_cnt += 1
 
 with tab2:
-    st.subheader("✏️ 전체 근무표 수정")
-    edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
-    sel_ed_m = st.selectbox("📅 월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
-    target_df = df.copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m].copy()
-
-    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
-
-    if st.button("💾 변경사항 일괄 저장", use_container_width=True, type="primary"):
-        if sel_ed_m == "전체 기간":
-            m_df = edited_df.copy()
-        else:
-            m_df = st.session_state.df.copy()
-            m_df.update(edited_df)
-            
-        if "날짜" in m_df.columns:
-            m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
-            m_df["년월"] = m_df["날짜"].dt.strftime("%Y-%m")
-            
-        p1 = m_df["근무자1"].astype(str).str.strip() if "근무자1" in m_df.columns else "미지정"
-        p2 = m_df["근무자2"].astype(str).str.strip() if "근무자2" in m_df.columns else "미지정"
-        sub1 = m_df["대직1"].astype(str).str.strip() if "대직1" in m_df.columns else ""
-        sub2 = m_df["대직2"].astype(str).str.strip() if "대직2" in m_df.columns else ""
-        
-        m_df["실제근무1"] = sub1.replace(["", "nan", "None"], None).combine_first(p1).fillna("미지정")
-        m_df["실제근무2"] = sub2.replace(["", "nan", "None"], None).combine_first(p2).fillna("미지정")
-        
-        st.session_state.df = m_df
-        save_app_state(m_df, st.session_state.selected_sheet, st.session_state.memos)
-        st.success("✅ 변경사항이 저장되었습니다.")
+    st.subheader("✏️ 전체 근무표 일괄 수정")
+    edited_df = st.data_editor(df, use_container_width=True, num_rows="dynamic", key="main_data_editor")
+    if st.button("💾 변경사항 일괄 저장", type="primary", use_container_width=True):
+        st.session_state.df = edited_df
+        save_app_state(edited_df, st.session_state.selected_sheet, st.session_state.memos)
+        st.success("✅ 변경사항이 성공적으로 저장되었습니다!")
         st.rerun()
 
 with tab3:
-    st.subheader("📊 숙직근무자 월별 통계")
-    stat_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
-    sel_st_m = st.selectbox("📅 통계 월선택", stat_ms)
-    f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
-    
-    comb = pd.concat([
-        f_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"}),
-        f_df[["실제근무2", "근무구분_원본"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})
-    ], ignore_index=True)
-    comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
-
-    if not comb.empty:
-        stats = pd.crosstab(comb["근무자"], comb["구분"])
-        stats["총 근무 횟수"] = stats.sum(axis=1)
-        st.dataframe(stats.sort_values(by="총 근무 횟수", ascending=False), use_container_width=True)
-    else:
-        st.info("통계 데이터가 없습니다.")
+    st.subheader("📊 근무자별 통계")
+    if not df.empty:
+        stat_df = df.copy()
+        stat_df["합동"] = stat_df["실제근무1"].astype(str) + ", " + stat_df["실제근무2"].astype(str)
+        all_names = []
+        for _, row in stat_df.iterrows():
+            for name in [str(row.get("실제근무1", "")), str(row.get("실제근무2", ""))]:
+                clean_name = name.replace("(대)", "").strip()
+                if clean_name and clean_name not in ["미지정", "nan", "None"]:
+                    all_names.append(clean_name)
+        
+        name_counts = pd.Series(all_names).value_counts().reset_index()
+        name_counts.columns = ["근무자", "총 근무 횟수"]
+        st.dataframe(name_counts, use_container_width=True)
 
 with tab4:
-    st.subheader("🔍 시트 데이터 원본 확인")
-    st.dataframe(df, use_container_width=True)
+    st.subheader("🔍 원본 엑셀 데이터 미리보기")
+    if "raw_df" in st.session_state and not st.session_state.raw_df.empty:
+        st.dataframe(st.session_state.raw_df, use_container_width=True)
+    else:
+        st.info("표시할 원본 데이터가 없습니다.")

@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (버튼 1.5배 확대, 설정 버튼 슬림화, 팝업 레이어 방지)
+# 동적 CSS (설정버튼 분리, 요일-달력 그룹화, 버튼 세로 확장)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -175,7 +175,7 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* ⚙️ 상단 설정 버튼 높이 줄이기 (슬림화) */
+    /* ⚙️ 상단 설정 버튼 슬림화 및 독립 배치 스타일 */
     div.stButton > button[kind="secondary"] {{
         min-height: 38px !important;
         height: 38px !important;
@@ -184,26 +184,26 @@ responsive_css = f"""
         font-weight: 600 !important;
     }}
 
-    /* 📅 달력 날짜 버튼: 기존 대비 1.5배 세로 확대 (76px -> 114px) 및 텍스트 정렬 */
+    /* 📅 달력 날짜 버튼: 세로 1.5배 이상 확대 (min-height 120px) 및 세로 줄바꿈 정렬 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 114px !important; 
-        padding: 8px 2px !important;
+        min-height: 120px !important; 
+        padding: 6px 2px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(8px, 2.3vw, 11.5px) !important;
+        font-size: clamp(9px, 2.4vw, 12px) !important;
         font-weight: 500 !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.35 !important;
+        line-height: 1.4 !important;
     }}
 
     .stButton > button:hover {{
@@ -211,6 +211,7 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
+    /* 요일 박스와 달력 버튼 그룹의 행 정렬 일치화 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -218,8 +219,9 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 1px !important;
+        gap: 2px !important;
         margin: 0 !important;
+        align-items: stretch !important;
     }}
 
     [data-testid="column"] {{
@@ -375,7 +377,6 @@ def save_to_excel_file(df, file_path):
 
         target_sheet = st.session_state.get("selected_sheet", "숙직근무자")
 
-        # 기존 파일이 있는 경우 다른 시트들을 보존하면서 target_sheet만 덮어쓰기
         if os.path.exists(file_path):
             with pd.ExcelFile(file_path) as xls:
                 sheet_names = xls.sheet_names
@@ -397,7 +398,6 @@ def save_to_excel_file(df, file_path):
             with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
                 save_df.to_excel(writer, sheet_name=target_sheet, index=False)
 
-        # 세션 바이트 업데이트
         with open(file_path, "rb") as f:
             st.session_state.file_bytes = f.read()
 
@@ -452,7 +452,7 @@ def load_app_state():
     return None, None, None, None
 
 # ---------------------------------------------------------
-# 스마트 엑셀 파서 (무한로딩 방지 및 '숙직근무자' 시트 우선 로드)
+# 스마트 엑셀 파서
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
     if isinstance(file_input, bytes):
@@ -1010,13 +1010,16 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 구조
+# 메인 화면 구조 (제목 및 독립 설정 버튼 배치)
 # ---------------------------------------------------------
-st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
-
-if st.button("⚙️ 설정 열기", use_container_width=True, type="secondary", key="main_top_settings_btn"):
-    st.session_state.show_settings_dialog = True
-    st.rerun()
+col_main_title, col_main_btn = st.columns([5, 1])
+with col_main_title:
+    st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
+with col_main_btn:
+    st.write("") # 상단 정렬 맞춤용 공백
+    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+        st.session_state.show_settings_dialog = True
+        st.rerun()
 
 st.write("")
 
@@ -1156,21 +1159,20 @@ with tab1:
                 else:
                     day_title = f"🗓️ {day:02d}일({weekday_str})"
 
-                p1_txt = f"1: {duty_info['p1_display']}" if duty_info else "1: -"
-                p2_txt = f"2: {duty_info['p2_display']}" if duty_info else "2: -"
+                p1_txt = f"{duty_info['p1_display']}" if duty_info else "-"
+                p2_txt = f"{duty_info['p2_display']}" if duty_info else "-"
                 day_memo = st.session_state.memos.get(date_str, "")
-                memo_display = f"📌 {day_memo}" if day_memo else ""
 
                 btn_lines = [day_title, p1_txt, p2_txt]
-                if memo_display:
-                    btn_lines.append(memo_display)
+                if day_memo:
+                    btn_lines.append(f"📌 {day_memo}")
                 btn_label = "\n".join(btn_lines)
 
                 if st.button(btn_label, key=f"btn_v_card_{date_str}"):
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
-            # 요일 박스 영역 (세로 크기 및 여백 확대)
+            # 요일 박스 영역 (달력 버튼과 완벽하게 동일한 7열 컬럼 그룹으로 묶음)
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1183,7 +1185,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(12px, 2.8vw, 15px); padding: 6px 0px; background: {card_bg}; border-radius: 4px; border: 1px solid {border_color}; margin-bottom: 2px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(12px, 2.8vw, 15px); padding: 8px 0px; background: {card_bg}; border-radius: 4px; border: 1px solid {border_color}; margin-bottom: 2px;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

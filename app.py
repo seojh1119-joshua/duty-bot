@@ -95,7 +95,6 @@ today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_d
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
-# 📌 오늘의 근무자 박스 전용 그라데이션 변수 설정
 today_worker_box_bg = "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)"
 today_worker_box_border = "#3B82F6" if is_dark else "#2563EB"
 today_worker_box_text = "#FFFFFF" if is_dark else "#1E3A8A"
@@ -140,7 +139,6 @@ responsive_css = f"""
         text-align: center !important;
     }}
 
-    /* 📌 오늘의 근무자 박스 그라데이션 및 디자인 적용 */
     .today-worker-box {{
         font-size: 1.3rem !important;
         font-weight: 700 !important;
@@ -161,16 +159,6 @@ responsive_css = f"""
         padding: 4px 6px !important;
         margin: 2px 0px 6px 0px !important;
     }}
-
-    .today-card {{
-        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" } !important;
-        border: 1.5px solid {border_color} !important;
-        border-radius: 8px !important;
-        padding: 5px 8px !important;
-        margin-bottom: 4px !important;
-    }}
-    .today-card .today-title {{ font-size: 11px !important; font-weight: 700 !important; opacity: 0.9; }}
-    .today-card .today-content {{ font-size: 12.5px !important; font-weight: 800 !important; margin-top: 2px; }}
 
     .month-header-card {{
         text-align: center; padding: 3px; margin-bottom: 3px;
@@ -780,7 +768,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 (헤드라인 스타일 적용)
+# 메인 화면
 # ---------------------------------------------------------
 st.markdown("<div class='calendar-main-title'>📅 광주교도소 의료과 숙직근무</div>", unsafe_allow_html=True)
 
@@ -803,7 +791,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘의 근무자 박스 (그라데이션 스타일 적용됨)
         st.markdown(f'<div class="today-worker-box">👤 오늘 근무자 ({today.strftime("%m월 %d일")})<br>1: {p1} | 2: {p2}{memo_txt}</div>', unsafe_allow_html=True)
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]

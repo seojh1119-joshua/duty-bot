@@ -19,7 +19,7 @@ except ImportError:
     kr_holidays = {}
 
 # ---------------------------------------------------------
-# 자동 메모리 및 로그 정제 함수 (최적화 반영)
+# 자동 메모리 및 로그 정제 함수
 # ---------------------------------------------------------
 def cleanup_memory_and_logs():
     if "memos" in st.session_state and isinstance(st.session_state.memos, dict):
@@ -45,11 +45,23 @@ st.set_page_config(
 )
 
 def load_local_config():
-    default_config = {"auto_view_type": "🗓️ 가로형 Grid", "app_theme": "☀️ 화이트 테마", "kakao_api_key": ""}
+    default_config = {
+        "auto_view_type": "🗓️ 가로형 Grid", 
+        "app_theme": "☀️ 화이트 테마", 
+        "kakao_api_key": "",
+        "batch_start_date": str(datetime.date.today()),
+        "batch_infinite": False,
+        "batch_days_c": 30,
+        "batch_i1": 3,
+        "batch_w1_names": ["", "", ""],
+        "batch_i2": 3,
+        "batch_w2_names": ["", "", ""]
+    }
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                default_config.update(json.load(f))
+                saved = json.load(f)
+                default_config.update(saved)
         except Exception as e:
             st.sidebar.warning(f"⚠️ 설정 로드 실패: {e}")
     return default_config
@@ -69,8 +81,8 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_api_key", local_cfg["kakao_api_key"]), ("batch_patterns", {}),
-    ("uploader_key", 0)
+    ("kakao_api_key", local_cfg["kakao_api_key"]),
+    ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -315,15 +327,13 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         st.sidebar.warning(f"⚠️ 엑셀 덮어쓰기 저장 실패: {e}")
         return False
 
-def save_app_state(df, sheet_name, memos, batch_patterns=None):
+def save_app_state(df, sheet_name, memos):
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-        if batch_patterns is None:
-            batch_patterns = st.session_state.get("batch_patterns", {})
 
-        state_data = {"selected_sheet": sheet_name, "memos": memos, "batch_patterns": batch_patterns, "df_dict": save_df.to_dict(orient="records")}
+        state_data = {"selected_sheet": sheet_name, "memos": memos, "df_dict": save_df.to_dict(orient="records")}
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()), sheet_name)
@@ -352,10 +362,10 @@ def load_app_state():
             if "실제근무2" not in df.columns:
                 df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
                 
-            return df, state_data.get("selected_sheet", "숙직근무자"), state_data.get("memos", {}), state_data.get("batch_patterns", {})
+            return df, state_data.get("selected_sheet", "숙직근무자"), state_data.get("memos", {})
         except Exception as e:
             st.sidebar.warning(f"⚠️ 저장된 상태 불러오기 실패: {e}")
-    return None, None, None, None
+    return None, None, None
 
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
@@ -415,13 +425,13 @@ if "file_bytes" not in st.session_state and os.path.exists(initial_file):
     st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
-    saved_df, saved_sheet, saved_memos, saved_patterns = load_app_state()
+    saved_df, saved_sheet, saved_memos = load_app_state()
     if saved_df is not None:
-        st.session_state.update({"df": saved_df, "selected_sheet": saved_sheet, "memos": saved_memos or {}, "batch_patterns": saved_patterns or {}})
+        st.session_state.update({"df": saved_df, "selected_sheet": saved_sheet, "memos": saved_memos or {}})
         _, _, st.session_state.sheet_names, st.session_state.raw_df, _ = load_excel_smart(st.session_state.file_bytes, saved_sheet)
     elif "file_bytes" in st.session_state:
         parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
-        st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}, "batch_patterns": {}})
+        st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
     else:
         today_d = datetime.date.today()
         sample_df = pd.DataFrame({"날짜": pd.date_range(start=today_d.replace(day=1), periods=60, freq="D"), "근무자1": ["우정수", "오기희"] * 30, "근무자2": ["정찬웅", "서진호"] * 30})
@@ -429,7 +439,7 @@ if "df" not in st.session_state:
         sample_df["실제근무1"], sample_df["실제근무2"] = sample_df["근무자1"], sample_df["근무자2"]
         sample_df["대직1"], sample_df["대직2"] = None, None
         sample_df["근무구분_원본"] = "평일"
-        st.session_state.update({"df": sample_df, "sheet_names": ["숙직근무자"], "selected_sheet": "숙직근무자", "raw_df": pd.DataFrame(), "memos": {}, "batch_patterns": {}})
+        st.session_state.update({"df": sample_df, "sheet_names": ["숙직근무자"], "selected_sheet": "숙직근무자", "raw_df": pd.DataFrame(), "memos": {}})
 
 update_excel_download_bytes(st.session_state.df)
 
@@ -449,6 +459,7 @@ def confirm_exit_dialog():
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
     tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환등록", "카카오톡"])
+    
     with tab_s1:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
@@ -463,47 +474,81 @@ def settings_dialog():
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-        start_d = st.date_input("시작 날짜", value=datetime.date.today())
-        infinite_repeat = st.checkbox("연말까지 무한 자동 순환", value=False)
-        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=30, disabled=infinite_repeat)
         
-        i1 = st.number_input("근무자1 주기", 1, 30, 3)
-        w1_names = [st.text_input(f"1-{i+1}", key=f"w1_{i}").strip() for i in range(int(i1))]
-        
-        i2 = st.number_input("근무자2 주기", 1, 30, 3)
-        w2_names = [st.text_input(f"2-{i+1}", key=f"w2_{i}").strip() for i in range(int(i2))]
-        st.markdown('</div>', unsafe_allow_html=True)
-            
-        if st.button("순환 패턴 반영", use_container_width=True, type="primary"):
-            df_cur = st.session_state.df
-            cur_d = start_d
-            v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
-            
-            if infinite_repeat:
-                target_end_date = datetime.date(start_d.year, 12, 31)
-                delta_days = (target_end_date - start_d).days + 1
-            else:
-                delta_days = int(days_c)
+        # 저장된 설정값 불러오기
+        cfg = load_local_config()
+        try:
+            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
+        except:
+            default_start_date = datetime.date.today()
 
-            for i in range(delta_days):
-                idx_m = df_cur[df_cur["날짜"].dt.date == cur_d].index
-                if not idx_m.empty:
-                    idx = idx_m[0]
-                    if v1: 
-                        df_cur.loc[idx, "근무자1"] = v1[i % len(v1)]
-                        df_cur.loc[idx, "대직1"] = None
-                        df_cur.loc[idx, "실제근무1"] = v1[i % len(v1)]
-                    if v2: 
-                        df_cur.loc[idx, "근무자2"] = v2[i % len(v2)]
-                        df_cur.loc[idx, "대직2"] = None
-                        df_cur.loc[idx, "실제근무2"] = v2[i % len(v2)]
-                cur_d += datetime.timedelta(days=1)
+        start_d = st.date_input("시작 날짜", value=default_start_date)
+        infinite_repeat = st.checkbox("연말까지 무한 자동 순환", value=cfg.get("batch_infinite", False))
+        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat)
+        
+        i1 = st.number_input("근무자1 주기", 1, 30, int(cfg.get("batch_i1", 3)))
+        saved_w1 = cfg.get("batch_w1_names", ["", "", ""])
+        w1_names = [st.text_input(f"1-{i+1}", value=saved_w1[i] if i < len(saved_w1) else "", key=f"w1_{i}").strip() for i in range(int(i1))]
+        
+        i2 = st.number_input("근무자2 주기", 1, 30, int(cfg.get("batch_i2", 3)))
+        saved_w2 = cfg.get("batch_w2_names", ["", "", ""])
+        w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
+                # 설정값 저장
+                save_local_config("batch_start_date", str(start_d))
+                save_local_config("batch_infinite", infinite_repeat)
+                save_local_config("batch_days_c", int(days_c))
+                save_local_config("batch_i1", int(i1))
+                save_local_config("batch_w1_names", w1_names)
+                save_local_config("batch_i2", int(i2))
+                save_local_config("batch_w2_names", w2_names)
+
+                df_cur = st.session_state.df
+                cur_d = start_d
+                v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
                 
-            st.session_state.df = df_cur
-            save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
-            st.session_state.show_settings_dialog = False
-            st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
-            st.rerun()
+                if infinite_repeat:
+                    target_end_date = datetime.date(start_d.year, 12, 31)
+                    delta_days = (target_end_date - start_d).days + 1
+                else:
+                    delta_days = int(days_c)
+
+                for i in range(delta_days):
+                    idx_m = df_cur[df_cur["날짜"].dt.date == cur_d].index
+                    if not idx_m.empty:
+                        idx = idx_m[0]
+                        if v1: 
+                            df_cur.loc[idx, "근무자1"] = v1[i % len(v1)]
+                            df_cur.loc[idx, "대직1"] = None
+                            df_cur.loc[idx, "실제근무1"] = v1[i % len(v1)]
+                        if v2: 
+                            df_cur.loc[idx, "근무자2"] = v2[i % len(v2)]
+                            df_cur.loc[idx, "대직2"] = None
+                            df_cur.loc[idx, "실제근무2"] = v2[i % len(v2)]
+                    cur_d += datetime.timedelta(days=1)
+                    
+                st.session_state.df = df_cur
+                save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
+                st.session_state.show_settings_dialog = False
+                st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
+                st.rerun()
+
+        with col_b2:
+            if st.button("🧹 초기화", use_container_width=True):
+                # 설정값 초기화 및 파일 반영
+                save_local_config("batch_start_date", str(datetime.date.today()))
+                save_local_config("batch_infinite", False)
+                save_local_config("batch_days_c", 30)
+                save_local_config("batch_i1", 3)
+                save_local_config("batch_w1_names", ["", "", ""])
+                save_local_config("batch_i2", 3)
+                save_local_config("batch_w2_names", ["", "", ""])
+                st.success("🧹 순환 등록 입력값이 초기화되었습니다.")
+                st.rerun()
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -614,12 +659,17 @@ with st.sidebar:
         parsed_df, used_s, s_names, r_df, _ = load_excel_smart(f_bytes, "숙직근무자")
         st.session_state.update({
             "file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name,
-            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df
+            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df,
+            "upload_success_msg": "✅ 파일 업로드 완료!"
         })
         save_app_state(parsed_df, used_s, st.session_state.memos)
-        st.success("✅ 파일 업로드 및 숙직근무자 시트 반영 완료!")
         st.session_state.uploader_key += 1
         st.rerun()
+
+    if st.session_state.get("upload_success_msg"):
+        st.success(st.session_state.upload_success_msg)
+        # 새로고침이나 다른 인터랙션 후 메시지를 지우기 위해 상태 비우기
+        st.session_state.upload_success_msg = ""
 
     if "file_bytes" in st.session_state:
         st.download_button("📥 엑셀 다운로드", data=st.session_state.file_bytes, file_name="숙직근무표_수정본.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
@@ -815,7 +865,7 @@ with tab3:
         
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w1, "근무시간": hours, "횟수": 1})
-        if w2 and w2 not in ["mis 지정", "미지정", "nan", "None", ""]:
+        if w2 and w2 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w2, "근무시간": hours, "횟수": 1})
 
     if expanded_rows:

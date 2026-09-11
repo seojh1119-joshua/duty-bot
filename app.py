@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (달력 버튼 크기 유지 및 세로 확장 자동 줄바꿈 적용)
+# 동적 CSS (메트릭 박스 간격 축소 및 달력 버튼 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -175,6 +175,21 @@ responsive_css = f"""
         font-weight: 900;
     }}
 
+    /* 📌 통계 메트릭 박스 간격 압축 (세로 화면 핏 최적화) */
+    [data-testid="stMetric"] {{
+        background-color: {card_bg} !important;
+        border: 1px solid {border_color} !important;
+        border-radius: 6px !important;
+        padding: 4px 6px !important;
+        margin: 1px 0px !important;
+    }}
+    [data-testid="stMetricLabel"] {{
+        font-size: clamp(10px, 2.2vw, 12px) !important;
+    }}
+    [data-testid="stMetricValue"] {{
+        font-size: clamp(13px, 3.2vw, 16px) !important;
+    }}
+
     [data-testid="stSidebar"] {{
         background-color: {sidebar_bg} !important;
         color: {main_text_color} !important;
@@ -187,7 +202,6 @@ responsive_css = f"""
         color: {main_text_color} !important;
     }}
 
-    /* 📌 달력 버튼: 기본 크기를 유지하되 최대 높이 제한을 없애고 세로로만 유연하게 늘어나도록 설정 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
@@ -215,7 +229,6 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -223,7 +236,7 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 1px !important;
+        gap: 2px !important;
         margin: 0 !important;
     }}
 
@@ -243,7 +256,6 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 팝업 다이얼로그 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -1175,7 +1187,7 @@ with tab1:
                         day_counter += 1
 
 # ---------------------------------------------------------
-# TAB 2: 근무표 전체 수정
+# TAB 2: 근무표 전체 수정 (요청사항 반영: '열_' 컬럼 제거 및 날짜 열 고정)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
@@ -1183,21 +1195,31 @@ with tab2:
     current_ym = today.strftime("%Y-%m")
     default_edit_idx = edit_months.index(current_ym) if current_ym in edit_months else 0
 
-    col_ctrl1, col_ctrl2 = st.columns([1, 1])
-    with col_ctrl1:
-        selected_edit_month = st.selectbox("📅 근무 월 선택 검색", edit_months, index=default_edit_idx, key="edit_month_filter")
+    selected_edit_month = st.selectbox("📅 근무 월 선택 검색", edit_months, index=default_edit_idx, key="edit_month_filter")
 
     target_editor_df = st.session_state.df.copy() if selected_edit_month == "전체 기간" else st.session_state.df[st.session_state.df["년월"] == selected_edit_month].copy()
+
+    # '열_'로 시작하는 불필요한 자동 생성 컬럼 숨김(제거) 처리
+    target_editor_df = target_editor_df.loc[:, ~target_editor_df.columns.str.startswith("열_")]
 
     if "날짜" in target_editor_df.columns:
         cols = ["날짜"] + [c for c in target_editor_df.columns if c != "날짜"]
         target_editor_df = target_editor_df[cols]
 
-    with col_ctrl2:
-        st.write("")
-        save_btn_clicked = st.button("💾 변경사항 적용 및 엑셀 저장", key="top_save_btn", use_container_width=True, type="primary")
+    save_btn_clicked = st.button("💾 변경사항 적용 및 엑셀 저장", key="top_save_btn", use_container_width=True, type="primary")
 
-    edited_df = st.data_editor(target_editor_df, num_rows="dynamic", key=f"data_editor_{selected_edit_month}", use_container_width=True)
+    # 날짜 열 고정 설정 적용
+    column_config_dict = {}
+    if "날짜" in target_editor_df.columns:
+        column_config_dict["날짜"] = st.column_config.DateColumn("날짜", format="YYYY-MM-DD", disabled=True)
+
+    edited_df = st.data_editor(
+        target_editor_df,
+        num_rows="dynamic",
+        column_config=column_config_dict,
+        key=f"data_editor_{selected_edit_month}",
+        use_container_width=True
+    )
 
     if save_btn_clicked:
         edited_df["날짜"] = pd.to_datetime(edited_df["날짜"], errors="coerce")
@@ -1212,6 +1234,7 @@ with tab2:
         full_df["년월"] = full_df["날짜"].dt.strftime("%Y-%m")
         full_df = full_df.sort_values(by="날짜").reset_index(drop=True)
         
+        full_df = full_df.loc[:, ~full_df.columns.str.startswith("열_")]
         cols = ["날짜"] + [c for c in full_df.columns if c != "날짜"]
         st.session_state.df = full_df[cols]
 
@@ -1220,7 +1243,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: 월별 근무 통계
+# TAB 3: 월별 근무 통계 (요청사항 반영: 박스 공백 줄임)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -1263,7 +1286,7 @@ with tab3:
         m1.metric("총 근무 인원", f"{len(stats_df)}명")
         m2.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
         m3.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")
-        st.markdown("---")
+        st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
         st.dataframe(stats_df, use_container_width=True)
     else:
         st.info("조회할 근무 정보가 없습니다.")
@@ -1273,4 +1296,5 @@ with tab3:
 # ---------------------------------------------------------
 with tab4:
     st.subheader("🔍 시트 데이터 원본 확인")
-    st.dataframe(df, use_container_width=True)
+    clean_df = df.loc[:, ~df.columns.str.startswith("열_")]
+    st.dataframe(clean_df, use_container_width=True)

@@ -69,7 +69,8 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_api_key", local_cfg["kakao_api_key"]), ("batch_patterns", {})
+    ("kakao_api_key", local_cfg["kakao_api_key"]), ("batch_patterns", {}),
+    ("uploader_key", 0)
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -80,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (팝업 크기 고정 및 7등분 그리드 최적화)
+# 시스템 CSS 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -97,10 +98,6 @@ input_bg = "#272727" if is_dark else "#F5F5F5"
 input_text = "#F5F5F5" if is_dark else "#1E1E1E"
 box_bg = "#272727" if is_dark else "#FFFFFF"
 primary_yellow = "#FFE300"
-
-today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
-today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
-today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
@@ -207,7 +204,6 @@ responsive_css = f"""
         color: #1E1E1E !important;
     }}
 
-    /* 7개 요일 칼럼 9:16 모바일 화면 7등분 격차 고정 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -235,7 +231,6 @@ responsive_css = f"""
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
     }}
 
-    /* 팝업 화면 가로/세로 회전 시 크기 고정 및 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; 
         color: {main_text_color} !important;
@@ -275,7 +270,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 파일 유틸 및 덮어쓰기 저장 함수
+# 파일 유틸 및 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -300,7 +295,6 @@ def update_excel_download_bytes(df):
         st.sidebar.warning(f"⚠️ 다운로드 데이터 생성 실패: {e}")
 
 def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
-    """원본 파일의 숙직근무자 시트에 데이터를 덮어쓰기 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
@@ -440,20 +434,17 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 모음
+# 다이얼로그 모음 (팝업 1열 정렬 적용)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
     st.write("정말로 시스템을 종료하시겠습니까?")
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("취소", use_container_width=True): 
-            st.session_state.show_exit_dialog = False
-            st.rerun()
-    with c2:
-        if st.button("종료", use_container_width=True, type="primary"):
-            st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
-            st.rerun()
+    if st.button("취소", use_container_width=True): 
+        st.session_state.show_exit_dialog = False
+        st.rerun()
+    if st.button("종료", use_container_width=True, type="primary"):
+        st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
+        st.rerun()
 
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
@@ -476,13 +467,12 @@ def settings_dialog():
         infinite_repeat = st.checkbox("월말까지 자동 순환", value=True)
         days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=30, disabled=infinite_repeat)
         
-        c1, c2 = st.columns(2)
-        with c1:
-            i1 = st.number_input("근무자1 주기", 1, 30, 3)
-            w1_names = [st.text_input(f"1-{i+1}", key=f"w1_{i}").strip() for i in range(int(i1))]
-        with c2:
-            i2 = st.number_input("근무자2 주기", 1, 30, 3)
-            w2_names = [st.text_input(f"2-{i+1}", key=f"w2_{i}").strip() for i in range(int(i2))]
+        # 1열 정렬 적용
+        i1 = st.number_input("근무자1 주기", 1, 30, 3)
+        w1_names = [st.text_input(f"1-{i+1}", key=f"w1_{i}").strip() for i in range(int(i1))]
+        
+        i2 = st.number_input("근무자2 주기", 1, 30, 3)
+        w2_names = [st.text_input(f"2-{i+1}", key=f"w2_{i}").strip() for i in range(int(i2))]
         st.markdown('</div>', unsafe_allow_html=True)
             
         if st.button("순환 패턴 반영", use_container_width=True, type="primary"):
@@ -569,19 +559,17 @@ def edit_worker_dialog(date_str, duty_info):
     curr_sub1 = str(curr_row.get("대직1", "")).strip() if pd.notnull(curr_row.get("대직1")) else ""
     curr_sub2 = str(curr_row.get("대직2", "")).strip() if pd.notnull(curr_row.get("대직2")) else ""
 
+    # 1열 정렬 적용
     with st.form(f"form_{date_str}"):
-        c1, c2 = st.columns(2)
-        with c1:
-            p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
-            p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
-            sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"sub1_s_{date_str}")
-            sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"sub1_c_{date_str}") if sub1_s == "(직접 입력)" else ""
+        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
+        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
+        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"sub1_s_{date_str}")
+        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"sub1_c_{date_str}") if sub1_s == "(직접 입력)" else ""
 
-        with c2:
-            p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"p2_s_{date_str}")
-            p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"p2_c_{date_str}") if p2_s == "(직접 입력)" else ""
-            sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"sub2_s_{date_str}")
-            sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"sub2_c_{date_str}") if sub2_s == "(직접 입력)" else ""
+        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"p2_s_{date_str}")
+        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"p2_c_{date_str}") if p2_s == "(직접 입력)" else ""
+        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"sub2_s_{date_str}")
+        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"sub2_c_{date_str}") if sub2_s == "(직접 입력)" else ""
         
         memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str, ""), key=f"memo_{date_str}")
         
@@ -615,13 +603,14 @@ def edit_worker_dialog(date_str, duty_info):
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바 (엑셀 원본 덮어쓰기 기능 적용)
+# 사이드바 (업로드 완료 후 빈 박스로 초기화 처리)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
     if "file_name" in st.session_state: st.info(f"📄 `{st.session_state.file_name}`")
     
-    up_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"])
+    # 업로드 후 초기화되도록 uploader_key 적용
+    up_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"], key=f"file_uploader_{st.session_state.uploader_key}")
     if up_file:
         f_bytes = up_file.getvalue()
         save_p = os.path.join("DATA", up_file.name)
@@ -634,6 +623,7 @@ with st.sidebar:
         })
         save_app_state(parsed_df, used_s, st.session_state.memos)
         st.success("✅ 파일 업로드 및 숙직근무자 시트 반영 완료!")
+        st.session_state.uploader_key += 1 # 키 값을 변경하여 업로드 박스를 빈 박스로 초기화
         st.rerun()
 
     if "file_bytes" in st.session_state:
@@ -664,7 +654,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "🔍 원본"])
 
 # ---------------------------------------------------------
-# 달력 뷰 구성 (7등분 요일 칼럼 및 달력 그리드)
+# 달력 뷰 구성
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -803,10 +793,10 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# 통계 탭 (현재월 기본값, 일/평일 7시간, 토/금 15시간 근무시간 계산 및 Y축 70시간 고정)
+# 통계 탭 (통계 제목 변경, 그래프 위로 이동, 그래프 제목 "근무시간 그래프")
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("근무자 월별 통계 및 근무시간(시수)")
+    st.subheader("근무자 월별통계")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
     
@@ -816,10 +806,10 @@ with tab3:
     
     def calc_work_hours(row):
         d_val = pd.to_datetime(row["날짜"])
-        wd = d_val.weekday() # 0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일
+        wd = d_val.weekday()
         if wd in [4, 5]: # 금, 토요일: 15시간
             return 15
-        else: # 일요일 및 평일(월~목): 7시간
+        else: # 일요일 및 평일: 7시간
             return 7
 
     expanded_rows = []
@@ -842,16 +832,17 @@ with tab3:
         
         summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
         
-        st.markdown("### 📊 근무자별 시수 요약표")
-        st.dataframe(summary_df, use_container_width=True)
-        
-        st.markdown("### 📈 근무시간 시각화 (Y축 70시간 기준)")
-        # Altair를 활용해 Y축 범위를 0부터 70시간으로 고정
+        # 1. 그래프를 표 위로 배치하고 제목을 "근무시간 그래프"로 변경
+        st.markdown("### 📈 근무시간 그래프")
         chart = alt.Chart(summary_df).mark_bar().encode(
             x=alt.X('근무자:N', sort='-y', title='근무자'),
             y=alt.Y('총근무시간:Q', scale=alt.Scale(domain=[0, 70]), title='총 근무시간 (시간)')
         ).properties(height=320)
         st.altair_chart(chart, use_container_width=True)
+        
+        # 2. 요약표를 아래에 배치
+        st.markdown("### 📊 근무자별 시수 요약표")
+        st.dataframe(summary_df, use_container_width=True)
     else:
         st.info("통계 데이터가 없습니다.")
 

@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (폰트 크기 확대, 달력 자동 줄바꿈, 화면 핏 최적화)
+# 동적 CSS (달력 버튼 크기 유지 및 세로 확장 자동 줄바꿈 적용)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -125,7 +125,6 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 📌 폰트 키우기: 메인 타이틀 */
     h1, .main-title-text {{
         font-size: clamp(20px, 5.2vw, 28px) !important;
         font-weight: 900 !important;
@@ -135,7 +134,6 @@ responsive_css = f"""
         color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
     }}
 
-    /* 📌 폰트 키우기: 월 타이틀 카드 */
     .month-header-card {{
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1.5px solid {border_color};
@@ -152,7 +150,6 @@ responsive_css = f"""
         color: {"#60A5FA" if is_dark else "#2563EB"} !important;
     }}
 
-    /* 📌 폰트 키우기: 오늘 근무자 카드 */
     .today-card {{
         background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" };
         color: {"white" if is_dark else "#0F172A"};
@@ -190,13 +187,14 @@ responsive_css = f"""
         color: {main_text_color} !important;
     }}
 
-    /* 📌 달력 버튼 속 글자가 "..."으로 나오지 않고 자동 줄바꿈되도록 처리 */
+    /* 📌 달력 버튼: 기본 크기를 유지하되 최대 높이 제한을 없애고 세로로만 유연하게 늘어나도록 설정 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 52px !important;
-        padding: 3px 2px !important;
+        min-height: 48px !important;
+        max-height: none !important;
+        padding: 4px 2px !important;
         border: 1px solid {border_color} !important;
         border-radius: 5px !important;
         background-color: {btn_bg} !important;
@@ -217,7 +215,7 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 7개 컬럼 강제 가로 한 화면 정렬 (모바일 아웃 방지) */
+    /* 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -968,16 +966,15 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 구조 (요청 사항 반영: 설정 버튼을 제목 아래쪽에 배치)
+# 메인 화면 구조 (설정 버튼을 제목 아래쪽에 배치)
 # ---------------------------------------------------------
 st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
 
-# 설정 버튼을 제목 바로 아래쪽에 눈에 띄게 배치
 if st.button("⚙️ 대시보드 및 근무 관리 설정 열기", use_container_width=True, type="secondary", key="main_top_settings_btn"):
     st.session_state.show_settings_dialog = True
     st.rerun()
 
-st.write("") # 간격 조정
+st.write("")
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "📅 달력 메인 화면",

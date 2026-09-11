@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (다이얼로그 시인성, 반응형 가로폭, 입력창 스타일)
+# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -96,15 +96,17 @@ btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
-input_bg = "#0B0F19" if is_dark else "#F1F5F9"
+input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
+# 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
+    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -113,81 +115,23 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
+    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding-left: 4px !important;
-        padding-right: 4px !important;
-        padding-top: 0.2rem !important;
-        padding-bottom: 0.4rem !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        padding-top: 0.1rem !important;
+        padding-bottom: 0.2rem !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
 
-    h1, .main-title-text {{
-        font-size: clamp(20px, 5.2vw, 28px) !important;
-        font-weight: 900 !important;
-        text-align: center !important;
-        margin-bottom: 4px !important;
+    h1 {{
+        font-size: clamp(16px, 4vw, 24px) !important;
+        margin-top: 0px !important;
         padding-top: 0px !important;
-        color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
-    }}
-
-    .month-header-card {{
-        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1.5px solid {border_color};
-        border-radius: 8px;
-        padding: 6px 10px;
-        margin-top: 4px;
-        margin-bottom: 6px;
-        text-align: center;
-    }}
-    .month-header-card h2 {{
-        margin: 0 !important;
-        font-size: clamp(16px, 4vw, 22px) !important;
-        font-weight: 900 !important;
-        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
-    }}
-
-    .today-card {{
-        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" };
-        color: {"white" if is_dark else "#0F172A"};
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1.5px solid {border_color};
-        margin-bottom: 6px;
-        width: 100%;
-        box-sizing: border-box;
-    }}
-    .today-card .today-title {{
-        font-size: clamp(12px, 3vw, 14px) !important;
-        font-weight: 700 !important;
-        opacity: 0.95;
-    }}
-    .today-card .today-content {{
-        font-size: clamp(14px, 3.8vw, 17px) !important;
-        font-weight: 800 !important;
-        margin-top: 3px;
-    }}
-    .today-card span {{
-        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
-        font-weight: 900;
-    }}
-
-    [data-testid="stMetric"] {{
-        background-color: {card_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 6px !important;
-        padding: 6px 10px !important;
-        margin-bottom: 4px !important;
-        width: 100% !important;
-    }}
-    [data-testid="stMetricLabel"] {{
-        font-size: clamp(11px, 2.5vw, 13px) !important;
-    }}
-    [data-testid="stMetricValue"] {{
-        font-size: clamp(15px, 3.8vw, 18px) !important;
     }}
 
     [data-testid="stSidebar"] {{
@@ -198,30 +142,62 @@ responsive_css = f"""
         color: {main_text_color} !important;
     }}
 
-    p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{
+    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{
         color: {main_text_color} !important;
     }}
 
+    .month-header-card {{
+        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
+        border: 1px solid {border_color};
+        border-radius: 6px;
+        padding: 3px 8px;
+        margin-top: 1px;
+        margin-bottom: 4px;
+        text-align: center;
+    }}
+    .month-header-card h2 {{
+        margin: 0 !important;
+        font-size: clamp(14px, 3.2vw, 18px) !important;
+        font-weight: 800 !important;
+        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
+    }}
+
+    .today-card {{
+        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
+        color: {"white" if is_dark else "#0F172A"};
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid {border_color};
+        margin-bottom: 4px;
+        width: 100%;
+        box-sizing: border-box;
+    }}
+    
+    .today-card span {{
+        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
+        font-weight: bold;
+    }}
+
+    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 48px !important;
-        max-height: none !important;
-        padding: 4px 2px !important;
+        min-height: 38px !important;
+        padding: 2px 1px !important;
         border: 1px solid {border_color} !important;
-        border-radius: 5px !important;
+        border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(8px, 2vw, 11px) !important;
-        font-weight: 600 !important;
+        font-size: clamp(6.5px, 1.8vw, 10px) !important;
+        font-weight: 500 !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.15 !important;
+        line-height: 1.1 !important;
     }}
 
     .stButton > button:hover {{
@@ -229,6 +205,7 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
+    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -236,7 +213,7 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 2px !important;
+        gap: 1px !important;
         margin: 0 !important;
     }}
 
@@ -256,28 +233,26 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 📌 팝업 다이얼로그 가로폭 반응형 및 회전 대응 최적화 */
+    /* 팝업 스타일 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(300px, 95vw, 750px) !important;
-        max-width: 98vw !important;
-        max-height: 90vh !important;
+        width: clamp(290px, 92vw, 600px) !important;
+        max-width: 95vw !important;
+        max-height: 88vh !important;
         border-radius: 12px !important;
-        padding: 1.2rem !important;
+        padding: 1rem !important;
         overflow-y: auto !important;
-        border: 1.5px solid {border_color} !important;
-        box-sizing: border-box !important;
+        border: 1px solid {border_color} !important;
     }}
 
-    /* 📌 시작날짜 및 입력 상자 시인성 강화 (배경색 및 텍스트 색상 확실한 구분) */
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border-color: {border_color} !important;
-        font-weight: 600 !important;
     }}
 
+    /* JS 히든 스와이프 버튼 은닉 */
     .swipe-hidden-container {{
         display: none !important;
         height: 0px !important;
@@ -301,6 +276,7 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
 
+        // 1. 스와이프 히든 버튼 숨김
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -312,6 +288,7 @@ calendar_enhancer_js = f"""
                 }}
             }}
 
+            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -319,8 +296,30 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
+
+        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
+        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
+        horizBlocks.forEach(block => {{
+            if (block.children.length === 7) {{
+                block.style.setProperty('display', 'flex', 'important');
+                block.style.setProperty('flex-direction', 'row', 'important');
+                block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                block.style.setProperty('width', '100%', 'important');
+                block.style.setProperty('max-width', '100%', 'important');
+                block.style.setProperty('gap', '1px', 'important');
+
+                Array.from(block.children).forEach(child => {{
+                    child.style.setProperty('width', '14.285%', 'important');
+                    child.style.setProperty('max-width', '14.285%', 'important');
+                    child.style.setProperty('min-width', '0px', 'important');
+                    child.style.setProperty('flex', '1 1 14.285%', 'important');
+                    child.style.setProperty('padding', '0px', 'important');
+                }});
+            }}
+        }});
     }}
 
+    // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;
@@ -359,7 +358,6 @@ calendar_enhancer_js = f"""
 </script>
 """
 components.html(calendar_enhancer_js, height=0, width=0)
-
 # ---------------------------------------------------------
 # 파일 탐색 및 저장 함수
 # ---------------------------------------------------------

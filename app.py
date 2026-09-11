@@ -85,7 +85,6 @@ if st.session_state.is_app_closed:
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-# KakaoBank 디자인 가이드 변수 맵핑
 theme_bg = "#171717" if is_dark else "#FFFFFF"
 main_text_color = "#F5F5F5" if is_dark else "#1E1E1E"
 border_color = "#3B3B3B" if is_dark else "#E5CC00"
@@ -211,7 +210,7 @@ responsive_css = f"""
         color: #1E1E1E !important;
     }}
 
-    /* 7개 요일 칼럼을 9:16 모바일 화면에서 완벽하게 배치하기 위한 오버라이드 */
+    /* 7개 요일 칼럼을 9:16 모바일 화면에서 완벽하게 배치 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -240,11 +239,32 @@ responsive_css = f"""
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
     }}
 
+    /* [최적화] 스와이프 히든 버튼의 영역 레이아웃 완전 소멸 (공간 차지 방지) */
+    .swipe-hidden-container, div:has(> .stButton > button:contains("HIDDEN_")) {{
+        display: none !important;
+        visibility: hidden !important;
+        height: 0px !important;
+        width: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        position: absolute !important;
+        left: -9999px !important;
+        pointer-events: none !important;
+    }}
+
+    /* [최적화] 모바일 세로 화면 다이얼로그(팝업) 사이즈 및 스타일 최적화 */
     [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important; color: {main_text_color} !important;
-        width: 92vw !important; max-width: 440px !important; max-height: 88vh !important;
-        border-radius: 20px !important; padding: 18px 14px !important; overflow-y: auto !important;
-        border: 1px solid {border_color} !important; box-shadow: 0 16px 32px rgba(0,0,0,0.3) !important;
+        background-color: {dialog_bg} !important; 
+        color: {main_text_color} !important;
+        width: 92vw !important; 
+        max-width: 420px !important; 
+        max-height: 85vh !important;
+        border-radius: 20px !important; 
+        padding: 16px 14px !important; 
+        overflow-y: auto !important;
+        border: 1px solid {border_color} !important; 
+        box-shadow: 0 16px 32px rgba(0,0,0,0.3) !important;
+        margin: auto !important;
     }}
 
     [data-testid="stDialog"] [data-testid="stForm"] {{
@@ -267,17 +287,12 @@ responsive_css = f"""
         flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important;
         font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
     }}
-
-    .swipe-hidden-container {{
-        display: none !important; height: 0px !important; width: 0px !important;
-        margin: 0px !important; padding: 0px !important; position: absolute !important; left: -9999px !important;
-    }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (모바일 제스처 및 음영 처리)
+# 브라우저 스크립트 (모바일 제스처 감지 및 히든버튼 원천 숨김)
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -294,6 +309,8 @@ calendar_enhancer_js = f"""
                 if (container) {{
                     container.style.setProperty('display', 'none', 'important');
                     container.style.setProperty('height', '0px', 'important');
+                    container.style.setProperty('margin', '0px', 'important');
+                    container.style.setProperty('padding', '0px', 'important');
                 }}
             }}
 
@@ -339,7 +356,7 @@ calendar_enhancer_js = f"""
         }}, {{passive: true}});
     }}
 
-    setInterval(enhanceCalendarUI, 200);
+    setInterval(enhanceCalendarUI, 150);
 }})();
 </script>
 """

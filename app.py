@@ -124,7 +124,7 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.4rem 12px 1rem 12px !important;
+        padding: 0.4rem 8px 1rem 8px !important;
         max-width: 480px !important;
         margin: 0 auto !important;
         box-sizing: border-box !important;
@@ -199,10 +199,10 @@ responsive_css = f"""
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .stButton > button {{
-        width: 100% !important; min-height: 44px !important;
-        padding: 10px 14px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
+        width: 100% !important; min-height: 40px !important;
+        padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
-        text-align: center !important; font-size: 14px !important; font-weight: 800 !important; 
+        text-align: center !important; font-size: 13px !important; font-weight: 800 !important; 
         cursor: pointer !important; transition: background 100ms ease;
     }}
     .stButton > button:hover {{ 
@@ -211,30 +211,33 @@ responsive_css = f"""
         color: #1E1E1E !important;
     }}
 
+    /* 7개 요일 칼럼을 9:16 모바일 화면에서 완벽하게 배치하기 위한 오버라이드 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
-        width: 100% !important; gap: 4px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
+        width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
     }}
     [data-testid="column"] {{
         width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important;
         flex: 1 1 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
     }}
 
+    /* 달력 그리드 내부 날짜별 버튼 컴팩트화 설정 */
     div[data-testid="column"] .stButton > button {{
-        min-height: 80px !important;
-        max-height: 110px !important;
-        padding: 4px 2px !important;
-        font-size: 11px !important;
-        border-radius: 10px !important;
+        min-height: 64px !important;
+        max-height: 86px !important;
+        padding: 2px 1px !important;
+        font-size: 9.5px !important;
+        border-radius: 8px !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: flex-start !important;
         align-items: center !important;
+        line-height: 1.15 !important;
     }}
 
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important;
-        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.25 !important;
+        overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
     }}
 
     [data-testid="stDialog"] > div:first-child {{
@@ -283,7 +286,6 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
 
-        // 1. 스와이프 히든 버튼 숨김
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -295,7 +297,6 @@ calendar_enhancer_js = f"""
                 }}
             }}
 
-            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -305,7 +306,6 @@ calendar_enhancer_js = f"""
         }});
     }}
 
-    // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;
@@ -722,7 +722,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "🔍 원본"])
 
 # ---------------------------------------------------------
-# 2번째 파일 달력 코드 반영 (Tab 1 전체 재구성)
+# 달력 뷰 구성
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -744,7 +744,6 @@ with tab1:
     if "calendar_month_select" not in st.session_state:
         st.session_state.calendar_month_select = st.session_state.selected_month
 
-    # 월 이동 스와이프 제어 함수
     def on_month_change_select():
         st.session_state.selected_month = st.session_state.calendar_month_select
 
@@ -815,7 +814,7 @@ with tab1:
             cols_h = st.columns(7)
             h_names = [("일", "#FF3838"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#2563EB")]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 11px; padding: 2px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1

@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
+# 동적 CSS (9:16 비율 화면 대응 및 팝업 레이어 이탈 방지)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -99,14 +99,12 @@ dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
-# 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -115,7 +113,6 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -178,26 +175,26 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
+    /* 🚨 9:16 비율 화면 대응 및 달력 버튼 세로 2배 확대 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 38px !important;
-        padding: 2px 1px !important;
+        min-height: 76px !important; 
+        padding: 6px 2px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(6.5px, 1.8vw, 10px) !important;
+        font-size: clamp(7.5px, 2.2vw, 11px) !important;
         font-weight: 500 !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.1 !important;
+        line-height: 1.25 !important;
     }}
 
     .stButton > button:hover {{
@@ -205,7 +202,6 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -233,26 +229,34 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 팝업 스타일 */
+    /* 🚨 팝업창 레이어 안티 오버플로우(밖으로 벗어남 방지) 스타일 */
+    [data-testid="stDialog"] {{
+        box-sizing: border-box !important;
+    }}
+    
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(290px, 92vw, 600px) !important;
-        max-width: 95vw !important;
-        max-height: 88vh !important;
+        width: clamp(280px, 90vw, 540px) !important;
+        max-width: 92vw !important;
+        max-height: 82vh !important;
         border-radius: 12px !important;
         padding: 1rem !important;
         overflow-y: auto !important;
+        overflow-x: hidden !important;
         border: 1px solid {border_color} !important;
+        box-sizing: border-box !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3) !important;
     }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border-color: {border_color} !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
     }}
 
-    /* JS 히든 스와이프 버튼 은닉 */
     .swipe-hidden-container {{
         display: none !important;
         height: 0px !important;
@@ -276,7 +280,6 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
 
-        // 1. 스와이프 히든 버튼 숨김
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -288,7 +291,6 @@ calendar_enhancer_js = f"""
                 }}
             }}
 
-            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -297,7 +299,6 @@ calendar_enhancer_js = f"""
             }}
         }});
 
-        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
         horizBlocks.forEach(block => {{
             if (block.children.length === 7) {{
@@ -319,7 +320,6 @@ calendar_enhancer_js = f"""
         }});
     }}
 
-    // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;
@@ -358,6 +358,7 @@ calendar_enhancer_js = f"""
 </script>
 """
 components.html(calendar_enhancer_js, height=0, width=0)
+
 # ---------------------------------------------------------
 # 파일 탐색 및 저장 함수
 # ---------------------------------------------------------
@@ -439,19 +440,20 @@ def load_app_state():
     return None, None, None, None
 
 # ---------------------------------------------------------
-# 스마트 엑셀 파서
+# 스마트 엑셀 파서 (무한로딩 유발 스트림 처리 개선)
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
     if isinstance(file_input, bytes):
         file_bytes = file_input
     elif hasattr(file_input, "read"):
         file_bytes = file_input.read()
+        if hasattr(file_input, "seek"):
+            file_input.seek(0)
     else:
         with open(file_input, "rb") as f:
             file_bytes = f.read()
 
     file_obj = io.BytesIO(file_bytes)
-    file_obj.seek(0)
     excel_file = pd.ExcelFile(file_obj)
     sheet_names = excel_file.sheet_names
 
@@ -860,7 +862,7 @@ def settings_dialog():
                     st.error(f"오류 발생: {ex}")
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그
+# 근무자 수정 다이얼로그 (오버플로우 방지 적용)
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):

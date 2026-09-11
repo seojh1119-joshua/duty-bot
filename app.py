@@ -482,8 +482,26 @@ def settings_dialog():
         except:
             default_start_date = datetime.date.today()
 
+        # 상단에 배치한 작은 '순환적용초기화' 버튼
+        col_title, col_reset = st.columns([3, 1])
+        with col_title:
+            st.markdown("#### 🔄 순환 등록 설정")
+        with col_reset:
+            if st.button("순환적용초기화", use_container_width=True):
+                # 디폴트 값으로 설정값 초기화
+                save_local_config("batch_start_date", str(datetime.date.today()))
+                save_local_config("batch_infinite", False)
+                save_local_config("batch_days_c", 30)
+                save_local_config("batch_i1", 3)
+                save_local_config("batch_w1_names", ["", "", ""])
+                save_local_config("batch_i2", 3)
+                save_local_config("batch_w2_names", ["", "", ""])
+                st.success("🧹 순환 등록 설정이 초기화되었습니다.")
+                st.rerun()
+
+        # 1열 정렬로 컴포넌트 배치
         start_d = st.date_input("시작 날짜", value=default_start_date)
-        infinite_repeat = st.checkbox("연말까지 무한 자동 순환", value=cfg.get("batch_infinite", False))
+        infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False))
         days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat)
         
         i1 = st.number_input("근무자1 주기", 1, 30, int(cfg.get("batch_i1", 3)))
@@ -495,60 +513,45 @@ def settings_dialog():
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
         st.markdown('</div>', unsafe_allow_html=True)
 
-        col_b1, col_b2 = st.columns(2)
-        with col_b1:
-            if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
-                # 설정값 저장
-                save_local_config("batch_start_date", str(start_d))
-                save_local_config("batch_infinite", infinite_repeat)
-                save_local_config("batch_days_c", int(days_c))
-                save_local_config("batch_i1", int(i1))
-                save_local_config("batch_w1_names", w1_names)
-                save_local_config("batch_i2", int(i2))
-                save_local_config("batch_w2_names", w2_names)
+        if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
+            # 설정값 저장
+            save_local_config("batch_start_date", str(start_d))
+            save_local_config("batch_infinite", infinite_repeat)
+            save_local_config("batch_days_c", int(days_c))
+            save_local_config("batch_i1", int(i1))
+            save_local_config("batch_w1_names", w1_names)
+            save_local_config("batch_i2", int(i2))
+            save_local_config("batch_w2_names", w2_names)
 
-                df_cur = st.session_state.df
-                cur_d = start_d
-                v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
+            df_cur = st.session_state.df
+            cur_d = start_d
+            v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
+            
+            if infinite_repeat:
+                target_end_date = datetime.date(start_d.year, 12, 31)
+                delta_days = (target_end_date - start_d).days + 1
+            else:
+                delta_days = int(days_c)
+
+            for i in range(delta_days):
+                idx_m = df_cur[df_cur["날짜"].dt.date == cur_d].index
+                if not idx_m.empty:
+                    idx = idx_m[0]
+                    if v1: 
+                        df_cur.loc[idx, "근무자1"] = v1[i % len(v1)]
+                        df_cur.loc[idx, "대직1"] = None
+                        df_cur.loc[idx, "실제근무1"] = v1[i % len(v1)]
+                    if v2: 
+                        df_cur.loc[idx, "근무자2"] = v2[i % len(v2)]
+                        df_cur.loc[idx, "대직2"] = None
+                        df_cur.loc[idx, "실제근무2"] = v2[i % len(v2)]
+                cur_d += datetime.timedelta(days=1)
                 
-                if infinite_repeat:
-                    target_end_date = datetime.date(start_d.year, 12, 31)
-                    delta_days = (target_end_date - start_d).days + 1
-                else:
-                    delta_days = int(days_c)
-
-                for i in range(delta_days):
-                    idx_m = df_cur[df_cur["날짜"].dt.date == cur_d].index
-                    if not idx_m.empty:
-                        idx = idx_m[0]
-                        if v1: 
-                            df_cur.loc[idx, "근무자1"] = v1[i % len(v1)]
-                            df_cur.loc[idx, "대직1"] = None
-                            df_cur.loc[idx, "실제근무1"] = v1[i % len(v1)]
-                        if v2: 
-                            df_cur.loc[idx, "근무자2"] = v2[i % len(v2)]
-                            df_cur.loc[idx, "대직2"] = None
-                            df_cur.loc[idx, "실제근무2"] = v2[i % len(v2)]
-                    cur_d += datetime.timedelta(days=1)
-                    
-                st.session_state.df = df_cur
-                save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
-                st.session_state.show_settings_dialog = False
-                st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
-                st.rerun()
-
-        with col_b2:
-            if st.button("🧹 초기화", use_container_width=True):
-                # 설정값 초기화 및 파일 반영
-                save_local_config("batch_start_date", str(datetime.date.today()))
-                save_local_config("batch_infinite", False)
-                save_local_config("batch_days_c", 30)
-                save_local_config("batch_i1", 3)
-                save_local_config("batch_w1_names", ["", "", ""])
-                save_local_config("batch_i2", 3)
-                save_local_config("batch_w2_names", ["", "", ""])
-                st.success("🧹 순환 등록 입력값이 초기화되었습니다.")
-                st.rerun()
+            st.session_state.df = df_cur
+            save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
+            st.session_state.show_settings_dialog = False
+            st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
+            st.rerun()
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -668,7 +671,6 @@ with st.sidebar:
 
     if st.session_state.get("upload_success_msg"):
         st.success(st.session_state.upload_success_msg)
-        # 새로고침이나 다른 인터랙션 후 메시지를 지우기 위해 상태 비우기
         st.session_state.upload_success_msg = ""
 
     if "file_bytes" in st.session_state:

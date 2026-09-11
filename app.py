@@ -34,7 +34,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# 1. 하드웨어/기기 개별 설정 저장 및 로드 함수 (웹 공유 방지)
+# 하드웨어/기기 개별 설정 저장 및 로드 함수
 # ---------------------------------------------------------
 def load_local_config():
     default_config = {
@@ -63,32 +63,25 @@ def save_local_config(key, value):
 local_cfg = load_local_config()
 
 # 세션 상태 초기화
-if "is_app_closed" not in st.session_state:
-    st.session_state.is_app_closed = False
+for k, v in [
+    ("is_app_closed", False),
+    ("show_settings_dialog", False),
+    ("show_exit_dialog", False),
+    ("auto_view_type", local_cfg["auto_view_type"]),
+    ("app_theme", local_cfg["app_theme"]),
+    ("kakao_api_key", local_cfg["kakao_api_key"]),
+    ("batch_patterns", {})
+]:
+    if k not in st.session_state:
+        st.session_state[k] = v
 
-if "show_settings_dialog" not in st.session_state:
-    st.session_state.show_settings_dialog = False
-
-if "show_exit_dialog" not in st.session_state:
-    st.session_state.show_exit_dialog = False
-
-if "auto_view_type" not in st.session_state:
-    st.session_state.auto_view_type = local_cfg["auto_view_type"]
-
-if "app_theme" not in st.session_state:
-    st.session_state.app_theme = local_cfg["app_theme"]
-
-if "kakao_api_key" not in st.session_state:
-    st.session_state.kakao_api_key = local_cfg["kakao_api_key"]
-
-# 앱이 종료된 경우 화면 표시
 if st.session_state.is_app_closed:
     st.title("👋 시스템이 종료되었습니다.")
     st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
+# 동적 CSS (폰트 크기 확대, 달력 자동 줄바꿈, 화면 핏 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -106,14 +99,12 @@ dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
-# 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -125,19 +116,66 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding-left: 2px !important;
-        padding-right: 2px !important;
-        padding-top: 0.1rem !important;
-        padding-bottom: 0.2rem !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 0.4rem !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
 
-    h1 {{
-        font-size: clamp(16px, 4vw, 24px) !important;
-        margin-top: 0px !important;
+    /* 📌 폰트 키우기: 메인 타이틀 */
+    h1, .main-title-text {{
+        font-size: clamp(20px, 5.2vw, 28px) !important;
+        font-weight: 900 !important;
+        text-align: center !important;
+        margin-bottom: 4px !important;
         padding-top: 0px !important;
+        color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
+    }}
+
+    /* 📌 폰트 키우기: 월 타이틀 카드 */
+    .month-header-card {{
+        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
+        border: 1.5px solid {border_color};
+        border-radius: 8px;
+        padding: 6px 10px;
+        margin-top: 4px;
+        margin-bottom: 6px;
+        text-align: center;
+    }}
+    .month-header-card h2 {{
+        margin: 0 !important;
+        font-size: clamp(16px, 4vw, 22px) !important;
+        font-weight: 900 !important;
+        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
+    }}
+
+    /* 📌 폰트 키우기: 오늘 근무자 카드 */
+    .today-card {{
+        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)" };
+        color: {"white" if is_dark else "#0F172A"};
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1.5px solid {border_color};
+        margin-bottom: 6px;
+        width: 100%;
+        box-sizing: border-box;
+    }}
+    .today-card .today-title {{
+        font-size: clamp(12px, 3vw, 14px) !important;
+        font-weight: 700 !important;
+        opacity: 0.95;
+    }}
+    .today-card .today-content {{
+        font-size: clamp(14px, 3.8vw, 17px) !important;
+        font-weight: 800 !important;
+        margin-top: 3px;
+    }}
+    .today-card span {{
+        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
+        font-weight: 900;
     }}
 
     [data-testid="stSidebar"] {{
@@ -148,62 +186,30 @@ responsive_css = f"""
         color: {main_text_color} !important;
     }}
 
-    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{
+    p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{
         color: {main_text_color} !important;
     }}
 
-    .month-header-card {{
-        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color};
-        border-radius: 6px;
-        padding: 3px 8px;
-        margin-top: 1px;
-        margin-bottom: 4px;
-        text-align: center;
-    }}
-    .month-header-card h2 {{
-        margin: 0 !important;
-        font-size: clamp(14px, 3.2vw, 18px) !important;
-        font-weight: 800 !important;
-        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
-    }}
-
-    .today-card {{
-        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"};
-        padding: 4px 8px;
-        border-radius: 6px;
-        border: 1px solid {border_color};
-        margin-bottom: 4px;
-        width: 100%;
-        box-sizing: border-box;
-    }}
-    
-    .today-card span {{
-        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
-        font-weight: bold;
-    }}
-
-    /* 콤팩트 셀 버튼 높이 조절 */
+    /* 📌 달력 버튼 속 글자가 "..."으로 나오지 않고 자동 줄바꿈되도록 처리 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 38px !important;
-        padding: 2px 1px !important;
+        min-height: 52px !important;
+        padding: 3px 2px !important;
         border: 1px solid {border_color} !important;
-        border-radius: 4px !important;
+        border-radius: 5px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(6.5px, 1.8vw, 10px) !important;
-        font-weight: 500 !important;
+        font-size: clamp(8px, 2vw, 11px) !important;
+        font-weight: 600 !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.1 !important;
+        line-height: 1.15 !important;
     }}
 
     .stButton > button:hover {{
@@ -211,7 +217,7 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 7개 컬럼 강제 가로 한 화면 정렬 */
+    /* 7개 컬럼 강제 가로 한 화면 정렬 (모바일 아웃 방지) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -239,12 +245,12 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 팝업 스타일 */
+    /* 팝업 다이얼로그 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(290px, 92vw, 600px) !important;
-        max-width: 95vw !important;
+        width: clamp(300px, 94vw, 600px) !important;
+        max-width: 96vw !important;
         max-height: 88vh !important;
         border-radius: 12px !important;
         padding: 1rem !important;
@@ -297,26 +303,6 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
                 btn.style.setProperty('border', '{today_highlight_border}', 'important');
                 btn.style.setProperty('font-weight', '800', 'important');
-            }}
-        }});
-
-        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
-        horizBlocks.forEach(block => {{
-            if (block.children.length === 7) {{
-                block.style.setProperty('display', 'flex', 'important');
-                block.style.setProperty('flex-direction', 'row', 'important');
-                block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                block.style.setProperty('width', '100%', 'important');
-                block.style.setProperty('max-width', '100%', 'important');
-                block.style.setProperty('gap', '1px', 'important');
-
-                Array.from(block.children).forEach(child => {{
-                    child.style.setProperty('width', '14.285%', 'important');
-                    child.style.setProperty('max-width', '14.285%', 'important');
-                    child.style.setProperty('min-width', '0px', 'important');
-                    child.style.setProperty('flex', '1 1 14.285%', 'important');
-                    child.style.setProperty('padding', '0px', 'important');
-                }});
             }}
         }});
     }}
@@ -982,16 +968,16 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 - 제목 및 설정 버튼 상단 배치
+# 메인 화면 구조 (요청 사항 반영: 설정 버튼을 제목 아래쪽에 배치)
 # ---------------------------------------------------------
-col_title, col_settings = st.columns([0.82, 0.18])
-with col_title:
-    st.title("📋 숙직 근무 관리 대시보드")
-with col_settings:
-    st.write("")
-    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
-        st.session_state.show_settings_dialog = True
-        st.rerun()
+st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
+
+# 설정 버튼을 제목 바로 아래쪽에 눈에 띄게 배치
+if st.button("⚙️ 대시보드 및 근무 관리 설정 열기", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+    st.session_state.show_settings_dialog = True
+    st.rerun()
+
+st.write("") # 간격 조정
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "📅 달력 메인 화면",
@@ -1017,10 +1003,10 @@ with tab1:
         st.markdown(
             f"""
         <div class="today-card">
-            <div style="font-size:11px; opacity:0.9;">🚨 오늘 근무자 ({today_str})</div>
-            <div style="font-size:13px; font-weight:bold;">
+            <div class="today-title">🚨 오늘 근무자 ({today_str})</div>
+            <div class="today-content">
                 1: <span>{p1}</span> | 2: <span>{p2}</span>
-                <span style="font-size:11px; font-weight:normal;">{memo_str}</span>
+                <span style="font-weight:normal;">{memo_str}</span>
             </div>
         </div>
         """,
@@ -1152,7 +1138,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(10px, 2.2vw, 13px); padding-bottom: 2px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(11px, 2.5vw, 14px); padding-bottom: 2px;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 

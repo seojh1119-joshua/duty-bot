@@ -79,7 +79,114 @@ if st.session_state.is_app_closed:
     st.title("👋 시스템이 종료되었습니다.")
     st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
     st.stop()
+import tkinter as tk
 
+class MobileCalendarApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("모바일 가로달력 (9:16)")
+        
+        # 1. 모바일 기본 화면 비율 (가로 9 : 세로 16 크기 고정)
+        self.geometry("405x720")
+        self.resizable(False, False)
+        
+        # 메인 프레임 (배경 흰색)
+        self.main_frame = tk.Frame(self, bg="#ffffff")
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # 달력 헤더 (년월 표시)
+        self.header_label = tk.Label(
+            self.main_frame, 
+            text="2026년 4월", 
+            font=("Arial", 16, "bold"), 
+            bg="#f8f9fa", 
+            fg="#333333",
+            pady=15
+        )
+        self.header_label.pack(fill=tk.X)
+        
+        # 달력 본문 영역
+        self.body_frame = tk.Frame(self.main_frame, bg="#ffffff")
+        self.body_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # 요일 레이아웃 (7열)
+        self.create_weekday_header()
+        
+        # 2. 7열 5행 달력 그리드 영역
+        self.grid_frame = tk.Frame(self.body_frame, bg="#ffffff")
+        self.grid_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+        
+        # 7열(Columns)과 5행(Rows) 균등 분할 설정
+        for c in range(7):
+            self.grid_frame.columnconfigure(c, weight=1)
+        for r in range(5):
+            self.grid_frame.rowconfigure(r, weight=1)
+            
+        # 달력 셀 생성 (총 35칸, 스크롤 없음)
+        self.create_calendar_cells()
+
+    def create_weekday_header(self):
+        weekday_frame = tk.Frame(self.body_frame, bg="#ffffff")
+        weekday_frame.pack(fill=tk.X)
+        
+        weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+        for i, day in enumerate(weekdays):
+            # 일요일은 빨간색, 토요일은 파란색, 평일은 회색
+            color = "#ff4d4d" if i == 0 else ("#3399ff" if i == 6 else "#888888")
+            lbl = tk.Label(
+                weekday_frame, 
+                text=day, 
+                font=("Arial", 12, "bold"), 
+                fg=color, 
+                bg="#ffffff"
+            )
+            lbl.pack(side=tk.LEFT, expand=True, fill=tk.X)
+
+    def create_calendar_cells(self):
+        total_cells = 35  # 7열 x 5행 = 35칸 고정
+        
+        for i in range(total_cells):
+            row = i // 7
+            col = i % 7
+            
+            # 날짜 가상 시뮬레이션 (4월 달력 예시)
+            date_num = i - 2  
+            bg_color = "#f9f9f9"
+            fg_color = "#333333"
+            border_width = 1
+            
+            if date_num <= 0:
+                date_num += 31
+                fg_color = "#cccccc" # 이전 달 날짜
+            elif date_num > 30:
+                date_num -= 30
+                fg_color = "#cccccc" # 다음 달 날짜
+            elif date_num == 15:
+                bg_color = "#e6f2ff" # 오늘 날짜 강조
+                fg_color = "#0066cc"
+
+            # 개별 날짜 셀 프레임
+            cell_frame = tk.Frame(
+                self.grid_frame, 
+                bg=bg_color, 
+                highlightbackground="#e0e0e0", 
+                highlightthickness=border_width
+            )
+            cell_frame.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+            
+            # 날짜 숫자 레이블
+            lbl = tk.Label(
+                cell_frame, 
+                text=str(date_num), 
+                font=("Arial", 13), 
+                fg=fg_color, 
+                bg=bg_color
+            )
+            lbl.pack(expand=True)
+
+if __name__ == "__main__":
+    app = MobileCalendarApp()
+    app.mainloop()
 # ---------------------------------------------------------
 # 동적 CSS (설정버튼 제목 아래 독립 배치, 가로 Grid 세로 확장)
 # ---------------------------------------------------------

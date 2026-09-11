@@ -19,7 +19,7 @@ except ImportError:
     kr_holidays = {}
 
 # ---------------------------------------------------------
-# 자동 메모리 및 로그 정제 함수
+# 자동 메모리 및 로그 정제 함수 (최적화 반영)
 # ---------------------------------------------------------
 def cleanup_memory_and_logs():
     if "memos" in st.session_state and isinstance(st.session_state.memos, dict):
@@ -479,7 +479,6 @@ def settings_dialog():
             cur_d = start_d
             v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
             
-            # [수정된 순환 기간 계산 로직]
             if infinite_repeat:
                 target_end_date = datetime.date(start_d.year, 12, 31)
                 delta_days = (target_end_date - start_d).days + 1
@@ -559,7 +558,6 @@ def edit_worker_dialog(date_str, duty_info):
     curr_sub1 = str(curr_row.get("대직1", "")).strip() if pd.notnull(curr_row.get("대직1")) else ""
     curr_sub2 = str(curr_row.get("대직2", "")).strip() if pd.notnull(curr_row.get("대직2")) else ""
 
-    # [수정된 팝업 폼 및 버튼 제어 구조]
     with st.form(f"form_{date_str}", clear_on_submit=False):
         p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
         p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
@@ -577,7 +575,6 @@ def edit_worker_dialog(date_str, duty_info):
         submitted = st.form_submit_button("💾 저장", use_container_width=True, type="primary")
         closed = st.form_submit_button("❌ 닫기", use_container_width=True)
 
-    # 폼 바깥쪽에서 버튼 동작 처리 (폼 내부 충돌 방지)
     if submitted:
         f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
         f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
@@ -631,7 +628,6 @@ with st.sidebar:
         st.session_state.show_exit_dialog = True
         st.rerun()
 
-# 팝업 호출 분리
 if st.session_state.show_exit_dialog: 
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
@@ -819,7 +815,7 @@ with tab3:
         
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w1, "근무시간": hours, "횟수": 1})
-        if w2 and w2 not in ["미지정", "nan", "None", ""]:
+        if w2 and w2 not in ["mis 지정", "미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w2, "근무시간": hours, "횟수": 1})
 
     if expanded_rows:

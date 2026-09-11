@@ -9,6 +9,7 @@ import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+import altair as alt
 
 # 대한민국 공휴일 라이브러리 예외 처리
 try:
@@ -234,19 +235,7 @@ responsive_css = f"""
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
     }}
 
-    .swipe-hidden-container, div:has(> .stButton > button:contains("HIDDEN_")) {{
-        display: none !important;
-        visibility: hidden !important;
-        height: 0px !important;
-        width: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        position: absolute !important;
-        left: -9999px !important;
-        pointer-events: none !important;
-    }}
-
-    /* [수정 완료] 팝업 화면 가로/세로 회전 시 크기 고정 및 최적화 */
+    /* 팝업 화면 가로/세로 회전 시 크기 고정 및 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; 
         color: {main_text_color} !important;
@@ -286,75 +275,6 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (모바일 제스처 인식 및 숨김)
-# ---------------------------------------------------------
-calendar_enhancer_js = f"""
-<script>
-(function() {{
-    function enhanceCalendarUI() {{
-        const doc = window.parent.document;
-        if (!doc) return;
-
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {{
-            const txt = btn.innerText || '';
-            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
-                const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) {{
-                    container.style.setProperty('display', 'none', 'important');
-                    container.style.setProperty('height', '0px', 'important');
-                }}
-            }}
-
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
-                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
-                btn.style.setProperty('color', '{today_highlight_text}', 'important');
-                btn.style.setProperty('border', '{today_highlight_border}', 'important');
-                btn.style.setProperty('font-weight', '800', 'important');
-            }}
-        }});
-    }}
-
-    let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
-    function triggerMonthChange(dir) {{
-        const doc = window.parent.document;
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
-        const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
-        if (targetBtn) targetBtn.click();
-    }}
-
-    function handleGesture() {{
-        const diffX = touchendX - touchstartX;
-        const diffY = touchendY - touchstartY;
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {{
-            if (diffX < 0) triggerMonthChange('next');
-            else triggerMonthChange('prev');
-        }}
-    }}
-
-    const doc = window.parent.document;
-    if (!doc._enhancerAttached) {{
-        doc._enhancerAttached = true;
-        doc.addEventListener('touchstart', function(e) {{
-            touchstartX = e.changedTouches[0].screenX;
-            touchstartY = e.changedTouches[0].screenY;
-        }}, {{passive: true}});
-
-        doc.addEventListener('touchend', function(e) {{
-            touchendX = e.changedTouches[0].screenX;
-            touchendY = e.changedTouches[0].screenY;
-            handleGesture();
-        }}, {{passive: true}});
-    }}
-
-    setInterval(enhanceCalendarUI, 150);
-}})();
-</script>
-"""
-components.html(calendar_enhancer_js, height=0, width=0)
-
-# ---------------------------------------------------------
 # 파일 유틸 및 덮어쓰기 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
@@ -388,7 +308,6 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         memos = st.session_state.get("memos", {})
         save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
         
-        # 기존 파일이 존재하면 열어서 숙직근무자 시트만 덮어쓰기 유지
         if os.path.exists(file_path):
             with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                 save_df.to_excel(writer, index=False, sheet_name=sheet_name)
@@ -764,30 +683,13 @@ with tab1:
     
     if "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
         st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
-    if "calendar_month_select" not in st.session_state:
-        st.session_state.calendar_month_select = st.session_state.selected_month
 
-    def on_month_change_select():
-        st.session_state.selected_month = st.session_state.calendar_month_select
-
-    def go_prev_month():
-        curr_idx = avail_months.index(st.session_state.selected_month)
-        if curr_idx > 0:
-            st.session_state.selected_month = avail_months[curr_idx - 1]
-            st.session_state.calendar_month_select = st.session_state.selected_month
-
-    def go_next_month():
-        curr_idx = avail_months.index(st.session_state.selected_month)
-        if curr_idx < len(avail_months) - 1:
-            st.session_state.selected_month = avail_months[curr_idx + 1]
-            st.session_state.calendar_month_select = st.session_state.selected_month
-
-    st.markdown('<div class="swipe-hidden-container">', unsafe_allow_html=True)
-    st.button("HIDDEN_PREV", key="btn_hidden_prev", on_click=go_prev_month)
-    st.button("HIDDEN_NEXT", key="btn_hidden_next", on_click=go_next_month)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    sel_month = st.selectbox("조회 월 선택", avail_months, key="calendar_month_select", on_change=on_month_change_select, label_visibility="collapsed")
+    sel_month = st.selectbox(
+        "조회 월 선택", 
+        avail_months, 
+        index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0,
+        label_visibility="collapsed"
+    )
     st.session_state.selected_month = sel_month
 
     if sel_month in avail_months:
@@ -834,7 +736,6 @@ with tab1:
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
-            # 7개 요일 칼럼 단일 블록 7등분 정렬 배치
             cols_h = st.columns(7)
             h_names = [("일", "#FF3838"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#2563EB")]
             for idx, (h_n, col_c) in enumerate(h_names):
@@ -902,7 +803,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# 통계 탭 (현재월 기본값, 일/평일 7시간, 토/금 15시간 근무시간 계산 및 70시간 제한 표시)
+# 통계 탭 (현재월 기본값, 일/평일 7시간, 토/금 15시간 근무시간 계산 및 Y축 70시간 고정)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무시간(시수)")
@@ -913,14 +814,12 @@ with tab3:
     
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    # 요일별 근무 시간 규칙 적용 함수
     def calc_work_hours(row):
         d_val = pd.to_datetime(row["날짜"])
         wd = d_val.weekday() # 0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일
-        # 금요일(4), 토요일(5): 15시간 / 일요일(6), 평일(0,1,2,3): 7시간
-        if wd in [4, 5]:
+        if wd in [4, 5]: # 금, 토요일: 15시간
             return 15
-        else:
+        else: # 일요일 및 평일(월~목): 7시간
             return 7
 
     expanded_rows = []
@@ -946,10 +845,13 @@ with tab3:
         st.markdown("### 📊 근무자별 시수 요약표")
         st.dataframe(summary_df, use_container_width=True)
         
-        st.markdown("### 📈 근무시간 시각화 (최대 70시간 한도 제한)")
-        # 세로축 시간 최대 70시간까지만 나타내도록 설정한 바차트
-        chart_data = summary_df.set_index("근무자")[["총근무시간"]]
-        st.bar_chart(chart_data, y_lim=(0, 70))
+        st.markdown("### 📈 근무시간 시각화 (Y축 70시간 기준)")
+        # Altair를 활용해 Y축 범위를 0부터 70시간으로 고정
+        chart = alt.Chart(summary_df).mark_bar().encode(
+            x=alt.X('근무자:N', sort='-y', title='근무자'),
+            y=alt.Y('총근무시간:Q', scale=alt.Scale(domain=[0, 70]), title='총 근무시간 (시간)')
+        ).properties(height=320)
+        st.altair_chart(chart, use_container_width=True)
     else:
         st.info("통계 데이터가 없습니다.")
 

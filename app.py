@@ -226,17 +226,17 @@ responsive_css = f"""
 
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 5, 6. 달력/설정 팝업창 모바일 세로 화면 가로폭 자동 맞춤 최적화 */
+    /* 5, 6. 달력/설정 팝업창 모바일 세로 화면 가로폭 및 입력박스 비율 자동 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 94vw !important; max-width: 480px !important; max-height: 90vh !important;
-        border-radius: 12px !important; padding: 12px 10px !important; overflow-y: auto !important;
+        border-radius: 12px !important; padding: 14px 10px !important; overflow-y: auto !important;
         border: 2px solid {border_color} !important; margin: auto !important; position: fixed !important;
         top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
         box-sizing: border-box !important;
     }}
 
-    /* 팝업 내부 입력박스 및 레이아웃 자동비율 조절 스타일 */
+    /* 팝업 내부 입력박스 및 레이아웃 상대적 길이 자동 조절 스타일 */
     [data-testid="stDialog"] [data-testid="stForm"] {{
         border: none !important;
         padding: 0 !important;
@@ -264,11 +264,13 @@ responsive_css = f"""
     [data-testid="stDialog"] select, 
     [data-testid="stDialog"] textarea,
     [data-testid="stDialog"] [data-baseweb="select"],
-    [data-testid="stDialog"] div[role="combobox"] {{
+    [data-testid="stDialog"] div[role="combobox"],
+    [data-testid="stDialog"] [data-testid="stTextInput"],
+    [data-testid="stDialog"] [data-testid="stSelectbox"],
+    [data-testid="stDialog"] [data-testid="stTextArea"] {{
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
-        font-size: clamp(12px, 3.4vw, 15px) !important;
     }}
 
     [data-testid="stDialog"] label {{
@@ -284,6 +286,31 @@ responsive_css = f"""
         padding: 4px 6px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+    }}
+
+    /* 모바일 세로 화면에 특화된 팝업 내부 요소 반응형 세로 자동 재배치 */
+    @media screen and (max-width: 600px) {{
+        [data-testid="stDialog"] > div:first-child {{
+            width: 95vw !important;
+            padding: 10px 8px !important;
+        }}
+        [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] {{
+            flex-direction: column !important;
+        }}
+        [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 1 1 100% !important;
+        }}
+        /* 하단 저장/닫기 버튼 행은 50% 가로 분할 유지 */
+        [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child {{
+            flex-direction: row !important;
+        }}
+        [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child > [data-testid="column"] {{
+            width: 50% !important;
+            max-width: 50% !important;
+            flex: 1 1 50% !important;
+        }}
     }}
 
     /* 7. 상단 탭 메뉴 휴대폰 세로 화면폭 한눈 최적화 */
@@ -504,6 +531,20 @@ def load_app_state():
             if "날짜" in df.columns:
                 df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
                 df = df[["날짜"] + [c for c in df.columns if c != "날짜"]]
+                
+            # 필수 열 자동 정제 및 보완
+            if "근무자1" not in df.columns: df["근무자1"] = "미지정"
+            if "근무자2" not in df.columns: df["근무자2"] = "미지정"
+            if "대직1" not in df.columns: df["대직1"] = None
+            if "대직2" not in df.columns: df["대직2"] = None
+            if "근무구분_원본" not in df.columns: df["근무구분_원본"] = "평일"
+            if "년월" not in df.columns and "날짜" in df.columns:
+                df["년월"] = df["날짜"].dt.strftime("%Y-%m")
+            if "실제근무1" not in df.columns:
+                df["실제근무1"] = df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자1"]).fillna("미지정")
+            if "실제근무2" not in df.columns:
+                df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
+                
             return df, state_data.get("selected_sheet", "숙직근무자"), state_data.get("memos", {}), state_data.get("batch_patterns", {})
         except Exception as e:
             st.sidebar.warning(f"⚠️ 저장된 상태 불러오기 실패: {e}")
@@ -579,6 +620,8 @@ if "df" not in st.session_state:
         sample_df = pd.DataFrame({"날짜": pd.date_range(start=today_d.replace(day=1), periods=60, freq="D"), "근무자1": ["우정수", "오기희"] * 30, "근무자2": ["정찬웅", "서진호"] * 30})
         sample_df["년월"] = sample_df["날짜"].dt.strftime("%Y-%m")
         sample_df["실제근무1"], sample_df["실제근무2"] = sample_df["근무자1"], sample_df["근무자2"]
+        sample_df["대직1"], sample_df["대직2"] = None, None
+        sample_df["근무구분_원본"] = "평일"
         st.session_state.update({"df": sample_df, "sheet_names": ["숙직근무자"], "selected_sheet": "숙직근무자", "raw_df": pd.DataFrame(), "memos": {}, "batch_patterns": {}})
 
 update_excel_download_bytes(st.session_state.df)
@@ -649,9 +692,13 @@ def settings_dialog():
                 if not idx_m.empty:
                     idx = idx_m[0]
                     if v1: 
-                        df_cur.loc[idx, ["근무자1", "실제근무1"]] = v1[i % len(v1)]
+                        df_cur.loc[idx, "근무자1"] = v1[i % len(v1)]
+                        df_cur.loc[idx, "대직1"] = None
+                        df_cur.loc[idx, "실제근무1"] = v1[i % len(v1)]
                     if v2: 
-                        df_cur.loc[idx, ["근무자2", "실제근무2"]] = v2[i % len(v2)]
+                        df_cur.loc[idx, "근무자2"] = v2[i % len(v2)]
+                        df_cur.loc[idx, "대직2"] = None
+                        df_cur.loc[idx, "실제근무2"] = v2[i % len(v2)]
                 cur_d += datetime.timedelta(days=1)
                 
             st.session_state.df = df_cur
@@ -681,6 +728,14 @@ def settings_dialog():
 @st.dialog("✏️ 근무자 및 메모 수정")
 def edit_worker_dialog(date_str, duty_info):
     st.markdown(f"### 📅 {date_str} 근무 수정")
+    
+    if duty_info is None or "idx" not in duty_info or duty_info["idx"] not in st.session_state.df.index:
+        st.error("해당 날짜의 근무 정보 위치를 찾을 수 없습니다.")
+        if st.button("🚪 닫기", use_container_width=True):
+            st.session_state.update({"editing_date": None, "editing_duty_info": None})
+            st.rerun()
+        return
+
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
     
@@ -814,8 +869,11 @@ with tab1:
     today_df = df[df["날짜"].dt.date == today]
     if not today_df.empty:
         tr = today_df.iloc[0]
-        p1 = f"{tr['실제근무1']}(대)" if pd.notnull(tr.get("대직1")) and str(tr.get("대직1")).strip() else tr["실제근무1"]
-        p2 = f"{tr['실제근무2']}(대)" if pd.notnull(tr.get("대직2")) and str(tr.get("대직2")).strip() else tr["실제근무2"]
+        sub1_t = str(tr.get("대직1", "")).strip() if pd.notnull(tr.get("대직1")) else ""
+        sub2_t = str(tr.get("대직2", "")).strip() if pd.notnull(tr.get("대직2")) else ""
+        
+        p1 = f"{tr['실제근무1']}(대)" if sub1_t and sub1_t not in ["nan", "None", ""] else tr["실제근무1"]
+        p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         st.markdown(f'<div class="today-card"><div class="today-title">🚨 오늘 근무자 ({today.strftime("%m월 %d일")})</div><div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div></div>', unsafe_allow_html=True)
 
@@ -848,7 +906,26 @@ with tab1:
         
         num_days = calendar.monthrange(y, m)[1]
         m_df = df[df["년월"] == sel_month]
-        duty_map = {row["날짜"].day: {"idx": i, "p1": row["실제근무1"], "p2": row["실제근무2"]} for i, row in m_df.iterrows()}
+        
+        # 대직자 발생 시 (대) 표기를 달력 버튼 정보에 자동 포함하는 로직
+        duty_map = {}
+        for i, row in m_df.iterrows():
+            p1_name = str(row.get("실제근무1", "미지정")).strip()
+            p2_name = str(row.get("실제근무2", "미지정")).strip()
+            
+            sub1_val = str(row.get("대직1", "")).strip() if pd.notnull(row.get("대직1")) else ""
+            sub2_val = str(row.get("대직2", "")).strip() if pd.notnull(row.get("대직2")) else ""
+            
+            if sub1_val and sub1_val not in ["nan", "None", ""]:
+                p1_name = f"{p1_name}(대)"
+            if sub2_val and sub2_val not in ["nan", "None", ""]:
+                p2_name = f"{p2_name}(대)"
+                
+            duty_map[row["날짜"].day] = {
+                "idx": i,
+                "p1": p1_name,
+                "p2": p2_name
+            }
 
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             for d in range(1, num_days + 1):
@@ -902,11 +979,33 @@ with tab2:
     sel_ed_m = st.selectbox("📅 월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
     target_df = df.copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m].copy()
 
+    # 데이터 에디터 변경 내역 수집
+    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
+
     if st.button("💾 변경사항 일괄 저장", use_container_width=True, type="primary"):
-        save_app_state(df, st.session_state.selected_sheet, st.session_state.memos)
-        st.success("✅ 저장되었습니다.")
+        if sel_ed_m == "전체 기간":
+            m_df = edited_df.copy()
+        else:
+            m_df = st.session_state.df.copy()
+            m_df.update(edited_df)
+            
+        # 수정 데이터 바탕으로 실제 근무자 재계산 및 년월 갱신
+        if "날짜" in m_df.columns:
+            m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
+            m_df["년월"] = m_df["날짜"].dt.strftime("%Y-%m")
+            
+        p1 = m_df["근무자1"].astype(str).str.strip() if "근무자1" in m_df.columns else "미지정"
+        p2 = m_df["근무자2"].astype(str).str.strip() if "근무자2" in m_df.columns else "미지정"
+        sub1 = m_df["대직1"].astype(str).str.strip() if "대직1" in m_df.columns else ""
+        sub2 = m_df["대직2"].astype(str).str.strip() if "대직2" in m_df.columns else ""
+        
+        m_df["실제근무1"] = sub1.replace(["", "nan", "None"], None).combine_first(p1).fillna("미지정")
+        m_df["실제근무2"] = sub2.replace(["", "nan", "None"], None).combine_first(p2).fillna("미지정")
+        
+        st.session_state.df = m_df
+        save_app_state(m_df, st.session_state.selected_sheet, st.session_state.memos)
+        st.success("✅ 변경사항이 저장되었습니다.")
         st.rerun()
-    st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
 
 with tab3:
     st.subheader("📊 숙직근무자 월별 통계")

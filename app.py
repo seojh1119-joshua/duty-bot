@@ -538,7 +538,7 @@ def settings_dialog():
             st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
             st.rerun()
 
-        # 순환적용초기화 버튼 (저장버튼 아래, 동일한 크기로 1열 배치)
+        # 순환적용초기화 버튼 (위젯 세션 키를 삭제하여 오류 없이 깨끗하게 초기화)
         if st.button("순환적용초기화", use_container_width=True):
             # 1. 로컬 설정 저장값 초기화
             save_local_config("batch_start_date", str(datetime.date.today()))
@@ -549,18 +549,20 @@ def settings_dialog():
             save_local_config("batch_i2", 3)
             save_local_config("batch_w2_names", ["", "", ""])
             
-            # 2. 세션 스테이트(Session State)의 위젯 값들을 강제로 초기화하여 즉시 반영
-            st.session_state["batch_start_date_input"] = datetime.date.today()
-            st.session_state["batch_infinite_input"] = False
-            st.session_state["batch_days_c_input"] = 30
-            st.session_state["batch_i1_input"] = 3
-            st.session_state["batch_i2_input"] = 3
+            # 2. 세션 스테이트(Session State)의 위젯 키들을 삭제하여 다음 렌더링 시 빈값으로 초기화되도록 유도
+            keys_to_clear = [
+                "batch_start_date_input", "batch_infinite_input", 
+                "batch_days_c_input", "batch_i1_input", "batch_i2_input"
+            ]
+            for k in keys_to_clear:
+                if k in st.session_state:
+                    del st.session_state[k]
             
             for i in range(30):
                 if f"w1_{i}" in st.session_state:
-                    st.session_state[f"w1_{i}"] = ""
+                    del st.session_state[f"w1_{i}"]
                 if f"w2_{i}" in st.session_state:
-                    st.session_state[f"w2_{i}"] = ""
+                    del st.session_state[f"w2_{i}"]
 
             st.success("🧹 순환 등록 설정이 초기화되었습니다.")
             st.rerun()

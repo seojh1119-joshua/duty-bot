@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (통계 메트릭 박스 세로 배치 최적화)
+# 동적 CSS (다이얼로그 시인성, 반응형 가로폭, 입력창 스타일)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -96,7 +96,7 @@ btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
-input_bg = "#0F172A" if is_dark else "#FFFFFF"
+input_bg = "#0B0F19" if is_dark else "#F1F5F9"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
 
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
@@ -175,7 +175,6 @@ responsive_css = f"""
         font-weight: 900;
     }}
 
-    /* 📌 통계 메트릭 박스 세로 배치 스타일 최적화 */
     [data-testid="stMetric"] {{
         background-color: {card_bg} !important;
         border: 1px solid {border_color} !important;
@@ -257,22 +256,26 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
+    /* 📌 팝업 다이얼로그 가로폭 반응형 및 회전 대응 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
-        width: clamp(300px, 94vw, 600px) !important;
-        max-width: 96vw !important;
-        max-height: 88vh !important;
+        width: clamp(300px, 95vw, 750px) !important;
+        max-width: 98vw !important;
+        max-height: 90vh !important;
         border-radius: 12px !important;
-        padding: 1rem !important;
+        padding: 1.2rem !important;
         overflow-y: auto !important;
-        border: 1px solid {border_color} !important;
+        border: 1.5px solid {border_color} !important;
+        box-sizing: border-box !important;
     }}
 
+    /* 📌 시작날짜 및 입력 상자 시인성 강화 (배경색 및 텍스트 색상 확실한 구분) */
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border-color: {border_color} !important;
+        font-weight: 600 !important;
     }}
 
     .swipe-hidden-container {{
@@ -754,7 +757,13 @@ def settings_dialog():
         with col_b1:
             start_date_input = st.date_input("시작 날짜", value=today_default, key="dlg_batch_start")
         with col_b2:
-            total_days_count = st.number_input("적용 총 일수", min_value=1, max_value=180, value=30, step=1, key="dlg_batch_days")
+            infinite_loop = st.checkbox("🔄 무한 순환 적용", value=saved_pat.get("infinite_loop", False), key="dlg_infinite_loop", help="체크 시 시작일부터 데이터의 마지막 날짜까지 무한 순환합니다.")
+
+        if infinite_loop:
+            total_days_count = len(st.session_state.df)
+            st.info(f"📌 무한 순환이 선택되어 데이터의 마지막 날짜까지 총 **{total_days_count}일** 동안 자동 반복됩니다.")
+        else:
+            total_days_count = st.number_input("적용 총 일수", min_value=1, max_value=365, value=int(saved_pat.get("total_days", 30)), step=1, key="dlg_batch_days")
 
         col_p1, col_p2 = st.columns(2)
         with col_p1:
@@ -772,18 +781,28 @@ def settings_dialog():
             w2_names = [st.text_input(f"근무자2 순번 {i+1}", value=default_w2_slots[i] if i < len(default_w2_slots) else "", key=f"dlg_w2_{i}").strip() for i in range(int(interval2))]
 
         if st.button("💾 반복 순서 저장 및 근무표 반영", use_container_width=True, type="primary"):
+            df = st.session_state.df
+            if infinite_loop:
+                start_ts = pd.Timestamp(start_date_input)
+                filtered_df = df[df["날짜"] >= start_ts]
+                actual_days_count = len(filtered_df)
+            else:
+                actual_days_count = int(total_days_count)
+
             st.session_state.batch_patterns = {
                 "interval1": int(interval1),
                 "w1_names": w1_names,
                 "interval2": int(interval2),
                 "w2_names": w2_names,
+                "infinite_loop": infinite_loop,
+                "total_days": actual_days_count if not infinite_loop else 30
             }
-            df = st.session_state.df
+
             current_date = start_date_input
             valid_w1 = [n for n in w1_names if n]
             valid_w2 = [n for n in w2_names if n]
 
-            for i in range(int(total_days_count)):
+            for i in range(actual_days_count):
                 target_date_ts = pd.Timestamp(current_date)
                 match_idx = df[df["날짜"] == target_date_ts].index
                 if not match_idx.empty:
@@ -979,7 +998,7 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 구조 (설정 버튼을 제목 아래쪽에 배치)
+# 메인 화면 구조
 # ---------------------------------------------------------
 st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
 
@@ -1188,7 +1207,7 @@ with tab1:
                         day_counter += 1
 
 # ---------------------------------------------------------
-# TAB 2: 근무표 전체 수정 ('열_' 컬럼 제거 및 날짜 열 고정)
+# TAB 2: 근무표 전체 수정
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 전체 근무표 수정")
@@ -1242,7 +1261,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# TAB 3: 월별 근무 통계 (요청사항 반영: 통계 박스 세로 배치)
+# TAB 3: 월별 근무 통계
 # ---------------------------------------------------------
 with tab3:
     st.subheader("📊 숙직근무자 월별 근무 통계")
@@ -1279,7 +1298,6 @@ with tab3:
         stats_df["총 근무 횟수"] = stats_df[type_cols].sum(axis=1)
         stats_df = stats_df[type_cols + ["휴일근무 횟수", "총 근무 횟수", "총 근무시간(h)"]].sort_values(by="총 근무시간(h)", ascending=False)
 
-        # 📌 통계 박스를 세로(1열)로 배치하여 모바일 세로 화면을 벗어나지 않도록 수정
         st.metric("총 근무 인원", f"{len(stats_df)}명")
         st.metric("총 근무건수 합계", f"{int(stats_df['총 근무 횟수'].sum())}건")
         st.metric("총 근무시간 합계", f"{int(stats_df['총 근무시간(h)'].sum())}시간")

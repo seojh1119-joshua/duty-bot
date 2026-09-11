@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (9:16 비율 화면 대응 및 팝업 레이어 이탈 방지)
+# 동적 CSS (버튼 1.5배 확대, 설정 버튼 슬림화, 팝업 레이어 방지)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -147,9 +147,9 @@ responsive_css = f"""
         background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
         border: 1px solid {border_color};
         border-radius: 6px;
-        padding: 3px 8px;
-        margin-top: 1px;
-        margin-bottom: 4px;
+        padding: 6px 8px;
+        margin-top: 2px;
+        margin-bottom: 6px;
         text-align: center;
     }}
     .month-header-card h2 {{
@@ -175,26 +175,35 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* 🚨 9:16 비율 화면 대응 및 달력 버튼 세로 2배 확대 */
+    /* ⚙️ 상단 설정 버튼 높이 줄이기 (슬림화) */
+    div.stButton > button[kind="secondary"] {{
+        min-height: 38px !important;
+        height: 38px !important;
+        padding: 2px 10px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+    }}
+
+    /* 📅 달력 날짜 버튼: 기존 대비 1.5배 세로 확대 (76px -> 114px) 및 텍스트 정렬 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 76px !important; 
-        padding: 6px 2px !important;
+        min-height: 114px !important; 
+        padding: 8px 2px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         box-sizing: border-box !important;
         text-align: center !important;
-        font-size: clamp(7.5px, 2.2vw, 11px) !important;
+        font-size: clamp(8px, 2.3vw, 11.5px) !important;
         font-weight: 500 !important;
         margin: 0 !important;
         white-space: pre-wrap !important;
         word-break: break-all !important;
         overflow-wrap: anywhere !important;
-        line-height: 1.25 !important;
+        line-height: 1.35 !important;
     }}
 
     .stButton > button:hover {{
@@ -229,7 +238,7 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 🚨 팝업창 레이어 안티 오버플로우(밖으로 벗어남 방지) 스타일 */
+    /* 팝업창 레이어 이탈 방지 */
     [data-testid="stDialog"] {{
         box-sizing: border-box !important;
     }}
@@ -298,26 +307,6 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
-
-        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
-        horizBlocks.forEach(block => {{
-            if (block.children.length === 7) {{
-                block.style.setProperty('display', 'flex', 'important');
-                block.style.setProperty('flex-direction', 'row', 'important');
-                block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                block.style.setProperty('width', '100%', 'important');
-                block.style.setProperty('max-width', '100%', 'important');
-                block.style.setProperty('gap', '1px', 'important');
-
-                Array.from(block.children).forEach(child => {{
-                    child.style.setProperty('width', '14.285%', 'important');
-                    child.style.setProperty('max-width', '14.285%', 'important');
-                    child.style.setProperty('min-width', '0px', 'important');
-                    child.style.setProperty('flex', '1 1 14.285%', 'important');
-                    child.style.setProperty('padding', '0px', 'important');
-                }});
-            }}
-        }});
     }}
 
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
@@ -360,7 +349,7 @@ calendar_enhancer_js = f"""
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 파일 탐색 및 저장 함수
+# 파일 탐색 및 저장 함수 (다중 시트 보존 및 숙직근무자 시트 덮어쓰기)
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = (
@@ -384,11 +373,34 @@ def save_to_excel_file(df, file_path):
             cols = ["날짜"] + [c for c in save_df.columns if c != "날짜"]
             save_df = save_df[cols]
 
-        save_df.to_excel(file_path, index=False)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            save_df.to_excel(writer, index=False)
-        st.session_state.file_bytes = output.getvalue()
+        target_sheet = st.session_state.get("selected_sheet", "숙직근무자")
+
+        # 기존 파일이 있는 경우 다른 시트들을 보존하면서 target_sheet만 덮어쓰기
+        if os.path.exists(file_path):
+            with pd.ExcelFile(file_path) as xls:
+                sheet_names = xls.sheet_names
+            
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                for s in sheet_names:
+                    if s == target_sheet:
+                        save_df.to_excel(writer, sheet_name=s, index=False)
+                    else:
+                        temp_df = pd.read_excel(file_path, sheet_name=s)
+                        temp_df.to_excel(writer, sheet_name=s, index=False)
+                if target_sheet not in sheet_names:
+                    save_df.to_excel(writer, sheet_name=target_sheet, index=False)
+            
+            with open(file_path, "wb") as f:
+                f.write(output.getvalue())
+        else:
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                save_df.to_excel(writer, sheet_name=target_sheet, index=False)
+
+        # 세션 바이트 업데이트
+        with open(file_path, "rb") as f:
+            st.session_state.file_bytes = f.read()
+
         return True
     except Exception as e:
         st.error(f"엑셀 파일 저장 중 오류가 발생했습니다: {e}")
@@ -440,7 +452,7 @@ def load_app_state():
     return None, None, None, None
 
 # ---------------------------------------------------------
-# 스마트 엑셀 파서 (무한로딩 유발 스트림 처리 개선)
+# 스마트 엑셀 파서 (무한로딩 방지 및 '숙직근무자' 시트 우선 로드)
 # ---------------------------------------------------------
 def load_excel_smart(file_input, selected_sheet=None):
     if isinstance(file_input, bytes):
@@ -757,7 +769,7 @@ def settings_dialog():
         with col_b1:
             start_date_input = st.date_input("시작 날짜", value=today_default, key="dlg_batch_start")
         with col_b2:
-            infinite_loop = st.checkbox("🔄 무한 순환 적용", value=saved_pat.get("infinite_loop", False), key="dlg_infinite_loop", help="체크 시 시작일부터 데이터의 마지막 날짜까지 무한 순환합니다.")
+            infinite_loop = st.checkbox("🔄 무한 순환 적용", value=saved_pat.get("infinite_loop", False), key="dlg_infinite_loop", help="체크 시 시작일부터 데이터의 마지막 날까지 무한 순환합니다.")
 
         if infinite_loop:
             total_days_count = len(st.session_state.df)
@@ -862,7 +874,7 @@ def settings_dialog():
                     st.error(f"오류 발생: {ex}")
 
 # ---------------------------------------------------------
-# 근무자 수정 다이얼로그 (오버플로우 방지 적용)
+# 근무자 수정 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("✏️ 근무자 수정 및 메모 작성")
 def edit_worker_dialog(date_str, duty_info):
@@ -1002,7 +1014,7 @@ today = datetime.date.today()
 # ---------------------------------------------------------
 st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
 
-if st.button("⚙️ 대시보드 및 근무 관리 설정 열기", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+if st.button("⚙️ 설정 열기", use_container_width=True, type="secondary", key="main_top_settings_btn"):
     st.session_state.show_settings_dialog = True
     st.rerun()
 
@@ -1123,9 +1135,9 @@ with tab1:
             }
 
         calendar_view_type = st.session_state.auto_view_type
+        weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
 
         if calendar_view_type == "📄 세로형 리스트":
-            weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
             for day in range(1, num_days + 1):
                 curr_date = datetime.date(year, month, day)
                 date_str = curr_date.strftime("%Y-%m-%d")
@@ -1144,17 +1156,21 @@ with tab1:
                 else:
                     day_title = f"🗓️ {day:02d}일({weekday_str})"
 
-                p1_txt = duty_info["p1_display"] if duty_info else "미지정"
-                p2_txt = duty_info["p2_display"] if duty_info else "미지정"
+                p1_txt = f"1: {duty_info['p1_display']}" if duty_info else "1: -"
+                p2_txt = f"2: {duty_info['p2_display']}" if duty_info else "2: -"
                 day_memo = st.session_state.memos.get(date_str, "")
-                memo_display = f" | 📌 {day_memo}" if day_memo else ""
+                memo_display = f"📌 {day_memo}" if day_memo else ""
 
-                btn_label = f"{day_title} | 1:{p1_txt} | 2:{p2_txt}{memo_display}"
+                btn_lines = [day_title, p1_txt, p2_txt]
+                if memo_display:
+                    btn_lines.append(memo_display)
+                btn_label = "\n".join(btn_lines)
 
                 if st.button(btn_label, key=f"btn_v_card_{date_str}"):
                     if duty_info:
                         edit_worker_dialog(date_str, duty_info)
         else:
+            # 요일 박스 영역 (세로 크기 및 여백 확대)
             cols_header = st.columns(7)
             color_sun = "#FF6B6B" if is_dark else "#DC2626"
             color_sat = "#38BDF8" if is_dark else "#2563EB"
@@ -1167,7 +1183,7 @@ with tab1:
 
             for idx, (h_name, color) in enumerate(headers):
                 cols_header[idx].markdown(
-                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(11px, 2.5vw, 14px); padding-bottom: 2px;'>{h_name}</div>",
+                    f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: clamp(12px, 2.8vw, 15px); padding: 6px 0px; background: {card_bg}; border-radius: 4px; border: 1px solid {border_color}; margin-bottom: 2px;'>{h_name}</div>",
                     unsafe_allow_html=True,
                 )
 
@@ -1186,18 +1202,30 @@ with tab1:
                     else:
                         curr_date = datetime.date(year, month, day_counter)
                         date_str = curr_date.strftime("%Y-%m-%d")
+                        weekday_idx = curr_date.weekday()
+                        weekday_str = weekdays_kr[weekday_idx]
                         duty_info = duty_map.get(day_counter)
 
-                        p1_txt = duty_info["p1_display"] if duty_info else "-"
-                        p2_txt = duty_info["p2_display"] if duty_info else "-"
+                        p1_txt = f"{duty_info['p1_display']}" if duty_info else "-"
+                        p2_txt = f"{duty_info['p2_display']}" if duty_info else "-"
                         day_memo = st.session_state.memos.get(date_str, "")
 
                         is_today = (curr_date == today)
-                        day_label = f"🌟{day_counter}일" if is_today else f"{day_counter}일"
+                        
+                        # 요일별 색상 및 일자 구성 ("일자" - 요일별 색상/기호 적용)
+                        if is_today:
+                            day_label = f"🌟 {day_counter}일({weekday_str})"
+                        elif weekday_idx == 6 or curr_date in kr_holidays:
+                            day_label = f"🔴 {day_counter}일({weekday_str})"
+                        elif weekday_idx == 5:
+                            day_label = f"🔵 {day_counter}일({weekday_str})"
+                        else:
+                            day_label = f"📅 {day_counter}일({weekday_str})"
 
+                        # 요청 순서: 일자, 실제근무자1, 실제근무자2, 메모
                         cell_lines = [day_label, p1_txt, p2_txt]
                         if day_memo:
-                            cell_lines.append(f"📌{day_memo}")
+                            cell_lines.append(f"📌 {day_memo}")
 
                         btn_text = "\n".join(cell_lines)
 

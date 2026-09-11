@@ -474,6 +474,7 @@ def settings_dialog():
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+        st.markdown("#### 🔄 순환 등록 설정")
         
         # 저장된 설정값 불러오기
         cfg = load_local_config()
@@ -481,23 +482,6 @@ def settings_dialog():
             default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
         except:
             default_start_date = datetime.date.today()
-
-        # 상단에 배치한 작은 '순환적용초기화' 버튼
-        col_title, col_reset = st.columns([3, 1])
-        with col_title:
-            st.markdown("#### 🔄 순환 등록 설정")
-        with col_reset:
-            if st.button("순환적용초기화", use_container_width=True):
-                # 디폴트 값으로 설정값 초기화
-                save_local_config("batch_start_date", str(datetime.date.today()))
-                save_local_config("batch_infinite", False)
-                save_local_config("batch_days_c", 30)
-                save_local_config("batch_i1", 3)
-                save_local_config("batch_w1_names", ["", "", ""])
-                save_local_config("batch_i2", 3)
-                save_local_config("batch_w2_names", ["", "", ""])
-                st.success("🧹 순환 등록 설정이 초기화되었습니다.")
-                st.rerun()
 
         # 1열 정렬로 컴포넌트 배치
         start_d = st.date_input("시작 날짜", value=default_start_date)
@@ -513,6 +497,7 @@ def settings_dialog():
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # 순환 패턴 반영 버튼
         if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
             # 설정값 저장
             save_local_config("batch_start_date", str(start_d))
@@ -551,6 +536,18 @@ def settings_dialog():
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
             st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
+            st.rerun()
+
+        # 순환적용초기화 버튼 (저장버튼 아래, 동일한 크기로 1열 배치)
+        if st.button("순환적용초기화", use_container_width=True):
+            save_local_config("batch_start_date", str(datetime.date.today()))
+            save_local_config("batch_infinite", False)
+            save_local_config("batch_days_c", 30)
+            save_local_config("batch_i1", 3)
+            save_local_config("batch_w1_names", ["", "", ""])
+            save_local_config("batch_i2", 3)
+            save_local_config("batch_w2_names", ["", "", ""])
+            st.success("🧹 순환 등록 설정이 초기화되었습니다.")
             st.rerun()
 
     with tab_s3:

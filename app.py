@@ -81,7 +81,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (설정버튼 분리, 요일-달력 그룹화, 버튼 세로 확장)
+# 동적 CSS (설정버튼 제목 아래 독립 배치, 가로 Grid 세로 확장)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -102,6 +102,10 @@ input_text = "#F8FAFC" if is_dark else "#0F172A"
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
+
+is_grid_view = (st.session_state.auto_view_type == "🗓️ 가로형 Grid")
+# 가로형 Grid일 때만 버튼을 세로로 길게 확장 (세로형 리스트는 기존대로 유지)
+calendar_btn_min_height = "120px" if is_grid_view else "auto"
 
 responsive_css = f"""
 <style>
@@ -128,6 +132,7 @@ responsive_css = f"""
     h1 {{
         font-size: clamp(16px, 4vw, 24px) !important;
         margin-top: 0px !important;
+        margin-bottom: 4px !important;
         padding-top: 0px !important;
     }}
 
@@ -175,21 +180,22 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* ⚙️ 상단 설정 버튼 슬림화 및 독립 배치 스타일 */
+    /* ⚙️ 설정 버튼 개별 스타일 (제목 아랫줄 독립 배치) */
     div.stButton > button[kind="secondary"] {{
-        min-height: 38px !important;
-        height: 38px !important;
-        padding: 2px 10px !important;
-        font-size: 13px !important;
+        min-height: 34px !important;
+        height: 34px !important;
+        padding: 2px 12px !important;
+        font-size: 12px !important;
         font-weight: 600 !important;
+        width: auto !important;
     }}
 
-    /* 📅 달력 날짜 버튼: 세로 1.5배 이상 확대 (min-height 120px) 및 세로 줄바꿈 정렬 */
+    /* 📅 달력 날짜 버튼: 가로 Grid일 때만 세로 확장 및 항목별 줄바꿈 정렬 */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 120px !important; 
+        min-height: {calendar_btn_min_height} !important; 
         padding: 6px 2px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
@@ -211,7 +217,7 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 요일 박스와 달력 버튼 그룹의 행 정렬 일치화 */
+    /* 요일 박스와 달력 버튼 그룹의 행 정렬 완벽 일치화 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -1010,13 +1016,13 @@ df = st.session_state.df
 today = datetime.date.today()
 
 # ---------------------------------------------------------
-# 메인 화면 구조 (제목 및 독립 설정 버튼 배치)
+# 메인 화면 구조 (제목 및 설정 버튼 독립 배치)
 # ---------------------------------------------------------
-col_main_title, col_main_btn = st.columns([5, 1])
-with col_main_title:
-    st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
-with col_main_btn:
-    st.write("") # 상단 정렬 맞춤용 공백
+st.markdown("<h1>📋 숙직 근무 관리 대시보드</h1>", unsafe_allow_html=True)
+
+# 설정 버튼을 제목 바로 아랫줄에 독립적인 행으로 배치하여 달력 버튼과 완벽히 분리
+col_settings_btn = st.columns([1, 5])
+with col_settings_btn[0]:
     if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
         st.session_state.show_settings_dialog = True
         st.rerun()
@@ -1214,7 +1220,6 @@ with tab1:
 
                         is_today = (curr_date == today)
                         
-                        # 요일별 색상 및 일자 구성 ("일자" - 요일별 색상/기호 적용)
                         if is_today:
                             day_label = f"🌟 {day_counter}일({weekday_str})"
                         elif weekday_idx == 6 or curr_date in kr_holidays:
@@ -1224,7 +1229,6 @@ with tab1:
                         else:
                             day_label = f"📅 {day_counter}일({weekday_str})"
 
-                        # 요청 순서: 일자, 실제근무자1, 실제근무자2, 메모
                         cell_lines = [day_label, p1_txt, p2_txt]
                         if day_memo:
                             cell_lines.append(f"📌 {day_memo}")

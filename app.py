@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 대한민국 공휴일 라이브러리 예외 처리 추가
+# 대한민국 공휴일 라이브러리 예외 처리
 try:
     import holidays
     kr_holidays = holidays.KR()
@@ -21,7 +21,6 @@ except ImportError:
 # 자동 메모리 및 로그 정제 함수
 # ---------------------------------------------------------
 def cleanup_memory_and_logs():
-    """불필요한 세션 로그 정제 및 메모리 가비지 컬렉션 실행"""
     if "memos" in st.session_state and isinstance(st.session_state.memos, dict):
         st.session_state.memos = {k: v for k, v in st.session_state.memos.items() if v and str(v).strip()}
     gc.collect()
@@ -65,7 +64,6 @@ def save_local_config(key, value):
 
 local_cfg = load_local_config()
 
-# 세션 상태 초기화
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
@@ -81,7 +79,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# KakaoBank 스타일 시스템 CSS 적용 (다크/라이트 토글 대응)
+# 시스템 CSS 적용 (팝업 크기 고정 및 7등분 그리드 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -113,7 +111,7 @@ responsive_css = f"""
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        font-family: 'KakaoBank', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
+        font-family: Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
         letter-spacing: -0.02em !important;
@@ -135,7 +133,6 @@ responsive_css = f"""
         font-weight: 800 !important;
         text-align: left !important;
         color: {main_text_color} !important;
-        letter-spacing: -0.035em !important;
     }}
 
     .setting-box {{
@@ -161,7 +158,6 @@ responsive_css = f"""
         font-size: 13px !important; 
         font-weight: 800 !important; 
         margin-bottom: 6px !important;
-        letter-spacing: -0.02em !important;
         color: #6B6000 !important;
     }}
     .today-card .today-content {{ 
@@ -202,7 +198,7 @@ responsive_css = f"""
         padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
         text-align: center !important; font-size: 13px !important; font-weight: 800 !important; 
-        cursor: pointer !important; transition: background 100ms ease;
+        cursor: pointer !important;
     }}
     .stButton > button:hover {{ 
         border-color: {btn_hover_border} !important; 
@@ -210,7 +206,7 @@ responsive_css = f"""
         color: #1E1E1E !important;
     }}
 
-    /* 7개 요일 칼럼을 9:16 모바일 화면에서 완벽하게 배치 */
+    /* 7개 요일 칼럼 9:16 모바일 화면 7등분 격차 고정 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -220,7 +216,6 @@ responsive_css = f"""
         flex: 1 1 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
     }}
 
-    /* 달력 그리드 내부 날짜별 버튼 컴팩트화 설정 */
     div[data-testid="column"] .stButton > button {{
         min-height: 64px !important;
         max-height: 86px !important;
@@ -239,7 +234,6 @@ responsive_css = f"""
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.15 !important;
     }}
 
-    /* [최적화] 스와이프 히든 버튼의 영역 레이아웃 완전 소멸 (공간 차지 방지) */
     .swipe-hidden-container, div:has(> .stButton > button:contains("HIDDEN_")) {{
         display: none !important;
         visibility: hidden !important;
@@ -252,13 +246,13 @@ responsive_css = f"""
         pointer-events: none !important;
     }}
 
-    /* [최적화] 모바일 세로 화면 다이얼로그(팝업) 사이즈 및 스타일 최적화 */
+    /* [수정 완료] 팝업 화면 가로/세로 회전 시 크기 고정 및 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; 
         color: {main_text_color} !important;
-        width: 92vw !important; 
-        max-width: 420px !important; 
-        max-height: 85vh !important;
+        width: 88vw !important; 
+        max-width: 380px !important; 
+        max-height: 80vh !important;
         border-radius: 20px !important; 
         padding: 16px 14px !important; 
         overflow-y: auto !important;
@@ -292,7 +286,7 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 브라우저 스크립트 (모바일 제스처 감지 및 히든버튼 원천 숨김)
+# 브라우저 스크립트 (모바일 제스처 인식 및 숨김)
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
@@ -309,8 +303,6 @@ calendar_enhancer_js = f"""
                 if (container) {{
                     container.style.setProperty('display', 'none', 'important');
                     container.style.setProperty('height', '0px', 'important');
-                    container.style.setProperty('margin', '0px', 'important');
-                    container.style.setProperty('padding', '0px', 'important');
                 }}
             }}
 
@@ -363,7 +355,7 @@ calendar_enhancer_js = f"""
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# 공통 엑셀 및 데이터 유틸함수
+# 파일 유틸 및 덮어쓰기 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -382,23 +374,32 @@ def update_excel_download_bytes(df):
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            save_df.to_excel(writer, index=False)
+            save_df.to_excel(writer, index=False, sheet_name="숙직근무자")
         st.session_state.file_bytes = output.getvalue()
     except Exception as e:
-        st.sidebar.warning(f"⚠️ 엑셀 다운로드 데이터 생성 실패: {e}")
+        st.sidebar.warning(f"⚠️ 다운로드 데이터 생성 실패: {e}")
 
-def save_to_excel_file(df, file_path):
+def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
+    """원본 파일의 숙직근무자 시트에 데이터를 덮어쓰기 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
         save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
-        save_df.to_excel(file_path, index=False)
+        
+        # 기존 파일이 존재하면 열어서 숙직근무자 시트만 덮어쓰기 유지
+        if os.path.exists(file_path):
+            with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                save_df.to_excel(writer, index=False, sheet_name=sheet_name)
+        else:
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                save_df.to_excel(writer, index=False, sheet_name=sheet_name)
+                
         update_excel_download_bytes(df)
         return True
     except Exception as e:
-        st.sidebar.warning(f"⚠️ 엑셀 파일 저장 실패: {e}")
+        st.sidebar.warning(f"⚠️ 엑셀 덮어쓰기 저장 실패: {e}")
         return False
 
 def save_app_state(df, sheet_name, memos, batch_patterns=None):
@@ -412,7 +413,7 @@ def save_app_state(df, sheet_name, memos, batch_patterns=None):
         state_data = {"selected_sheet": sheet_name, "memos": memos, "batch_patterns": batch_patterns, "df_dict": save_df.to_dict(orient="records")}
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
-        save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()))
+        save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()), sheet_name)
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
@@ -520,7 +521,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의
+# 다이얼로그 모음
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -695,7 +696,7 @@ def edit_worker_dialog(date_str, duty_info):
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바 (엑셀 원본 덮어쓰기 기능 적용)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
@@ -706,9 +707,14 @@ with st.sidebar:
         f_bytes = up_file.getvalue()
         save_p = os.path.join("DATA", up_file.name)
         with open(save_p, "wb") as f: f.write(f_bytes)
-        parsed_df, used_s, s_names, r_df, _ = load_excel_smart(f_bytes)
-        st.session_state.update({"file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name, "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df})
+        
+        parsed_df, used_s, s_names, r_df, _ = load_excel_smart(f_bytes, "숙직근무자")
+        st.session_state.update({
+            "file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name,
+            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df
+        })
         save_app_state(parsed_df, used_s, st.session_state.memos)
+        st.success("✅ 파일 업로드 및 숙직근무자 시트 반영 완료!")
         st.rerun()
 
     if "file_bytes" in st.session_state:
@@ -739,7 +745,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "🔍 원본"])
 
 # ---------------------------------------------------------
-# 달력 뷰 구성
+# 달력 뷰 구성 (7등분 요일 칼럼 및 달력 그리드)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -828,6 +834,7 @@ with tab1:
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
+            # 7개 요일 칼럼 단일 블록 7등분 정렬 배치
             cols_h = st.columns(7)
             h_names = [("일", "#FF3838"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#2563EB")]
             for idx, (h_n, col_c) in enumerate(h_names):
@@ -894,22 +901,55 @@ with tab2:
         st.success("✅ 변경사항이 저장되었습니다.")
         st.rerun()
 
+# ---------------------------------------------------------
+# 통계 탭 (현재월 기본값, 일/평일 7시간, 토/금 15시간 근무시간 계산 및 70시간 제한 표시)
+# ---------------------------------------------------------
 with tab3:
-    st.subheader("근무자 월별 통계")
-    stat_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique(), reverse=True)
-    sel_st_m = st.selectbox("통계 월선택", stat_ms)
+    st.subheader("근무자 월별 통계 및 근무시간(시수)")
+    stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
+    default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
+    
+    sel_st_m = st.selectbox("통계 월선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
+    
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    comb = pd.concat([
-        f_df[["실제근무1", "근무구분_원본"]].rename(columns={"실제근무1": "근무자", "근무구분_원본": "구분"}),
-        f_df[["실제근무2", "근무구분_원본"]].rename(columns={"실제근무2": "근무자", "근무구분_원본": "구분"})
-    ], ignore_index=True)
-    comb = comb[comb["근무자"].notnull() & (~comb["근무자"].isin(["미지정", "nan", "None", ""]))]
+    # 요일별 근무 시간 규칙 적용 함수
+    def calc_work_hours(row):
+        d_val = pd.to_datetime(row["날짜"])
+        wd = d_val.weekday() # 0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일
+        # 금요일(4), 토요일(5): 15시간 / 일요일(6), 평일(0,1,2,3): 7시간
+        if wd in [4, 5]:
+            return 15
+        else:
+            return 7
 
-    if not comb.empty:
-        stats = pd.crosstab(comb["근무자"], comb["구분"])
-        stats["총 근무 횟수"] = stats.sum(axis=1)
-        st.dataframe(stats.sort_values(by="총 근무 횟수", ascending=False), use_container_width=True)
+    expanded_rows = []
+    for _, r in f_df.iterrows():
+        hours = calc_work_hours(r)
+        w1 = str(r.get("실제근무1", "")).strip()
+        w2 = str(r.get("실제근무2", "")).strip()
+        
+        if w1 and w1 not in ["미지정", "nan", "None", ""]:
+            expanded_rows.append({"근무자": w1, "근무시간": hours, "횟수": 1})
+        if w2 and w2 not in ["미지정", "nan", "None", ""]:
+            expanded_rows.append({"근무자": w2, "근무시간": hours, "횟수": 1})
+
+    if expanded_rows:
+        exp_df = pd.DataFrame(expanded_rows)
+        summary_df = exp_df.groupby("근무자").agg(
+            총근무횟수=("횟수", "sum"),
+            총근무시간=("근무시간", "sum")
+        ).reset_index()
+        
+        summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
+        
+        st.markdown("### 📊 근무자별 시수 요약표")
+        st.dataframe(summary_df, use_container_width=True)
+        
+        st.markdown("### 📈 근무시간 시각화 (최대 70시간 한도 제한)")
+        # 세로축 시간 최대 70시간까지만 나타내도록 설정한 바차트
+        chart_data = summary_df.set_index("근무자")[["총근무시간"]]
+        st.bar_chart(chart_data, y_lim=(0, 70))
     else:
         st.info("통계 데이터가 없습니다.")
 

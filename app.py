@@ -434,7 +434,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 모음 (팝업 1열 정렬 적용)
+# 다이얼로그 모음
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -467,7 +467,6 @@ def settings_dialog():
         infinite_repeat = st.checkbox("월말까지 자동 순환", value=True)
         days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=30, disabled=infinite_repeat)
         
-        # 1열 정렬 적용
         i1 = st.number_input("근무자1 주기", 1, 30, 3)
         w1_names = [st.text_input(f"1-{i+1}", key=f"w1_{i}").strip() for i in range(int(i1))]
         
@@ -559,7 +558,6 @@ def edit_worker_dialog(date_str, duty_info):
     curr_sub1 = str(curr_row.get("대직1", "")).strip() if pd.notnull(curr_row.get("대직1")) else ""
     curr_sub2 = str(curr_row.get("대직2", "")).strip() if pd.notnull(curr_row.get("대직2")) else ""
 
-    # 1열 정렬 적용
     with st.form(f"form_{date_str}"):
         p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
         p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
@@ -603,13 +601,12 @@ def edit_worker_dialog(date_str, duty_info):
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바 (업로드 완료 후 빈 박스로 초기화 처리)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
     if "file_name" in st.session_state: st.info(f"📄 `{st.session_state.file_name}`")
     
-    # 업로드 후 초기화되도록 uploader_key 적용
     up_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"], key=f"file_uploader_{st.session_state.uploader_key}")
     if up_file:
         f_bytes = up_file.getvalue()
@@ -623,7 +620,7 @@ with st.sidebar:
         })
         save_app_state(parsed_df, used_s, st.session_state.memos)
         st.success("✅ 파일 업로드 및 숙직근무자 시트 반영 완료!")
-        st.session_state.uploader_key += 1 # 키 값을 변경하여 업로드 박스를 빈 박스로 초기화
+        st.session_state.uploader_key += 1
         st.rerun()
 
     if "file_bytes" in st.session_state:
@@ -633,9 +630,13 @@ with st.sidebar:
         st.session_state.show_exit_dialog = True
         st.rerun()
 
-if st.session_state.show_exit_dialog: confirm_exit_dialog()
-elif st.session_state.show_settings_dialog: settings_dialog()
-elif st.session_state.editing_date and st.session_state.editing_duty_info: edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
+# 팝업 호출 분리 (설정 창과 날짜 수정 창이 독립적으로 안전하게 열리도록 처리)
+if st.session_state.show_exit_dialog: 
+    confirm_exit_dialog()
+elif st.session_state.show_settings_dialog: 
+    settings_dialog()
+elif st.session_state.editing_date and st.session_state.editing_duty_info: 
+    edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -723,7 +724,7 @@ with tab1:
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
                 if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_{d_str}"):
-                    st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
+                    st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d), "show_settings_dialog": False})
                     st.rerun()
         else:
             cols_h = st.columns(7)
@@ -759,7 +760,7 @@ with tab1:
                         if memo_s: btn_txt += f" {memo_s}"
 
                         if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
-                            st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
+                            st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt), "show_settings_dialog": False})
                             st.rerun()
                         day_cnt += 1
 
@@ -792,9 +793,6 @@ with tab2:
         st.success("✅ 변경사항이 저장되었습니다.")
         st.rerun()
 
-# ---------------------------------------------------------
-# 통계 탭 (통계 제목 변경, 그래프 위로 이동, 그래프 제목 "근무시간 그래프")
-# ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별통계")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
@@ -832,7 +830,6 @@ with tab3:
         
         summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
         
-        # 1. 그래프를 표 위로 배치하고 제목을 "근무시간 그래프"로 변경
         st.markdown("### 📈 근무시간 그래프")
         chart = alt.Chart(summary_df).mark_bar().encode(
             x=alt.X('근무자:N', sort='-y', title='근무자'),
@@ -840,7 +837,6 @@ with tab3:
         ).properties(height=320)
         st.altair_chart(chart, use_container_width=True)
         
-        # 2. 요약표를 아래에 배치
         st.markdown("### 📊 근무자별 시수 요약표")
         st.dataframe(summary_df, use_container_width=True)
     else:

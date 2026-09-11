@@ -74,26 +74,28 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS 및 모바일 세로 화면 맞춤 스타일
+# 닌텐도 디자인 시스템 기반 동적 CSS 및 모바일 맞춤 스타일
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#0F172A" if is_dark else "#FFFFFF"
-main_text_color = "#F8FAFC" if is_dark else "#0F172A"
-border_color = "#334155" if is_dark else "#CBD5E1"
-btn_bg = "#1E293B" if is_dark else "#FFFFFF"
-btn_text = "#F8FAFC" if is_dark else "#0F172A"
-btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
-btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
-sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
-dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
-input_bg = "#1E293B" if is_dark else "#F8FAFC"
-input_text = "#F8FAFC" if is_dark else "#0F172A"
-box_bg = "#1E293B" if is_dark else "#F8FAFC"
+# 닌텐도 토큰 색상 매핑 (nintendo-dark.md 기반)
+theme_bg = "#1A1A1A" if is_dark else "#FFFFFF"
+main_text_color = "#FFFFFF" if is_dark else "#1A1A1A"
+border_color = "#3A3A3A" if is_dark else "#F0F0F0"
+btn_bg = "#2D2D2D" if is_dark else "#FAFAFA"
+btn_text = "#FFFFFF" if is_dark else "#1A1A1A"
+btn_hover_bg = "#3A3A3A" if is_dark else "#F0F0F0"
+btn_hover_border = "#FF606A" if is_dark else "#E60012"
+sidebar_bg = "#161618" if is_dark else "#FAFAFA"
+dialog_bg = "#2D2D2D" if is_dark else "#FFFFFF"
+input_bg = "#2D2D2D" if is_dark else "#FAFAFA"
+input_text = "#FFFFFF" if is_dark else "#1A1A1A"
+box_bg = "#2D2D2D" if is_dark else "#FAFAFA"
+primary_accent = "#FF606A" if is_dark else "#E60012"
 
-today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
-today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
-today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
+today_highlight_bg = "linear-gradient(135deg, #FF3644 0%, #C90010 100%)" if is_dark else "linear-gradient(135deg, #FFE9EA 0%, #FFC4C7 100%)"
+today_highlight_text = "#FFFFFF" if is_dark else "#8C000A"
+today_highlight_border = "2px solid #FF606A" if is_dark else "2px solid #E60012"
 
 responsive_css = f"""
 <style>
@@ -106,6 +108,7 @@ responsive_css = f"""
         max-width: 100vw !important;
         overflow-x: hidden !important;
         -webkit-tap-highlight-color: transparent !important;
+        font-family: 'Nintendo Std', 'Arial Rounded MT Bold', 'Pretendard', sans-serif !important;
     }}
 
     .main .block-container {{
@@ -117,82 +120,76 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 1. 제목 스타일 및 설정버튼과의 간격 확대 */
     h1 {{
         font-size: clamp(26px, 6.5vw, 36px) !important;
         margin: 10px 0px 20px 0px !important;
         padding: 4px 0px !important;
-        font-weight: 900 !important;
+        font-weight: 700 !important;
         white-space: nowrap !important;
         text-align: center !important;
-        color: {"#60A5FA" if is_dark else "#1D4ED8"} !important;
-        letter-spacing: -0.5px !important;
+        color: {primary_accent} !important;
+        letter-spacing: -0.02em !important;
     }}
 
-    /* 설정박스 전용 카드 스타일 */
     .setting-box {{
         background-color: {box_bg} !important;
-        border: 2px solid {border_color} !important;
-        border-radius: 10px !important;
-        padding: 10px 12px !important;
+        border: 1px solid {border_color} !important;
+        border-radius: 20px !important;
+        padding: 12px 16px !important;
         margin: 14px 0px 18px 0px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.40) !important;
     }}
 
-    /* 2. 오늘 근무자 카드: 글씨크기 확대 및 입체 음영 그라데이션 적용 */
     .today-card {{
-        background: { "linear-gradient(135deg, #1E3A8A 0%, #2563EB 50%, #1D4ED8 100%)" if is_dark else "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #BFDBFE 100%)" } !important;
-        color: {"#FFFFFF" if is_dark else "#1E3A8A"} !important;
-        padding: 12px 14px !important;
-        border-radius: 12px !important;
-        border: 2px solid {"#60A5FA" if is_dark else "#3B82F6"} !important;
+        background: { "linear-gradient(135deg, #2D2D2D 0%, #1A1A1A 100%)" if is_dark else "linear-gradient(135deg, #FAFAFA 0%, #F0F0F0 100%)" } !important;
+        color: {main_text_color} !important;
+        padding: 14px 16px !important;
+        border-radius: 20px !important;
+        border: 2px solid {primary_accent} !important;
         margin-bottom: 16px !important;
         width: 100% !important;
         box-sizing: border-box !important;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+        box-shadow: 0 6px 18px rgba(230,0,18,0.2) !important;
     }}
     .today-card .today-title {{ 
         font-size: clamp(16px, 4.5vw, 20px) !important; 
-        font-weight: 900 !important; 
-        margin-bottom: 4px !important;
-        letter-spacing: -0.3px !important;
+        font-weight: 700 !important; 
+        margin-bottom: 6px !important;
+        color: {primary_accent} !important;
     }}
     .today-card .today-content {{ 
         font-size: clamp(17px, 5vw, 23px) !important; 
-        font-weight: 900 !important; 
+        font-weight: 700 !important; 
         line-height: 1.4 !important;
     }}
     .today-card span {{ 
-        color: {"#FDE047" if is_dark else "#1D4ED8"} !important; 
+        color: {primary_accent} !important; 
         font-size: clamp(18px, 5.2vw, 24px) !important;
-        font-weight: 900 !important; 
+        font-weight: 700 !important; 
     }}
 
-    /* 3. 숙직근무표 헤더 글씨크기 확대 */
     .month-header-card {{
-        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color}; border-radius: 6px; padding: 6px 8px; margin: 6px 0 10px 0; text-align: center;
+        background: { "linear-gradient(135deg, #2D2D2D 0%, #1A1A1A 100%)" if is_dark else "linear-gradient(135deg, #FAFAFA 0%, #F0F0F0 100%)" };
+        border: 1px solid {border_color}; border-radius: 14px; padding: 8px 10px; margin: 6px 0 10px 0; text-align: center;
     }}
     .month-header-card h2 {{ 
         margin: 0 !important; 
         font-size: clamp(20px, 5.5vw, 28px) !important; 
-        font-weight: 900 !important; 
-        color: {"#60A5FA" if is_dark else "#1D4ED8"} !important; 
+        font-weight: 700 !important; 
+        color: {primary_accent} !important; 
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ background-color: {sidebar_bg} !important; color: {main_text_color} !important; }}
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
-    /* 일반 버튼 스타일 */
     .stButton > button {{
-        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 36px !important;
-        padding: 6px 8px !important; border: 1.5px solid {border_color} !important; border-radius: 6px !important;
+        width: 100% !important; min-width: 0 !important; height: auto !important; min-height: 38px !important;
+        padding: 8px 12px !important; border: 1.5px solid {border_color} !important; border-radius: 14px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; box-sizing: border-box !important;
         text-align: center !important; font-size: 14px !important; font-weight: 700 !important; margin: 0 !important;
-        cursor: pointer !important;
+        cursor: pointer !important; transition: transform 150ms ease, box-shadow 150ms ease !important;
     }}
 
-    /* 4. 달력 버튼 가로폭 축소 및 7열 모바일 세로 화면 맞춤 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important;
         width: 100% !important; max-width: 100vw !important; min-width: 0 !important; gap: 2px !important; margin: 0 !important; padding: 0 !important; box-sizing: border-box !important;
@@ -205,9 +202,10 @@ responsive_css = f"""
     div[data-testid="column"] .stButton > button {{
         min-height: clamp(140px, 28vw, 220px) !important;
         max-height: 280px !important;
-        padding: 3px 1px !important;
+        padding: 4px 2px !important;
+        border-radius: 14px !important;
         font-size: clamp(9px, 2.5vw, 12px) !important;
-        color: { "#F8FAFC" if is_dark else "#0F172A" } !important;
+        color: { main_text_color } !important;
         overflow: hidden !important;
         flex-shrink: 0 !important;
         display: flex !important;
@@ -222,21 +220,20 @@ responsive_css = f"""
         overflow-wrap: anywhere !important; text-overflow: clip !important; overflow: hidden !important; line-height: 1.25 !important;
         pointer-events: none !important;
     }}
-    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; }}
+    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
     [data-testid="stElementContainer"] {{ width: 100% !important; margin: 0 !important; padding: 0 !important; }}
 
-    /* 5, 6. 달력/설정 팝업창 모바일 세로 화면 가로폭 및 입력박스 비율 자동 최적화 */
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important;
         width: 94vw !important; max-width: 480px !important; max-height: 90vh !important;
-        border-radius: 12px !important; padding: 14px 10px !important; overflow-y: auto !important;
-        border: 2px solid {border_color} !important; margin: auto !important; position: fixed !important;
+        border-radius: 20px !important; padding: 16px 12px !important; overflow-y: auto !important;
+        border: 2px solid {primary_accent} !important; margin: auto !important; position: fixed !important;
         top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
         box-sizing: border-box !important;
+        box-shadow: 0 20px 48px rgba(0,0,0,0.60) !important;
     }}
 
-    /* 팝업 내부 입력박스 및 레이아웃 상대적 길이 자동 조절 스타일 */
     [data-testid="stDialog"] [data-testid="stForm"] {{
         border: none !important;
         padding: 0 !important;
@@ -246,7 +243,7 @@ responsive_css = f"""
     }}
 
     [data-testid="stDialog"] [data-testid="stHorizontalBlock"] {{
-        gap: 6px !important;
+        gap: 8px !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }}
@@ -271,28 +268,32 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
+        border-radius: 14px !important;
     }}
 
     [data-testid="stDialog"] label {{
         font-size: clamp(12px, 3.2vw, 14px) !important;
         font-weight: 700 !important;
-        margin-bottom: 2px !important;
+        margin-bottom: 4px !important;
         white-space: nowrap !important;
     }}
 
     [data-testid="stDialog"] .stButton > button {{
-        min-height: 38px !important;
+        min-height: 42px !important;
         font-size: clamp(13px, 3.6vw, 15px) !important;
-        padding: 4px 6px !important;
+        padding: 6px 8px !important;
+        border-radius: 9999px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        background-color: {primary_accent} !important;
+        color: #FFFFFF !important;
+        border: none !important;
     }}
 
-    /* 모바일 세로 화면에 특화된 팝업 내부 요소 반응형 세로 자동 재배치 */
     @media screen and (max-width: 600px) {{
         [data-testid="stDialog"] > div:first-child {{
             width: 95vw !important;
-            padding: 10px 8px !important;
+            padding: 12px 10px !important;
         }}
         [data-testid="stDialog"] [data-testid="stForm"] > [data-testid="stHorizontalBlock"] {{
             flex-direction: column !important;
@@ -302,7 +303,6 @@ responsive_css = f"""
             max-width: 100% !important;
             flex: 1 1 100% !important;
         }}
-        /* 하단 저장/닫기 버튼 행은 50% 가로 분할 유지 */
         [data-testid="stDialog"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:last-child {{
             flex-direction: row !important;
         }}
@@ -313,27 +313,28 @@ responsive_css = f"""
         }}
     }}
 
-    /* 7. 상단 탭 메뉴 휴대폰 세로 화면폭 한눈 최적화 */
     [data-baseweb="tab-list"] {{
         width: 100% !important;
         display: flex !important;
-        gap: 2px !important;
+        gap: 4px !important;
         padding: 0 !important;
     }}
     [data-baseweb="tab"] {{
         flex: 1 1 auto !important;
-        padding: 8px 4px !important;
+        padding: 10px 6px !important;
         font-size: clamp(11px, 3.2vw, 15px) !important;
-        font-weight: 800 !important;
+        font-weight: 700 !important;
         text-align: center !important;
         justify-content: center !important;
         min-width: 0 !important;
+        border-radius: 14px 14px 0 0 !important;
     }}
 
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"], input[type="date"] {{
         background-color: {input_bg} !important;
         color: {input_text} !important;
         border: 1.5px solid {border_color} !important;
+        border-radius: 14px !important;
         font-weight: 600 !important;
         max-width: 100% !important;
     }}
@@ -415,7 +416,7 @@ calendar_enhancer_js_template = """
                 btn.style.setProperty('background', '___BG___', 'important');
                 btn.style.setProperty('color', '___TEXT___', 'important');
                 btn.style.setProperty('border', '___BORDER___', 'important');
-                btn.style.setProperty('font-weight', '800', 'important');
+                btn.style.setProperty('font-weight', '700', 'important');
             }
         });
     }
@@ -532,7 +533,6 @@ def load_app_state():
                 df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
                 df = df[["날짜"] + [c for c in df.columns if c != "날짜"]]
                 
-            # 필수 열 자동 정제 및 보완
             if "근무자1" not in df.columns: df["근무자1"] = "미지정"
             if "근무자2" not in df.columns: df["근무자2"] = "미지정"
             if "대직1" not in df.columns: df["대직1"] = None
@@ -627,7 +627,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 정의 (모바일 세로 화면 맞춤 조절)
+# 다이얼로그 정의
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -739,7 +739,6 @@ def edit_worker_dialog(date_str, duty_info):
     row_idx = duty_info["idx"]
     curr_row = st.session_state.df.loc[row_idx]
     
-    # 근무자 목록 수집
     all_workers = set()
     for col in ["근무자1", "근무자2", "대직1", "대직2"]:
         if col in st.session_state.df.columns:
@@ -759,7 +758,7 @@ def edit_worker_dialog(date_str, duty_info):
             return 0
         if val_str in worker_options:
             return worker_options.index(val_str)
-        return len(worker_options) - 1  # 목록에 없는 이름인 경우 '(직접 입력)' 선택
+        return len(worker_options) - 1
 
     curr_p1 = str(curr_row.get("근무자1", "")).strip() if pd.notnull(curr_row.get("근무자1")) else ""
     curr_p2 = str(curr_row.get("근무자2", "")).strip() if pd.notnull(curr_row.get("근무자2")) else ""
@@ -772,7 +771,6 @@ def edit_worker_dialog(date_str, duty_info):
             p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"p1_s_{date_str}")
             p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"p1_c_{date_str}") if p1_s == "(직접 입력)" else ""
 
-            # 대직자1 드롭다운 메뉴 적용
             sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"sub1_s_{date_str}")
             sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"sub1_c_{date_str}") if sub1_s == "(직접 입력)" else ""
 
@@ -780,7 +778,6 @@ def edit_worker_dialog(date_str, duty_info):
             p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"p2_s_{date_str}")
             p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"p2_c_{date_str}") if p2_s == "(직접 입력)" else ""
 
-            # 대직자2 드롭다운 메뉴 적용
             sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"sub2_s_{date_str}")
             sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"sub2_c_{date_str}") if sub2_s == "(직접 입력)" else ""
         
@@ -856,7 +853,6 @@ today = datetime.date.today()
 # ---------------------------------------------------------
 st.title("📋 광주교도소 의료과 숙직근무")
 
-# 메인 설정박스 (제목과 간격 유지)
 st.markdown('<div class="setting-box">', unsafe_allow_html=True)
 if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width=True, type="secondary"):
     st.session_state.show_settings_dialog = True
@@ -907,7 +903,6 @@ with tab1:
         num_days = calendar.monthrange(y, m)[1]
         m_df = df[df["년월"] == sel_month]
         
-        # 대직자 발생 시 (대) 표기를 달력 버튼 정보에 자동 포함하는 로직
         duty_map = {}
         for i, row in m_df.iterrows():
             p1_name = str(row.get("실제근무1", "미지정")).strip()
@@ -941,16 +936,16 @@ with tab1:
         else:
             cols_h = st.columns(7)
             h_names = [
-                ("일", "#FF6B6B" if is_dark else "#DC2626"), 
+                ("일", "#FF606A" if is_dark else "#E60012"), 
                 ("월", main_text_color), 
                 ("화", main_text_color), 
                 ("수", main_text_color), 
                 ("목", main_text_color), 
                 ("금", main_text_color), 
-                ("토", "#38BDF8" if is_dark else "#2563EB")
+                ("토", "#69A9FF" if is_dark else "#1565D8")
             ]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 900; font-size: clamp(11px, 3.2vw, 15px); padding: 3px 0; background: rgba(128,128,128,0.1); border-radius: 4px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 700; font-size: clamp(11px, 3.2vw, 15px); padding: 4px 0; background: rgba(128,128,128,0.1); border-radius: 8px; border: 1px solid {border_color};'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -979,7 +974,6 @@ with tab2:
     sel_ed_m = st.selectbox("📅 월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
     target_df = df.copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m].copy()
 
-    # 데이터 에디터 변경 내역 수집
     edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
 
     if st.button("💾 변경사항 일괄 저장", use_container_width=True, type="primary"):
@@ -989,7 +983,6 @@ with tab2:
             m_df = st.session_state.df.copy()
             m_df.update(edited_df)
             
-        # 수정 데이터 바탕으로 실제 근무자 재계산 및 년월 갱신
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
             m_df["년월"] = m_df["날짜"].dt.strftime("%Y-%m")

@@ -51,7 +51,14 @@ def load_local_config():
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
         "kakao_access_token": "",
-        "current_user_name": "관리자"
+        "current_user_name": "관리자",
+        "batch_start_date": str(datetime.date.today()),
+        "batch_infinite": False,
+        "batch_days_c": 30,
+        "batch_i1": 3,
+        "batch_w1_names": ["", "", ""],
+        "batch_i2": 3,
+        "batch_w2_names": ["", "", ""]
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -314,7 +321,6 @@ if "df" not in st.session_state:
     parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
     st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
 
-# 독립적인 근무자 연락처 및 동의 DB 관리 함수 (엑셀에 의존하지 않고 독립 저장)
 def load_workers_db():
     if WORKERS_DB_FILE.exists():
         try:
@@ -347,28 +353,101 @@ def confirm_exit_dialog():
 
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
-    st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-    new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
-    new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
-    k_token = st.text_input("카카오 사용자 액세스 토큰", value=st.session_state.kakao_access_token, type="password")
+    # 3개 탭 구성: 화면설정, 순환등록, 카카오톡 설정
+    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오 설정"])
     
-    # 기기 환경별 사용자 식별 설정 (나에게 보내기 구별용)
-    curr_user = st.text_input("현재 기기 사용자명 (내 이름)", value=st.session_state.current_user_name, placeholder="예: 관리자, 홍길동")
-    st.markdown('</div>', unsafe_allow_html=True)
+    with tab_s1:
+        st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+        new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
+        new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
+        curr_user = st.text_input("현재 기기 사용자명 (내 이름)", value=st.session_state.current_user_name, placeholder="예: 관리자, 홍길동")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("설정 저장 및 적용", use_container_width=True, type="primary"):
-        st.session_state.update({
-            "auto_view_type": new_view, 
-            "app_theme": new_th, 
-            "kakao_access_token": k_token,
-            "current_user_name": curr_user,
-            "show_settings_dialog": False
-        })
-        save_local_config("auto_view_type", new_view)
-        save_local_config("app_theme", new_th)
-        save_local_config("kakao_access_token", k_token)
-        save_local_config("current_user_name", curr_user)
-        st.rerun()
+        if st.button("화면 설정 적용", use_container_width=True, type="primary"):
+            st.session_state.update({
+                "auto_view_type": new_view, 
+                "app_theme": new_th, 
+                "current_user_name": curr_user,
+                "show_settings_dialog": False
+            })
+            save_local_config("auto_view_type", new_view)
+            save_local_config("app_theme", new_th)
+            save_local_config("current_user_name", curr_user)
+            st.rerun()
+
+    with tab_s2:
+        st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+        st.markdown("#### 🔄 순환 등록 설정")
+        
+        cfg = load_local_config()
+        try:
+            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
+        except:
+            default_start_date = datetime.date.today()
+
+        start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
+        infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
+        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat, key="batch_days_c_input")
+        
+        i1 = st.number_input("근무자1 주기", 1, 30, int(cfg.get("batch_i1", 3)), key="batch_i1_input")
+        saved_w1 = cfg.get("batch_w1_names", ["", "", ""])
+        w1_names = [st.text_input(f"1-{i+1}", value=saved_w1[i] if i < len(saved_w1) else "", key=f"w1_{i}").strip() for i in range(int(i1))]
+        
+        i2 = st.number_input("근무자2 주기", 1, 30, int(cfg.get("batch_i2", 3)), key="batch_i2_input")
+        saved_w2 = cfg.get("batch_w2_names", ["", "", ""])
+        w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
+            save_local_config("batch_start_date", str(start_d))
+            save_local_config("batch_infinite", infinite_repeat)
+            save_local_config("batch_days_c", int(days_c))
+            save_local_config("batch_i1", int(i1))
+            save_local_config("batch_w1_names", w1_names)
+            save_local_config("batch_i2", int(i2))
+            save_local_config("batch_w2_names", w2_names)
+
+            df_cur = st.session_state.df
+            cur_d = start_d
+            v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
+            
+            if infinite_repeat:
+                target_end_date = datetime.date(start_d.year, 12, 31)
+                delta_days = (target_end_date - start_d).days + 1
+            else:
+                delta_days = int(days_c)
+
+            for i in range(delta_days):
+                idx_m = df_cur[df_cur["날짜"].dt.date == cur_d].index
+                if not idx_m.empty:
+                    idx = idx_m[0]
+                    if v1: 
+                        df_cur.loc[idx, "근무자1"] = v1[i % len(v1)]
+                        df_cur.loc[idx, "대직1"] = None
+                        df_cur.loc[idx, "실제근무1"] = v1[i % len(v1)]
+                    if v2: 
+                        df_cur.loc[idx, "근무자2"] = v2[i % len(v2)]
+                        df_cur.loc[idx, "대직2"] = None
+                        df_cur.loc[idx, "실제근무2"] = v2[i % len(v2)]
+                cur_d += datetime.timedelta(days=1)
+                
+            st.session_state.df = df_cur
+            save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
+            st.session_state.show_settings_dialog = False
+            st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
+            st.rerun()
+
+    with tab_s3:
+        st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+        k_token = st.text_input("카카오 사용자 액세스 토큰", value=st.session_state.kakao_access_token, type="password")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.button("토큰 저장", use_container_width=True, type="primary"):
+            st.session_state.kakao_access_token = k_token
+            save_local_config("kakao_access_token", k_token)
+            st.session_state.show_settings_dialog = False
+            st.success("✅ 카카오 액세스 토큰이 저장되었습니다.")
+            st.rerun()
 
 @st.dialog("✏️ 근무자 및 메모 수정")
 def edit_worker_dialog(date_str, duty_info):
@@ -665,7 +744,7 @@ with tab3:
         summary_df = exp_df.groupby("근무자").agg(총근무횟수=("횟수", "sum"), 총근무시간=("근무시간", "sum")).reset_index()
         summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
         
-        st.markdown("### 📈 근무자 그래프")
+        st.markdown("### 📈 근무시간 그래프")
         chart = alt.Chart(summary_df).mark_bar().encode(
             x=alt.X('근무자:N', sort='-y', title='근무자'),
             y=alt.Y('총근무시간:Q', scale=alt.Scale(domain=[0, 70]), title='총 근무시간 (시간)')
@@ -692,7 +771,6 @@ with tab4:
         st.markdown("#### 근무자 연락처 및 수신 동의 편집기")
         st.markdown("원하시는 근무자 정보를 자유롭게 추가·수정하고 저장 버튼을 누르면 독립된 데이터베이스에 저장됩니다.")
 
-        # 세션 상태로 동적 입력 행 관리
         if "edit_workers_list" not in st.session_state:
             if workers_db:
                 st.session_state.edit_workers_list = [dict(w) for w in workers_db]
@@ -724,7 +802,6 @@ with tab4:
                 st.rerun()
 
             if save_db_btn:
-                # 빈 이름 제거 후 정제 저장
                 valid_db = [w for w in updated_workers if w["name"].strip()]
                 save_workers_db(valid_db)
                 st.session_state.edit_workers_list = valid_db
@@ -734,14 +811,12 @@ with tab4:
     with sub_k2:
         st.markdown("#### 당일 근무 안내 알림 발송 및 옵션 설정")
         
-        # 기기/사용자 식별 표시
         current_device_user = st.session_state.get("current_user_name", "관리자")
-        st.info(f"현재 접속 중인 기기 사용자 (나): **{current_device_user}** (톱니바퀴 설정에서 변경 가능)")
+        st.info(f"현재 접속 중인 기기 사용자 (내): **{current_device_user}** (톱니바퀴 설정에서 변경 가능)")
 
         target_send_date = st.date_input("알림 대상 일자", value=datetime.date.today(), key="kakao_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
 
-        # 해당일자 실제 근무자 찾기
         matched_row = df[df["날짜"].dt.date == target_send_date]
         m_p1, m_p2 = "미지정", "미지정"
         if not matched_row.empty:
@@ -752,7 +827,6 @@ with tab4:
         else:
             st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
 
-        # 발송 옵션 설정
         send_option = st.radio(
             "발송 대상 옵션 선택", 
             ["모든 근무일 수신 (전체 수신 동의자 대상)", "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)"]
@@ -766,13 +840,11 @@ with tab4:
         default_msg = f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1}\n- 2근무: {m_p2}"
         custom_msg = st.text_area("전송할 메시지 내용", value=default_msg)
 
-        # 1. 나에게 보내기 (기기 사용자 식별 반영)
         if st.button("📤 카카오톡 나에게 메시지 전송", type="primary", use_container_width=True):
             if access_token_input:
                 url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
                 headers = {"Authorization": f"Bearer {access_token_input}", "Content-Type": "application/x-www-form-urlencoded"}
                 
-                # 메시지에 발신 사용자 환경 정보 포함하여 구별
                 personalized_msg = f"[{current_device_user} 기기 알림]\n{custom_msg}"
                 
                 template = {
@@ -791,11 +863,8 @@ with tab4:
 
         st.divider()
 
-        # 2. 조건별 근무자 일괄 발송 트리거
         if st.button("🚀 조건별 동의 근무자에게 알림 일괄 발송", use_container_width=True):
             current_db = load_workers_db()
-            
-            # 발송 동의한 인원만 필터링
             consented_workers = [w for w in current_db if w.get("consent_agreed", False)]
             
             if send_option == "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)":

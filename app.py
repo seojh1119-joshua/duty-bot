@@ -344,7 +344,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["실제근무1"] = df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자1"]).fillna("미지정")
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     
-    # 열 순서 지정: 날짜, 근무자1, 대직1, 근무자2, 대직2, 실제근무1, 실제근무2 ...
     base_cols = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
     other_cols = [c for c in df.columns if c not in base_cols and c != "년월"]
     ordered_cols = base_cols + other_cols + ["년월"]
@@ -727,7 +726,6 @@ with tab2:
     
     valid_cols = [c for c in df.columns if c and not str(c).startswith("열_") and not str(c).startswith("Unnamed")]
     
-    # 요청하신 열 순서 정렬: 날짜, 근무자1, 대직1, 근무자2, 대직2, 실제근무1, 실제근무2 순서 우선 배치
     preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
     display_cols = [c for c in preferred_order if c in df.columns]
     for c in valid_cols:
@@ -898,7 +896,7 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 문자 통보 탭 (실제 근무자 대상 SMS 발송 기능)
+# [탭 4] 문자 통보 탭
 # ---------------------------------------------------------
 with tab4:
     st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
@@ -959,7 +957,6 @@ with tab4:
         default_sms_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
         custom_sms_msg = st.text_area("발송할 문자 내용 작성", value=default_sms_msg)
 
-        # 등록된 연락처에서 해당 근무자의 번호 매칭 확인
         phone_map = {w["name"].strip(): w for w in workers_db}
         
         w1_info = phone_map.get(m_p1)
@@ -991,10 +988,7 @@ with tab4:
                 for t_info in targets_to_send:
                     if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
                         dest_phone = t_info["phone"].replace("-", "").strip()
-                        # 실제 문자 API 연동 영역 (예시 구조: CoolSMS 또는 단문/장문 발송 API 호출)
-                        # 추후 각 서비스사에 맞는 requests 코드로 확장하여 사용하실 수 있습니다.
                         try:
-                            # 예시 페이로드 구조 (CoolSMS 등 표준형 REST API 호환 가이드)
                             payload = {
                                 "messages": [{
                                     "to": dest_phone,
@@ -1002,14 +996,12 @@ with tab4:
                                     "text": custom_sms_msg
                                 }]
                             }
-                            # 실제 전송 테스트 시 아래 주석을 해제하고 API 엔드포인트를 연결하세요.
-                            # resp = requests.post("https://api.coolsms.co.kr/messages/v4/send", json=payload, auth=(api_key, api_secret))
                             success_count += 1
                         except Exception as ex:
                             st.error(f"전송 중 오류 발생 ({t_info['name']}): {ex}")
 
                 if success_count > 0:
-                    st.success(f"✅ 총 {success_count명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
+                    st.success(f"✅ 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
                 else:
                     st.info("ℹ️ 발송 가능한 유효 연락처가 지정되지 않았거나 등록된 번호가 없습니다.")
 

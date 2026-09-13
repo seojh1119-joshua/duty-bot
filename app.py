@@ -50,7 +50,7 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_api_key": ""
+        "kakao_access_token": ""
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -76,7 +76,7 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_api_key", local_cfg["kakao_api_key"]),
+    ("kakao_access_token", local_cfg.get("kakao_access_token", local_cfg.get("kakao_api_key", ""))),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -312,7 +312,7 @@ if "df" not in st.session_state:
     parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
     st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
 
-# 근무자 연락처 DB 초기화 관리
+# 근무자 연락처 DB 관리 함수
 def load_workers_db():
     if WORKERS_DB_FILE.exists():
         try:
@@ -348,19 +348,19 @@ def settings_dialog():
     st.markdown('<div class="setting-box">', unsafe_allow_html=True)
     new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
     new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
-    k_key = st.text_input("카카오 REST API 키", value=st.session_state.kakao_api_key, type="password")
+    k_token = st.text_input("카카오 사용자 액세스 토큰", value=st.session_state.kakao_access_token, type="password")
     st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("설정 저장 및 적용", use_container_width=True, type="primary"):
         st.session_state.update({
             "auto_view_type": new_view, 
             "app_theme": new_th, 
-            "kakao_api_key": k_key,
+            "kakao_access_token": k_token,
             "show_settings_dialog": False
         })
         save_local_config("auto_view_type", new_view)
         save_local_config("app_theme", new_th)
-        save_local_config("kakao_api_key", k_key)
+        save_local_config("kakao_access_token", k_token)
         st.rerun()
 
 @st.dialog("✏️ 근무자 및 메모 수정")
@@ -704,24 +704,23 @@ with tab4:
     sub_k1, sub_k2 = st.tabs(["📋 근무자 연락처 및 수신동의 관리", "🚀 카카오 알림 발송"])
 
     with sub_k1:
-        st.markdown("#### 근무자별 연락처 및 알림 수신 동의 설정")
-        st.markdown("각 근무자의 휴대폰 번호를 직접 입력하고 알림 수신 동의 여부를 체크하세요.")
+        st.markdown("#### 근무자별 연락처 입력 및 알림 수신 동의 설정")
+        st.markdown("아래 목록에서 각 근무자의 **휴대폰 번호를 직접 입력**하고 **수신 동의 여부**를 체크한 뒤 저장하세요.")
 
         with st.form("worker_contact_form"):
-            updated_db = []
             worker_input_data = {}
             
             for w_name in excel_workers:
                 existing_info = next((item for item in workers_db if item.get("name") == w_name), {})
                 default_phone = existing_info.get("phone", "")
-                default_consent = existing_info.get("consent_agreed", True)
+                default_consent = existing_info.get("consent_agreed", False)
                 
-                st.markdown(f"**👤 {w_name}**")
-                c_col1, c_col2 = st.columns([0.6, 0.4])
+                st.markdown(f"**👤 근무자: {w_name}**")
+                c_col1, c_col2 = st.columns([0.65, 0.35])
                 with c_col1:
                     p_val = st.text_input(f"{w_name} 휴대폰 번호", value=default_phone, placeholder="01012345678", key=f"phone_{w_name}")
                 with c_col2:
-                    con_val = st.checkbox(f"수신 동의", value=default_consent, key=f"consent_{w_name}")
+                    con_val = st.checkbox(f"알림 수신 동의", value=default_consent, key=f"consent_{w_name}")
                 
                 worker_input_data[w_name] = {"phone": p_val, "consent_agreed": con_val}
                 st.divider()
@@ -755,25 +754,25 @@ with tab4:
         else:
             st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
 
-        # 발송 옵션 설정
+        # 발송 옵션 설정 (모든 근무일 수신 vs 내 근무일만 수신)
         send_option = st.radio(
             "발송 대상 옵션 선택", 
             ["모든 근무일 수신 (전체 수신 동의자 대상)", "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)"]
         )
 
-        api_key_input = st.text_input("카카오 REST API 키", value=st.session_state.kakao_api_key, type="password", key="kakao_tab_apikey")
-        if api_key_input != st.session_state.kakao_api_key:
-            st.session_state.kakao_api_key = api_key_input
-            save_local_config("kakao_api_key", api_key_input)
+        access_token_input = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", key="kakao_tab_token")
+        if access_token_input != st.session_state.kakao_access_token:
+            st.session_state.kakao_access_token = access_token_input
+            save_local_config("kakao_access_token", access_token_input)
             
         default_msg = f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1}\n- 2근무: {m_p2}"
         custom_msg = st.text_area("전송할 메시지 내용", value=default_msg)
 
-        # 1. 나에게 보내기
+        # 1. 나에게 보내기 (인증 토큰 활용)
         if st.button("📤 카카오톡 나에게 메시지 전송", type="primary", use_container_width=True):
-            if api_key_input:
+            if access_token_input:
                 url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
-                headers = {"Authorization": f"Bearer {api_key_input}", "Content-Type": "application/x-www-form-urlencoded"}
+                headers = {"Authorization": f"Bearer {access_token_input}", "Content-Type": "application/x-www-form-urlencoded"}
                 template = {
                     "object_type": "text",
                     "text": custom_msg[:200],
@@ -784,9 +783,9 @@ with tab4:
                 if resp.status_code == 200:
                     st.success("✅ 카카오톡 '나에게 보내기' 전송 성공!")
                 else:
-                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text}")
+                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text} (토큰 값이 유효한지 확인해주세요)")
             else:
-                st.warning("카카오 REST API 키를 입력해주세요.")
+                st.warning("카카오 사용자 액세스 토큰을 입력해주세요.")
 
         st.divider()
 
@@ -804,15 +803,14 @@ with tab4:
                 final_targets = consented_workers
 
             if not final_targets:
-                st.warning("발송 조건에 부합하는 동의 근무자가 없습니다. (연락처 관리 탭에서 수신 동의 여부를 확인하세요.)")
+                st.warning("발송 조건에 부합하는 동의 근무자가 없습니다. (연락처 관리 탭에서 수신 동의 여부 및 휴대폰 번호를 확인하세요.)")
             else:
-                target_names_str = ", ".join([w['name'] for w in final_targets])
+                target_names_str = ", ".join([f"{w['name']}({w['phone']})" for w in final_targets])
                 st.info(f"📨 발송 대상자: **{target_names_str}** (총 {len(final_targets)}명)")
                 
-                if api_key_input:
-                    # '나에게 보내기' 혹은 등록된 UUID/토큰 기반 발송 처리
+                if access_token_input:
                     url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
-                    headers = {"Authorization": f"Bearer {api_key_input}", "Content-Type": "application/x-www-form-urlencoded"}
+                    headers = {"Authorization": f"Bearer {access_token_input}", "Content-Type": "application/x-www-form-urlencoded"}
                     template = {
                         "object_type": "text",
                         "text": f"[근무 안내 알림]\n{custom_msg}",
@@ -823,9 +821,9 @@ with tab4:
                     if resp.status_code == 200:
                         st.success(f"✅ 선택된 옵션에 따라 [{target_str}] 근무 안내 알림이 성공적으로 전송되었습니다!")
                     else:
-                        st.error(f"❌ 알림 발송 실패: {resp.text}")
+                        st.error(f"❌ 알림 발송 실패 (코드 {resp.status_code}): {resp.text}")
                 else:
-                    st.error("카카오 REST API 키가 입력되지 않았습니다.")
+                    st.error("카카오 사용자 액세스 토큰이 입력되지 않았습니다.")
 
 # ---------------------------------------------------------
 # [탭 5] 원본 데이터 뷰

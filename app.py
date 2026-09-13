@@ -50,7 +50,7 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_access_token": "",
+        "kakao_access_token": "45ff4ca30fc3557c0cf6cfc3ab3122e6",
         "current_user_name": "관리자",
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
@@ -84,7 +84,7 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_access_token", local_cfg.get("kakao_access_token", local_cfg.get("kakao_api_key", ""))),
+    ("kakao_access_token", local_cfg.get("kakao_access_token", "45ff4ca30fc3557c0cf6cfc3ab3122e6")),
     ("current_user_name", local_cfg.get("current_user_name", "관리자")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
@@ -853,10 +853,17 @@ with tab4:
                     "button_title": "일정 확인"
                 }
                 resp = requests.post(url, headers=headers, data={"template_object": json.dumps(template, ensure_ascii=False)})
+                
                 if resp.status_code == 200:
                     st.success(f"✅ [{current_device_user}] 카카오톡 '나에게 보내기' 전송 성공!")
                 else:
-                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text} (토큰 유효성 및 권한을 확인해주세요)")
+                    try:
+                        err_json = resp.json()
+                        err_code = err_json.get("code")
+                        err_msg = err_json.get("msg")
+                        st.error(f"❌ 카카오 API 에러 발생 (HTTP {resp.status_code}, 코드: {err_code})\n- 내용: {err_msg}")
+                    except:
+                        st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text}")
             else:
                 st.warning("카카오 사용자 액세스 토큰을 입력해주세요.")
 
@@ -891,7 +898,13 @@ with tab4:
                     if resp.status_code == 200:
                         st.success(f"✅ 선택된 옵션에 따라 [{target_str}] 근무 안내 알림이 성공적으로 전송되었습니다!")
                     else:
-                        st.error(f"❌ 알림 발송 실패 (코드 {resp.status_code}): {resp.text}")
+                        try:
+                            err_json = resp.json()
+                            err_code = err_json.get("code")
+                            err_msg = err_json.get("msg")
+                            st.error(f"❌ 카카오 API 에러 발생 (HTTP {resp.status_code}, 코드: {err_code})\n- 내용: {err_msg}")
+                        except:
+                            st.error(f"❌ 알림 발송 실패 (코드 {resp.status_code}): {resp.text}")
                 else:
                     st.error("카카오 사용자 액세스 토큰이 입력되지 않았습니다.")
 

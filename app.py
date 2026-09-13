@@ -97,7 +97,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용
+# 시스템 CSS 적용 (가로형 달력 열 왜곡 방지 스타일 보완)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -184,15 +184,38 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; color: #1E1E1E !important; }}
 
+    /* 가로형 달력(7열 Grid) 구조 강제 고정 및 찌그러짐 방지 */
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important;
+        display: flex !important; 
+        flex-direction: row !important; 
+        flex-wrap: nowrap !important; 
+        width: 100% !important; 
+        gap: 2px !important; 
+        margin: 0 !important; 
+        padding: 0 !important;
     }}
     [data-testid="column"] {{
-        width: 14.285% !important; max-width: 14.285% !important; min-width: 0 !important; flex: 1 1 14.285% !important; padding: 0px !important; margin: 0 !important;
+        width: 14.285% !important; 
+        max-width: 14.285% !important; 
+        min-width: 14.285% !important; 
+        flex: 0 0 14.285% !important; 
+        padding: 0px !important; 
+        margin: 0 !important;
+        box-sizing: border-box !important;
     }}
     div[data-testid="column"] .stButton > button {{
-        min-height: 64px !important; max-height: 86px !important; padding: 2px 1px !important; font-size: 9.5px !important; border-radius: 8px !important;
-        display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important; line-height: 1.15 !important;
+        min-height: 64px !important; 
+        max-height: 86px !important; 
+        padding: 2px 1px !important; 
+        font-size: 9.5px !important; 
+        border-radius: 8px !important;
+        display: flex !important; 
+        flex-direction: column !important; 
+        justify-content: flex-start !important; 
+        align-items: center !important; 
+        line-height: 1.15 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important; overflow: hidden !important;

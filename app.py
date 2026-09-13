@@ -775,14 +775,13 @@ with tab1:
                         day_cnt += 1
 
 # ---------------------------------------------------------
-# [탭 2] 수정 뷰 (비어있는/불필요한 열 숨김 및 날짜 열 고정 설정 반영)
+# [탭 2] 수정 뷰
 # ---------------------------------------------------------
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
     
-    # 1. 비어있는/불필요한 열(Unnamed, 열_ 등)을 숨기고 유효한 핵심 컬럼만 추출
     valid_cols = [c for c in df.columns if c and not str(c).startswith("열_") and not str(c).startswith("Unnamed")]
     essential_cols = ["날짜", "근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]
     
@@ -793,12 +792,11 @@ with tab2:
 
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
 
-    # 2. st.data_editor에서 '날짜' 컬럼 고정(pinned) 설정 적용
     column_config = {
         "날짜": st.column_config.DateColumn(
             "날짜",
             format="YYYY-MM-DD",
-            pinned=True,  # 👈 가로 스크롤 시 날짜 열 고정
+            pinned=True,
             disabled=False
         )
     }
@@ -815,13 +813,11 @@ with tab2:
         m_df = st.session_state.df.copy()
         
         if sel_ed_m == "전체 기간":
-            # 전체 기간 편집 시 반영
             for idx in edited_df.index:
                 if idx in m_df.index:
                     for col in edited_df.columns:
                         m_df.loc[idx, col] = edited_df.loc[idx, col]
         else:
-            # 특정 월 편집 시 해당 월 데이터만 업데이트
             sub_indices = m_df[m_df["년월"] == sel_ed_m].index
             for i, idx in enumerate(sub_indices):
                 if i < len(edited_df):
@@ -847,7 +843,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰 (1열 번호 추가 및 1, 2열 고정 스크롤 적용)
+# [탭 3] 통계 뷰 (근무구분 참조, 1·2열 고정 및 하단 총계 요약 표시)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -858,7 +854,19 @@ with tab3:
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
     def get_category_and_hours(row):
-        wd = pd.to_datetime(row["날짜"]).weekday()
+        # 엑셀 파일 내 '근무구분' 또는 날짜 속성을 참조하여 정확하게 시간/구분 산정
+        c_date = pd.to_datetime(row["날짜"])
+        wd = c_date.weekday()
+        
+        # 엑셀 파일 내에 명시된 '근무구분' 컬럼이 존재할 경우 최우선 참고
+        if "근무구분" in row and pd.notnull(row["근무구분"]):
+            cat_val = str(row["근무구분"]).strip()
+            if "평일" in cat_val: return "평일", 7
+            elif "금요일" in cat_val: return "금요일", 15
+            elif "토요일" in cat_val: return "토요일", 15
+            elif "일요일" in cat_val or "공휴일" in cat_val: return "일요일", 7
+
+        # 기본 요일 기준 fallback 판단
         if wd in [0, 1, 2, 3]:
             return "평일", 7
         elif wd == 4:
@@ -961,6 +969,33 @@ with tab3:
         </div>
         """
         st.markdown(html_table, unsafe_allow_html=True)
+
+        # 📌 표 하단 총 근무자 명수, 총 근무일수, 총 근무시간 표시 컴포넌트 추가
+        total_workers_count = len(summary_table)
+        total_duty_days = len(f_df)
+        total_duty_hours = int(summary_table["총 근무시간"].sum())
+
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center;">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">👥 총 근무자 명수</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>
+                </div>
+                <div style="border-right: 1px solid {border_color};"></div>
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">📅 총 근무일수</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_days} 일</div>
+                </div>
+                <div style="border-right: 1px solid {border_color};"></div>
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">⏱️ 총 근무시간</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_hours} 시간</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
     else:
         st.info("통계 데이터가 없습니다.")
 

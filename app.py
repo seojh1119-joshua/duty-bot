@@ -989,7 +989,7 @@ with tab4:
                             st.error(f"전송 중 네트워크 오류 발생 ({t_info['name']}): {ex}")
 
                 if success_count > 0:
-                    st.success(f"🎉 총 {success_count명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
+                    st.success(f"🎉 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
                 else:
                     st.info("ℹ️ 발송 대상이 없거나 유효 연락처가 등록되지 않았습니다.")
 

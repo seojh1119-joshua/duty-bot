@@ -406,16 +406,14 @@ def settings_dialog():
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
         new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
-        curr_user = st.text_input("현재 기기 사용자명 (내 이름)", value=st.session_state.current_user_name, placeholder="예: 관리자, 홍길동")
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용", use_container_width=True, type="primary"):
             st.session_state.update({
-                "auto_view_type": new_view, "app_theme": new_th, "current_user_name": curr_user, "show_settings_dialog": False
+                "auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False
             })
             save_local_config("auto_view_type", new_view)
             save_local_config("app_theme", new_th)
-            save_local_config("current_user_name", curr_user)
             st.rerun()
 
     with tab_s2:
@@ -618,7 +616,20 @@ today = datetime.date.today()
 # 메인 화면
 # ---------------------------------------------------------
 st.title("광주교도소 의료과 숙직근무")
-st.markdown(f'<div class="user-subtitle">👤 현재 기기 사용자: <b>{st.session_state.current_user_name}</b></div>', unsafe_allow_html=True)
+
+# 메인 화면에서 현재 기기 사용자 설정 (이 기기의 local_config.json에만 저장됨)
+col_u1, col_u2 = st.columns([3, 1])
+with col_u1:
+    new_user_input = st.text_input("👤 현재 기기 사용자명 (이 기기에만 독립 저장)", value=st.session_state.current_user_name, label_visibility="collapsed")
+with col_u2:
+    if st.button("사용자명 저장", use_container_width=True):
+        if new_user_input.strip() and new_user_input.strip() != st.session_state.current_user_name:
+            st.session_state.current_user_name = new_user_input.strip()
+            save_local_config("current_user_name", new_user_input.strip())
+            st.success("💾 저장됨!")
+            st.rerun()
+
+st.markdown(f'<div class="user-subtitle">현재 기기 사용자: <b>{st.session_state.current_user_name}</b> (로컬 하드웨어 단독 설정)</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="setting-box">', unsafe_allow_html=True)
 if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):

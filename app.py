@@ -353,7 +353,6 @@ def confirm_exit_dialog():
 
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
-    # 3개 탭 구성: 화면설정, 순환등록, 카카오톡 설정
     tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오 설정"])
     
     with tab_s1:
@@ -812,7 +811,7 @@ with tab4:
         st.markdown("#### 당일 근무 안내 알림 발송 및 옵션 설정")
         
         current_device_user = st.session_state.get("current_user_name", "관리자")
-        st.info(f"현재 접속 중인 기기 사용자 (내): **{current_device_user}** (톱니바퀴 설정에서 변경 가능)")
+        st.info(f"현재 접속 중인 기기 사용자 (내): **{current_device_user}** (설정 메뉴에서 변경 가능)")
 
         target_send_date = st.date_input("알림 대상 일자", value=datetime.date.today(), key="kakao_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
@@ -857,7 +856,7 @@ with tab4:
                 if resp.status_code == 200:
                     st.success(f"✅ [{current_device_user}] 카카오톡 '나에게 보내기' 전송 성공!")
                 else:
-                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text} (토큰 유효성을 확인해주세요)")
+                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text} (토큰 유효성 및 권한을 확인해주세요)")
             else:
                 st.warning("카카오 사용자 액세스 토큰을 입력해주세요.")
 

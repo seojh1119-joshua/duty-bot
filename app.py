@@ -671,7 +671,7 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭 (근무자 연동, 수신동의 및 발송 옵션 반영)
+# [탭 4] 카카오톡 탭 (근무자 연동, 연락처 직접 입력 및 수신동의 설정)
 # ---------------------------------------------------------
 with tab4:
     st.subheader("💬 카카오톡 알림 및 근무자 연동 관리")
@@ -710,20 +710,23 @@ with tab4:
         with st.form("worker_contact_form"):
             worker_input_data = {}
             
-            for w_name in excel_workers:
-                existing_info = next((item for item in workers_db if item.get("name") == w_name), {})
-                default_phone = existing_info.get("phone", "")
-                default_consent = existing_info.get("consent_agreed", False)
-                
-                st.markdown(f"**👤 근무자: {w_name}**")
-                c_col1, c_col2 = st.columns([0.65, 0.35])
-                with c_col1:
-                    p_val = st.text_input(f"{w_name} 휴대폰 번호", value=default_phone, placeholder="01012345678", key=f"phone_{w_name}")
-                with c_col2:
-                    con_val = st.checkbox(f"알림 수신 동의", value=default_consent, key=f"consent_{w_name}")
-                
-                worker_input_data[w_name] = {"phone": p_val, "consent_agreed": con_val}
-                st.divider()
+            if excel_workers:
+                for w_name in excel_workers:
+                    existing_info = next((item for item in workers_db if item.get("name") == w_name), {})
+                    default_phone = existing_info.get("phone", "")
+                    default_consent = existing_info.get("consent_agreed", False)
+                    
+                    st.markdown(f"**👤 근무자: {w_name}**")
+                    c_col1, c_col2 = st.columns([0.6, 0.4])
+                    with c_col1:
+                        p_val = st.text_input(f"{w_name} 휴대폰 번호", value=default_phone, placeholder="01012345678", key=f"phone_{w_name}")
+                    with c_col2:
+                        con_val = st.checkbox(f"알림 수신 동의", value=default_consent, key=f"consent_{w_name}")
+                    
+                    worker_input_data[w_name] = {"phone": p_val, "consent_agreed": con_val}
+                    st.divider()
+            else:
+                st.info("엑셀 파일에서 감지된 근무자가 없습니다. 엑셀 업로드 상태를 확인해주세요.")
 
             submitted_contacts = st.form_submit_button("💾 연락처 및 동의 정보 저장", type="primary", use_container_width=True)
             if submitted_contacts:

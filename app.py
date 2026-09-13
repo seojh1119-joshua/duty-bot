@@ -97,22 +97,22 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (가로형 달력 열 왜곡 방지 스타일 보완)
+# 시스템 CSS 적용 (가로형 달력 전면 개편 스타일)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#171717" if is_dark else "#FFFFFF"
-main_text_color = "#F5F5F5" if is_dark else "#1E1E1E"
-border_color = "#3B3B3B" if is_dark else "#E5CC00"
-btn_bg = "#272727" if is_dark else "#F5F5F5"
-btn_text = "#F5F5F5" if is_dark else "#1E1E1E"
-btn_hover_bg = "#3B3B3B" if is_dark else "#FFE300"
-btn_hover_border = "#FFE300" if is_dark else "#D9C100"
-sidebar_bg = "#121212" if is_dark else "#FAFAFA"
-dialog_bg = "#272727" if is_dark else "#FFFFFF"
-input_bg = "#272727" if is_dark else "#F5F5F5"
+theme_bg = "#121212" if is_dark else "#F8F9FA"
+main_text_color = "#E0E0E0" if is_dark else "#1A1A1A"
+border_color = "#333333" if is_dark else "#E2E8F0"
+btn_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+btn_text = "#E0E0E0" if is_dark else "#2D3748"
+btn_hover_bg = "#2C2C2C" if is_dark else "#EDF2F7"
+btn_hover_border = "#FFE300" if is_dark else "#CBD5E0"
+sidebar_bg = "#181818" if is_dark else "#FFFFFF"
+dialog_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+input_bg = "#272727" if is_dark else "#FFFFFF"
 input_text = "#F5F5F5" if is_dark else "#1E1E1E"
-box_bg = "#272727" if is_dark else "#FFFFFF"
+box_bg = "#1E1E1E" if is_dark else "#FFFFFF"
 primary_yellow = "#FFE300"
 
 responsive_css = f"""
@@ -133,44 +133,48 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.4rem 8px 1rem 8px !important;
-        max-width: 480px !important;
+        padding: 0.6rem 10px 1.2rem 10px !important;
+        max-width: 520px !important;
         margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: 24px !important;
-        margin: 12px 0px 16px 0px !important;
+        font-size: 22px !important;
+        margin: 10px 0px 14px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
+        text-align: center;
     }}
 
     .setting-box {{
         background-color: {box_bg} !important;
         border: 1px solid {border_color} !important;
-        border-radius: 18px !important;
+        border-radius: 16px !important;
         padding: 14px 16px !important;
         margin: 10px 0px 14px 0px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }}
 
     .today-card {{
-        background: {primary_yellow} !important;
-        color: #1E1E1E !important;
+        background: linear-gradient(135deg, {primary_yellow}, #FFC107) !important;
+        color: #1A1A1A !important;
         padding: 16px 18px !important;
-        border-radius: 18px !important;
+        border-radius: 16px !important;
         margin-bottom: 16px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        box-shadow: 0 4px 12px rgba(255, 227, 0, 0.25);
     }}
-    .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #6B6000 !important; }}
-    .today-card .today-content {{ font-size: 18px !important; font-weight: 800 !important; line-height: 1.35 !important; color: #1E1E1E !important; }}
-    .today-card span {{ color: #1E1E1E !important; font-size: 19px !important; font-weight: 900 !important; }}
+    .today-card .today-title {{ font-size: 12px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #594D00 !important; text-transform: uppercase; letter-spacing: 0.5px; }}
+    .today-card .today-content {{ font-size: 16px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #1A1A1A !important; }}
+    .today-card span {{ color: #1A1A1A !important; font-size: 17px !important; font-weight: 900 !important; text-decoration: underline; }}
 
     .month-header-card {{
-        background: {box_bg}; border: 1px solid {border_color}; border-radius: 14px; padding: 12px 14px; margin: 10px 0 14px 0;
+        background: {box_bg}; border: 1px solid {border_color}; border-radius: 14px; padding: 12px 16px; margin: 12px 0 14px 0; text-align: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: 17px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
         background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
@@ -181,16 +185,17 @@ responsive_css = f"""
         width: 100% !important; min-height: 40px !important;
         padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
         background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
     }}
-    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; color: #1E1E1E !important; }}
+    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
-    /* 가로형 달력(7열 Grid) 구조 강제 고정 및 찌그러짐 방지 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; 
         flex-direction: row !important; 
         flex-wrap: nowrap !important; 
         width: 100% !important; 
-        gap: 2px !important; 
+        gap: 3px !important; 
         margin: 0 !important; 
         padding: 0 !important;
     }}
@@ -204,18 +209,25 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
     div[data-testid="column"] .stButton > button {{
-        min-height: 64px !important; 
-        max-height: 86px !important; 
-        padding: 2px 1px !important; 
-        font-size: 9.5px !important; 
-        border-radius: 8px !important;
+        min-height: 72px !important; 
+        max-height: 96px !important; 
+        padding: 4px 2px !important; 
+        font-size: 10px !important; 
+        border-radius: 10px !important;
         display: flex !important; 
         flex-direction: column !important; 
         justify-content: flex-start !important; 
         align-items: center !important; 
-        line-height: 1.15 !important;
+        line-height: 1.25 !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        background-color: {box_bg} !important;
+        border: 1px solid {border_color} !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }}
+    div[data-testid="column"] .stButton > button:hover {{
+        border-color: {primary_yellow} !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.08);
     }}
     .stButton > button span, .stButton > button p, .stButton > button div {{
         white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important; overflow: hidden !important;
@@ -224,6 +236,7 @@ responsive_css = f"""
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 380px !important;
         border-radius: 20px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
     }}
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
@@ -602,7 +615,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰
+# [탭 1] 달력 뷰 (전면 개편 적용)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -632,7 +645,7 @@ with tab1:
 
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
-        st.markdown(f'<div class="month-header-card"><h2>{y}년 {m}월 근무표</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="month-header-card"><h2>📅 {y}년 {m}월 근무표</h2></div>', unsafe_allow_html=True)
         
         num_days = calendar.monthrange(y, m)[1]
         m_df = df[df["년월"] == sel_month]
@@ -671,9 +684,9 @@ with tab1:
                     st.rerun()
         else:
             cols_h = st.columns(7)
-            h_names = [("일", "#FF3838"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#2563EB")]
+            h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 11px; padding: 2px 0;'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -736,45 +749,85 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰
+# [탭 3] 통계 뷰 (요일별 구분 및 비율 스택바 반영)
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("근무자 월별통계")
+    st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
     
-    sel_st_m = st.selectbox("통계 월선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
+    sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    def calc_work_hours(row):
+    def get_category_and_hours(row):
         wd = pd.to_datetime(row["날짜"]).weekday()
-        return 15 if wd in [4, 5] else 7
+        # 0~3: 월~목 (평일), 4: 금요일, 5: 토요일, 6: 일요일
+        if wd in [0, 1, 2, 3]:
+            return "평일", 7
+        elif wd == 4:
+            return "금요일", 15
+        elif wd == 5:
+            return "토요일", 15
+        else:
+            return "일요일", 7
 
     expanded_rows = []
     for _, r in f_df.iterrows():
-        hours = calc_work_hours(r)
+        cat, hours = get_category_and_hours(r)
         w1 = str(r.get("실제근무1", "")).strip()
         w2 = str(r.get("실제근무2", "")).strip()
         
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
-            expanded_rows.append({"근무자": w1, "근무시간": hours, "횟수": 1})
+            expanded_rows.append({"근무자": w1, "근무구분": cat, "근무시간": hours, "횟수": 1})
         if w2 and w2 not in ["미지정", "nan", "None", ""]:
-            expanded_rows.append({"근무자": w2, "근무시간": hours, "횟수": 1})
+            expanded_rows.append({"근무자": w2, "근무구분": cat, "근무시간": hours, "횟수": 1})
 
     if expanded_rows:
         exp_df = pd.DataFrame(expanded_rows)
-        summary_df = exp_df.groupby("근무자").agg(총근무횟수=("횟수", "sum"), 총근무시간=("근무시간", "sum")).reset_index()
-        summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
         
-        st.markdown("### 📈 근무시간 그래프")
-        chart = alt.Chart(summary_df).mark_bar().encode(
-            x=alt.X('근무자:N', sort='-y', title='근무자'),
-            y=alt.Y('총근무시간:Q', scale=alt.Scale(domain=[0, 70]), title='총 근무시간 (시간)')
-        ).properties(height=320)
+        # 근무자, 근무구분별 집계
+        agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(
+            근무횟수=("횟수", "sum"), 
+            근무시간=("근무시간", "sum")
+        ).reset_index()
+        
+        st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
+        chart = alt.Chart(agg_df).mark_bar().encode(
+            x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
+            y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
+            color=alt.Color('근무구분:N',
+                            scale=alt.Scale(
+                                domain=['평일', '금요일', '토요일', '일요일'],
+                                range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444'] # 평일:노랑, 금요일:녹색, 토요일:파랑, 일요일:빨강
+                            ),
+                            title='근무 구분'),
+            tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
+        ).properties(height=340)
         st.altair_chart(chart, use_container_width=True)
         
-        st.markdown("### 📊 근무자별 시수 요약표")
-        st.dataframe(summary_df, use_container_width=True)
+        st.markdown("### 📊 근무자별 상세 통계표 (구분별 횟수 및 시간)")
+        
+        pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
+        pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
+        
+        categories = ["평일", "금요일", "토요일", "일요일"]
+        for cat in categories:
+            if cat not in pivot_count.columns: pivot_count[cat] = 0
+            if cat not in pivot_hours.columns: pivot_hours[cat] = 0
+        pivot_count = pivot_count[categories]
+        pivot_hours = pivot_hours[categories]
+        
+        summary_table = pd.DataFrame({
+            "평일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["평일"], pivot_hours["평일"])],
+            "금요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["금요일"], pivot_hours["금요일"])],
+            "토요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["토요일"], pivot_hours["토요일"])],
+            "일요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["일요일"], pivot_hours["일요일"])],
+            "총 근무횟수": pivot_count.sum(axis=1).astype(int),
+            "총 근무시간": pivot_hours.sum(axis=1).astype(int)
+        })
+        summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
+        
+        st.dataframe(summary_table, use_container_width=True)
     else:
         st.info("통계 데이터가 없습니다.")
 

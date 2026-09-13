@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 import altair as alt
+from pathlib import Path
 
 # 대한민국 공휴일 라이브러리 예외 처리
 try:
@@ -33,6 +34,7 @@ os.makedirs("data", exist_ok=True)
 
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 CONFIG_PATH = os.path.join("DATA", "local_config.json")
+WORKERS_DB_FILE = Path("data/workers_db.json")
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -438,7 +440,7 @@ if "df" not in st.session_state:
         sample_df["년월"] = sample_df["날짜"].dt.strftime("%Y-%m")
         sample_df["실제근무1"], sample_df["실제근무2"] = sample_df["근무자1"], sample_df["근무자2"]
         sample_df["대직1"], sample_df["대직2"] = None, None
-        sample_df["근무구분_원본"] = "평일"
+        sample_df["근무자구분_원본"] = "평일"
         st.session_state.update({"df": sample_df, "sheet_names": ["숙직근무자"], "selected_sheet": "숙직근무자", "raw_df": pd.DataFrame(), "memos": {}})
 
 update_excel_download_bytes(st.session_state.df)
@@ -458,7 +460,7 @@ def confirm_exit_dialog():
 
 @st.dialog("⚙️ 대시보드 및 근무 관리 설정")
 def settings_dialog():
-    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환등록", "카카오톡"])
+    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환등록", "카카오톡(기본)"])
     
     with tab_s1:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -476,14 +478,12 @@ def settings_dialog():
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         st.markdown("#### 🔄 순환 등록 설정")
         
-        # 저장된 설정값 불러오기
         cfg = load_local_config()
         try:
             default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
         except:
             default_start_date = datetime.date.today()
 
-        # 각 위젯에 고유 key 부여
         start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
         infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
         days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat, key="batch_days_c_input")
@@ -497,9 +497,7 @@ def settings_dialog():
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 순환 패턴 반영 버튼
         if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
-            # 설정값 저장
             save_local_config("batch_start_date", str(start_d))
             save_local_config("batch_infinite", infinite_repeat)
             save_local_config("batch_days_c", int(days_c))
@@ -538,9 +536,7 @@ def settings_dialog():
             st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
             st.rerun()
 
-        # 순환적용초기화 버튼 (위젯 세션 키를 삭제하여 오류 없이 깨끗하게 초기화)
         if st.button("순환적용초기화", use_container_width=True):
-            # 1. 로컬 설정 저장값 초기화
             save_local_config("batch_start_date", str(datetime.date.today()))
             save_local_config("batch_infinite", False)
             save_local_config("batch_days_c", 30)
@@ -549,7 +545,6 @@ def settings_dialog():
             save_local_config("batch_i2", 3)
             save_local_config("batch_w2_names", ["", "", ""])
             
-            # 2. 세션 스테이트(Session State)의 위젯 키들을 삭제하여 다음 렌더링 시 빈값으로 초기화되도록 유도
             keys_to_clear = [
                 "batch_start_date_input", "batch_infinite_input", 
                 "batch_days_c_input", "batch_i1_input", "batch_i2_input"
@@ -559,10 +554,8 @@ def settings_dialog():
                     del st.session_state[k]
             
             for i in range(30):
-                if f"w1_{i}" in st.session_state:
-                    del st.session_state[f"w1_{i}"]
-                if f"w2_{i}" in st.session_state:
-                    del st.session_state[f"w2_{i}"]
+                if f"w1_{i}" in st.session_state: del st.session_state[f"w1_{i}"]
+                if f"w2_{i}" in st.session_state: del st.session_state[f"w2_{i}"]
 
             st.success("🧹 순환 등록 설정이 초기화되었습니다.")
             st.rerun()
@@ -715,7 +708,8 @@ if st.button("⚙️ 대시보드 및 설정 관리 열기", use_container_width
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "🔍 원본"])
+# 탭 구조 재정의: 기존 4개 탭에 두번째 파일의 핵심 기능(수신동의 및 발송)을 '💬 카카오톡' 탭으로 통합
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡", "🔍 원본"])
 
 # ---------------------------------------------------------
 # 달력 뷰 구성
@@ -905,6 +899,153 @@ with tab3:
     else:
         st.info("통계 데이터가 없습니다.")
 
+# ---------------------------------------------------------
+# [탭 4] 카카오톡 탭 (두 번째 파일의 기능 통합)
+# ---------------------------------------------------------
 with tab4:
+    st.subheader("💬 카카오톡 알림 및 수신 동의 관리")
+    st.markdown("두 번째 파일(`kakao_sender (1).py`)의 수신 동의 시스템 및 친구/나에게 보내기 기능을 Streamlit 환경에 맞게 통합했습니다.")
+
+    sub_k1, sub_k2 = st.tabs(["📋 근무자 수신 동의 현황", "🚀 카카오 알림 발송"])
+
+    # 내부 함수: 근무자 DB 로드/저장
+    def load_workers_db():
+        if WORKERS_DB_FILE.exists():
+            try:
+                return json.loads(WORKERS_DB_FILE.read_text(encoding="utf-8"))
+            except:
+                return []
+        return []
+
+    def save_workers_db(workers):
+        WORKERS_DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+        WORKERS_DB_FILE.write_text(json.dumps(workers, ensure_ascii=False, indent=2))
+
+    with sub_k1:
+        st.markdown("#### 등록된 근무자 수신 동의 관리")
+        workers_list = load_workers_db()
+        
+        if workers_list:
+            workers_df = pd.DataFrame(workers_list)
+            st.dataframe(workers_df, use_container_width=True)
+        else:
+            st.info("등록된 수신 동의 근무자가 없습니다. 아래 양식을 통해 직접 추가하거나 동의 내역을 관리하세요.")
+
+        with st.form("worker_consent_add_form"):
+            st.markdown("##### ➕ 근무자 수동 등록 / 수정")
+            reg_name = st.text_input("이름")
+            reg_phone = st.text_input("휴대폰 번호 (예: 01012345678)")
+            reg_uuid = st.text_input("카카오 UUID (선택사항)", placeholder="친구톡 발송 시 필요")
+            reg_agreed = st.checkbox("알림 수신 동의 여부", value=True)
+            
+            # 캘린더 근무일을 매핑할 수 있도록 선택 UI 제공
+            all_unique_dates = [row["날짜"].strftime("%Y-%m-%d") for _, row in df.iterrows()]
+            reg_duty_dates = st.multiselect("배정된 근무일 선택", options=all_unique_dates)
+
+            submitted_worker = st.form_submit_button("💾 근무자 정보 저장", type="primary")
+            if submitted_worker:
+                if reg_name and reg_phone:
+                    w_db = load_workers_db()
+                    existing = next((w for w in w_db if w["phone"] == reg_phone), None)
+                    if existing:
+                        existing["name"] = reg_name
+                        existing["kakao_uuid"] = reg_uuid
+                        existing["consent_agreed"] = reg_agreed
+                        existing["duty_dates"] = reg_duty_dates
+                    else:
+                        w_db.append({
+                            "name": reg_name,
+                            "phone": reg_phone,
+                            "kakao_uuid": reg_uuid,
+                            "consent_agreed": reg_agreed,
+                            "duty_dates": reg_duty_dates
+                        })
+                    save_workers_db(w_db)
+                    st.success(f"✅ [{reg_name}] 근무자 정보가 성공적으로 저장되었습니다.")
+                    st.rerun()
+                else:
+                    st.warning("이름과 휴대폰 번호는 필수 입력 항목입니다.")
+
+    with sub_k2:
+        st.markdown("#### 🚀 당일 근무 안내 알림 발송")
+        target_send_date = st.date_input("알림 대상 일자", value=datetime.date.today(), key="kakao_target_send_date")
+        target_str = target_send_date.strftime("%Y-%m-%d")
+
+        # 해당 일자 근무자 매칭 확인
+        matched_row = df[df["날짜"].dt.date == target_send_date]
+        if not matched_row.empty:
+            r_info = matched_row.iloc[0]
+            m_p1 = r_info.get("실제근무1", "미지정")
+            m_p2 = r_info.get("실제근무2", "미지정")
+            st.info(f"📌 **{target_str}** 근무자 정보 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
+        else:
+            st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
+
+        send_mode = st.radio("발송 모드 선택", ["나에게 보내기 (기본 API 키 사용)", "동의한 근무자들에게 전체 발송 (친구톡)"])
+        
+        if send_mode == "나에게 보내기 (기본 API 키 사용)":
+            api_key_input = st.text_input("카카오 REST API 키", value=st.session_state.kakao_api_key, type="password", key="kakao_tab_apikey")
+            if api_key_input != st.session_state.kakao_api_key:
+                st.session_state.kakao_api_key = api_key_input
+                save_local_config("kakao_api_key", api_key_input)
+                
+            custom_msg = st.text_area("전송할 메시지 내용", value=f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1 if not matched_row.empty else '-'}\n- 2근무: {m_p2 if not matched_row.empty else '-'}")
+
+            if st.button("📤 나에게 메시지 즉시 전송", type="primary", use_container_width=True):
+                if api_key_input:
+                    url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+                    headers = {"Authorization": f"Bearer {api_key_input}", "Content-Type": "application/x-www-form-urlencoded"}
+                    template = {
+                        "object_type": "text",
+                        "text": custom_msg[:200],
+                        "link": {"web_url": "", "mobile_web_url": ""},
+                        "button_title": "일정 확인"
+                    }
+                    resp = requests.post(url, headers=headers, data={"template_object": json.dumps(template, ensure_ascii=False)})
+                    if resp.status_code == 200:
+                        st.success("✅ 카카오톡 '나에게 보내기' 전송 성공!")
+                    else:
+                        st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text}")
+                else:
+                    st.warning("카카오 REST API 키를 입력해주세요.")
+        
+        else:
+            st.markdown("등록된 근무자 중 **수신 동의**를 하였고, **해당 날짜에 근무가 배정**된 인원에게 일괄 발송합니다.")
+            if st.button("🚀 당일 근무자 일괄 자동 발송 트리거", type="primary", use_container_width=True):
+                workers_db = load_workers_db()
+                valid_targets = [
+                    w for w in workers_db 
+                    if target_str in w.get("duty_dates", []) and w.get("consent_agreed", False)
+                ]
+                
+                if not valid_targets:
+                    st.warning(f"[{target_str}]에 발송 조건(근무 배정 + 수신 동의)을 만족하는 대상자가 없습니다.")
+                else:
+                    admin_key = st.session_state.kakao_api_key
+                    if not admin_key:
+                        st.error("관리자(시스템)의 카카오 API/Access 토큰이 설정되지 않았습니다.")
+                    else:
+                        uuids = [w["kakao_uuid"] for w in valid_targets if "kakao_uuid" in w and w["kakao_uuid"]]
+                        if uuids:
+                            url = "https://kapi.kakao.com/v1/api/talk/friends/message/default/send"
+                            headers = {"Authorization": f"Bearer {admin_key}", "Content-Type": "application/x-www-form-urlencoded"}
+                            template = {
+                                "object_type": "text",
+                                "text": f"[근무 안내] 안녕하세요! 오늘({target_str})은 배정된 근무일입니다. 성실한 근무 부탁드립니다.",
+                                "link": {"web_url": "", "mobile_web_url": ""},
+                                "button_title": "일정 확인"
+                            }
+                            resp = requests.post(url, headers=headers, data={
+                                "template_object": json.dumps(template, ensure_ascii=False),
+                                "receiver_uuids": json.dumps(uuids)
+                            })
+                            if resp.status_code == 200:
+                                st.success(f"✅ 총 {len(uuids)}명에게 성공적으로 전송되었습니다!")
+                            else:
+                                st.error(f"❌ 친구톡 전송 실패: {resp.text}")
+                        else:
+                            st.warning("대상자들의 유효한 카카오 UUID가 등록되어 있지 않습니다.")
+
+with tab5:
     st.subheader("시트 데이터 원본")
     st.dataframe(df, use_container_width=True)

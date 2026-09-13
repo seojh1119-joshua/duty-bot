@@ -50,7 +50,8 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_access_token": ""
+        "kakao_access_token": "",
+        "current_user_name": "관리자"
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -77,6 +78,7 @@ for k, v in [
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
     ("kakao_access_token", local_cfg.get("kakao_access_token", local_cfg.get("kakao_api_key", ""))),
+    ("current_user_name", local_cfg.get("current_user_name", "관리자")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -312,7 +314,7 @@ if "df" not in st.session_state:
     parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
     st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
 
-# 근무자 연락처 DB 관리 함수
+# 독립적인 근무자 연락처 및 동의 DB 관리 함수 (엑셀에 의존하지 않고 독립 저장)
 def load_workers_db():
     if WORKERS_DB_FILE.exists():
         try:
@@ -349,6 +351,9 @@ def settings_dialog():
     new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
     new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
     k_token = st.text_input("카카오 사용자 액세스 토큰", value=st.session_state.kakao_access_token, type="password")
+    
+    # 기기 환경별 사용자 식별 설정 (나에게 보내기 구별용)
+    curr_user = st.text_input("현재 기기 사용자명 (내 이름)", value=st.session_state.current_user_name, placeholder="예: 관리자, 홍길동")
     st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("설정 저장 및 적용", use_container_width=True, type="primary"):
@@ -356,11 +361,13 @@ def settings_dialog():
             "auto_view_type": new_view, 
             "app_theme": new_th, 
             "kakao_access_token": k_token,
+            "current_user_name": curr_user,
             "show_settings_dialog": False
         })
         save_local_config("auto_view_type", new_view)
         save_local_config("app_theme", new_th)
         save_local_config("kakao_access_token", k_token)
+        save_local_config("current_user_name", curr_user)
         st.rerun()
 
 @st.dialog("✏️ 근무자 및 메모 수정")
@@ -658,7 +665,7 @@ with tab3:
         summary_df = exp_df.groupby("근무자").agg(총근무횟수=("횟수", "sum"), 총근무시간=("근무시간", "sum")).reset_index()
         summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
         
-        st.markdown("### 📈 근무시간 그래프")
+        st.markdown("### 📈 근무자 그래프")
         chart = alt.Chart(summary_df).mark_bar().encode(
             x=alt.X('근무자:N', sort='-y', title='근무자'),
             y=alt.Y('총근무시간:Q', scale=alt.Scale(domain=[0, 70]), title='총 근무시간 (시간)')
@@ -671,78 +678,66 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭 (근무자 연동, 연락처 직접 입력 및 수신동의 설정)
+# [탭 4] 카카오톡 탭 (화면 직접 입력 및 사용자별 식별 기능 반영)
 # ---------------------------------------------------------
 with tab4:
-    st.subheader("💬 카카오톡 알림 및 근무자 연동 관리")
-    st.markdown("엑셀 파일 내 `숙직근무자` 시트에서 실제 근무자 명단을 가져와 연락처 및 동의 여부를 관리하고 알림을 전송합니다.")
+    st.subheader("💬 카카오톡 알림 및 근무자 연락처 관리")
+    st.markdown("화면에서 직접 근무자 명단, 휴대폰 번호, 수신 동의 여부를 입력하고 저장·관리할 수 있습니다.")
 
-    # 엑셀 파일에서 고유 근무자 추출
-    def get_workers_from_excel():
-        file_p = st.session_state.get("file_path", get_initial_excel_file())
-        if not os.path.exists(file_p):
-            return []
-        try:
-            excel_obj = pd.ExcelFile(file_p)
-            sheet_to_use = "숙직근무자" if "숙직근무자" in excel_obj.sheet_names else excel_obj.sheet_names[0]
-            w_df = pd.read_excel(excel_obj, sheet_name=sheet_to_use)
-            
-            workers_set = set()
-            for col in ["근무자1", "근무자2", "실제근무1", "실제근무2"]:
-                if col in w_df.columns:
-                    for name in w_df[col].dropna().unique():
-                        n_str = str(name).strip()
-                        if n_str and n_str not in ["미지정", "nan", "None", ""]:
-                            workers_set.add(n_str)
-            return sorted(list(workers_set))
-        except Exception:
-            return []
-
-    excel_workers = get_workers_from_excel()
     workers_db = load_workers_db()
 
-    sub_k1, sub_k2 = st.tabs(["📋 근무자 연락처 및 수신동의 관리", "🚀 카카오 알림 발송"])
+    sub_k1, sub_k2 = st.tabs(["📋 근무자 정보 직접 입력 관리", "🚀 카카오 알림 발송"])
 
     with sub_k1:
-        st.markdown("#### 근무자별 연락처 입력 및 알림 수신 동의 설정")
-        st.markdown("아래 목록에서 각 근무자의 **휴대폰 번호를 직접 입력**하고 **수신 동의 여부**를 체크한 뒤 저장하세요.")
+        st.markdown("#### 근무자 연락처 및 수신 동의 편집기")
+        st.markdown("원하시는 근무자 정보를 자유롭게 추가·수정하고 저장 버튼을 누르면 독립된 데이터베이스에 저장됩니다.")
 
-        with st.form("worker_contact_form"):
-            worker_input_data = {}
-            
-            if excel_workers:
-                for w_name in excel_workers:
-                    existing_info = next((item for item in workers_db if item.get("name") == w_name), {})
-                    default_phone = existing_info.get("phone", "")
-                    default_consent = existing_info.get("consent_agreed", False)
-                    
-                    st.markdown(f"**👤 근무자: {w_name}**")
-                    c_col1, c_col2 = st.columns([0.6, 0.4])
-                    with c_col1:
-                        p_val = st.text_input(f"{w_name} 휴대폰 번호", value=default_phone, placeholder="01012345678", key=f"phone_{w_name}")
-                    with c_col2:
-                        con_val = st.checkbox(f"알림 수신 동의", value=default_consent, key=f"consent_{w_name}")
-                    
-                    worker_input_data[w_name] = {"phone": p_val, "consent_agreed": con_val}
-                    st.divider()
+        # 세션 상태로 동적 입력 행 관리
+        if "edit_workers_list" not in st.session_state:
+            if workers_db:
+                st.session_state.edit_workers_list = [dict(w) for w in workers_db]
             else:
-                st.info("엑셀 파일에서 감지된 근무자가 없습니다. 엑셀 업로드 상태를 확인해주세요.")
+                st.session_state.edit_workers_list = [{"name": "", "phone": "", "consent_agreed": True}]
 
-            submitted_contacts = st.form_submit_button("💾 연락처 및 동의 정보 저장", type="primary", use_container_width=True)
-            if submitted_contacts:
-                new_db_list = []
-                for w_name, info in worker_input_data.items():
-                    new_db_list.append({
-                        "name": w_name,
-                        "phone": info["phone"],
-                        "consent_agreed": info["consent_agreed"]
-                    })
-                save_workers_db(new_db_list)
+        with st.form("dynamic_workers_form"):
+            updated_workers = []
+            for i, w_item in enumerate(st.session_state.edit_workers_list):
+                col_n, col_p, col_c = st.columns([0.35, 0.45, 0.2])
+                with col_n:
+                    n_val = st.text_input(f"이름 {i+1}", value=w_item.get("name", ""), key=f"dyn_name_{i}")
+                with col_p:
+                    p_val = st.text_input(f"전화번호 {i+1}", value=w_item.get("phone", ""), placeholder="01012345678", key=f"dyn_phone_{i}")
+                with col_c:
+                    c_val = st.checkbox(f"동의 {i+1}", value=w_item.get("consent_agreed", True), key=f"dyn_consent_{i}")
+                
+                updated_workers.append({"name": n_val, "phone": p_val, "consent_agreed": c_val})
+                st.divider()
+
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                add_row_btn = st.form_submit_button("➕ 근무자 추가하기")
+            with col_btn2:
+                save_db_btn = st.form_submit_button("💾 입력한 정보 최종 저장", type="primary")
+
+            if add_row_btn:
+                st.session_state.edit_workers_list = updated_workers + [{"name": "", "phone": "", "consent_agreed": True}]
+                st.rerun()
+
+            if save_db_btn:
+                # 빈 이름 제거 후 정제 저장
+                valid_db = [w for w in updated_workers if w["name"].strip()]
+                save_workers_db(valid_db)
+                st.session_state.edit_workers_list = valid_db
                 st.success("✅ 근무자 연락처 및 수신 동의 정보가 성공적으로 저장되었습니다.")
                 st.rerun()
 
     with sub_k2:
         st.markdown("#### 당일 근무 안내 알림 발송 및 옵션 설정")
+        
+        # 기기/사용자 식별 표시
+        current_device_user = st.session_state.get("current_user_name", "관리자")
+        st.info(f"현재 접속 중인 기기 사용자 (나): **{current_device_user}** (톱니바퀴 설정에서 변경 가능)")
+
         target_send_date = st.date_input("알림 대상 일자", value=datetime.date.today(), key="kakao_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
 
@@ -753,11 +748,11 @@ with tab4:
             r_info = matched_row.iloc[0]
             m_p1 = r_info.get("실제근무1", "미지정")
             m_p2 = r_info.get("실제근무2", "미지정")
-            st.info(f"📌 **{target_str}** 엑셀 연동 근무자 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
+            st.info(f"📌 **{target_str}** 근무표 당번 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
         else:
             st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
 
-        # 발송 옵션 설정 (모든 근무일 수신 vs 내 근무일만 수신)
+        # 발송 옵션 설정
         send_option = st.radio(
             "발송 대상 옵션 선택", 
             ["모든 근무일 수신 (전체 수신 동의자 대상)", "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)"]
@@ -771,22 +766,26 @@ with tab4:
         default_msg = f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1}\n- 2근무: {m_p2}"
         custom_msg = st.text_area("전송할 메시지 내용", value=default_msg)
 
-        # 1. 나에게 보내기 (인증 토큰 활용)
+        # 1. 나에게 보내기 (기기 사용자 식별 반영)
         if st.button("📤 카카오톡 나에게 메시지 전송", type="primary", use_container_width=True):
             if access_token_input:
                 url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
                 headers = {"Authorization": f"Bearer {access_token_input}", "Content-Type": "application/x-www-form-urlencoded"}
+                
+                # 메시지에 발신 사용자 환경 정보 포함하여 구별
+                personalized_msg = f"[{current_device_user} 기기 알림]\n{custom_msg}"
+                
                 template = {
                     "object_type": "text",
-                    "text": custom_msg[:200],
+                    "text": personalized_msg[:200],
                     "link": {"web_url": "", "mobile_web_url": ""},
                     "button_title": "일정 확인"
                 }
                 resp = requests.post(url, headers=headers, data={"template_object": json.dumps(template, ensure_ascii=False)})
                 if resp.status_code == 200:
-                    st.success("✅ 카카오톡 '나에게 보내기' 전송 성공!")
+                    st.success(f"✅ [{current_device_user}] 카카오톡 '나에게 보내기' 전송 성공!")
                 else:
-                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text} (토큰 값이 유효한지 확인해주세요)")
+                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text} (토큰 유효성을 확인해주세요)")
             else:
                 st.warning("카카오 사용자 액세스 토큰을 입력해주세요.")
 
@@ -806,7 +805,7 @@ with tab4:
                 final_targets = consented_workers
 
             if not final_targets:
-                st.warning("발송 조건에 부합하는 동의 근무자가 없습니다. (연락처 관리 탭에서 수신 동의 여부 및 휴대폰 번호를 확인하세요.)")
+                st.warning("발송 조건에 부합하는 동의 근무자가 없습니다. (근무자 정보 관리 탭에서 이름을 등록하고 동의 체크를 확인하세요.)")
             else:
                 target_names_str = ", ".join([f"{w['name']}({w['phone']})" for w in final_targets])
                 st.info(f"📨 발송 대상자: **{target_names_str}** (총 {len(final_targets)}명)")

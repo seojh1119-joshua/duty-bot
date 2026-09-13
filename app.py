@@ -756,7 +756,7 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭 (근무자 정보 직접 입력 1열 세로형 배치 및 폼 내부 저장 버튼 통합)
+# [탭 4] 카카오톡 탭 (근무자 정보 직접 입력 1열 세로형 배치 및 세로형 버튼 정렬)
 # ---------------------------------------------------------
 with tab4:
     st.subheader("💬 카카오톡 알림 및 근무자 연락처 관리")
@@ -768,7 +768,7 @@ with tab4:
 
     with sub_k1:
         st.markdown("#### 근무자 연락처 및 수신 동의 편집기")
-        st.markdown("아래 입력창에 근무자 이름, 휴대폰 번호, 수신 동의 여부를 세로(1열) 형식으로 입력하고 폼 하단의 저장 버튼을 누르세요.")
+        st.markdown("아래 입력창에 근무자 이름, 휴대폰 번호, 수신 동의 여부를 세로(1열) 형식으로 입력하세요.")
 
         if "edit_workers_list" not in st.session_state:
             if workers_db:
@@ -787,12 +787,9 @@ with tab4:
                 updated_workers.append({"name": n_val, "phone": p_val, "consent_agreed": c_val})
                 st.divider()
 
-            # 근무자 추가 및 최종 저장 버튼을 폼(Form) 안으로 깔끔하게 통합 배치
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                add_row_btn = st.form_submit_button("➕ 근무자 추가하기", use_container_width=True)
-            with col_btn2:
-                save_db_btn = st.form_submit_button("💾 입력한 정보 최종 저장", type="primary", use_container_width=True)
+            # '근무자 추가하기' 버튼 밑에 '입력한 정보 최종 저장' 버튼이 세로로 오도록 배치
+            add_row_btn = st.form_submit_button("➕ 근무자 추가하기", use_container_width=True)
+            save_db_btn = st.form_submit_button("💾 입력한 정보 최종 저장", type="primary", use_container_width=True)
 
             if add_row_btn:
                 st.session_state.edit_workers_list = updated_workers + [{"name": "", "phone": "", "consent_agreed": True}]

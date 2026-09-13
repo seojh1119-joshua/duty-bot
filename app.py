@@ -924,7 +924,6 @@ with tab4:
         w1_info = phone_map.get(m_p1)
         w2_info = phone_map.get(m_p2)
 
-        # 1열 형태로 변경된 연락처 등록 상태 안내 영역
         if w1_info and w1_info.get("phone"):
             st.success(f"1근무자 **{m_p1}** 연락처 등록됨 (발송 가능)")
         else:
@@ -978,7 +977,6 @@ with tab4:
         
         with st.form("direct_instant_sms_form"):
             selected_direct_worker = st.selectbox("수신 동의한 근무자 선택", consent_workers if consent_workers else ["등록된 동의 근무자 없음"])
-            # 즉시 발송 메시지 기본값을 오늘 근무자 알림 메시지(default_sms_msg)로 지정하여 수정 가능하도록 반영
             direct_msg_input = st.text_area("즉시 발송할 메시지 내용 (수정 가능)", value=default_sms_msg)
             
             submitted_direct = st.form_submit_button("🚀 즉시 발송 전송하기", type="primary", use_container_width=True)
@@ -996,7 +994,6 @@ with tab4:
                     elif target_w_obj and target_w_obj.get("phone"):
                         dest_phone = target_w_obj["phone"].replace("-", "").strip()
                         try:
-                            # 실제 API 연동 또는 시뮬레이션 성공 처리
                             st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
                         except Exception as ex:
                             st.error(f"전송 실패: {ex}")
@@ -1041,34 +1038,21 @@ with tab4:
                     return f"{p_clean[:3]}-****-{p_clean[7:]}"
                 return "***-****-***"
 
-            html_workers = f"""
-            <div class="table-container">
-                <table class="sticky-table">
-                    <thead>
-                        <tr>
-                            <th>성명</th>
-                            <th>전화번호</th>
-                            <th>수신동의</th>
-                            <th>발송옵션</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            """
+            # 원시 HTML 대신 오류 없는 네이티브 DataFrame 출력 방식으로 변경
+            worker_display_data = []
             for w in workers_db:
                 masked_num = mask_phone(w.get('phone', ''))
                 consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
                 opt_txt = w.get('sms_option', '매일 근무 상관없이 받기')
-                
-                html_workers += f"""
-                    <tr>
-                        <td><b>{w.get('name')}</b></td>
-                        <td>{masked_num}</td>
-                        <td>{consent_txt}</td>
-                        <td>{opt_txt}</td>
-                    </tr>
-                """
-            html_workers += "</tbody></table></div>"
-            st.markdown(html_workers, unsafe_allow_html=True)
+                worker_display_data.append({
+                    "성명": w.get('name'),
+                    "전화번호": masked_num,
+                    "수신동의": consent_txt,
+                    "발송옵션": opt_txt
+                })
+            
+            df_workers_view = pd.DataFrame(worker_display_data)
+            st.dataframe(df_workers_view, use_container_width=True, hide_index=True)
 
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             with st.form("delete_worker_form"):

@@ -97,7 +97,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (통계표 고정 스크롤 및 에디터 스타일 포함)
+# 시스템 CSS 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -192,46 +192,18 @@ responsive_css = f"""
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; 
-        flex-direction: row !important; 
-        flex-wrap: nowrap !important; 
-        width: 100% !important; 
-        gap: 3px !important; 
-        margin: 0 !important; 
-        padding: 0 !important;
+        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 3px !important; margin: 0 !important; padding: 0 !important;
     }}
     [data-testid="column"] {{
-        width: 14.285% !important; 
-        max-width: 14.285% !important; 
-        min-width: 14.285% !important; 
-        flex: 0 0 14.285% !important; 
-        padding: 0px !important; 
-        margin: 0 !important;
-        box-sizing: border-box !important;
+        width: 14.285% !important; max-width: 14.285% !important; min-width: 14.285% !important; flex: 0 0 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
     }}
     div[data-testid="column"] .stButton > button {{
-        min-height: 72px !important; 
-        max-height: 96px !important; 
-        padding: 4px 2px !important; 
-        font-size: 10px !important; 
-        border-radius: 10px !important;
-        display: flex !important; 
-        flex-direction: column !important; 
-        justify-content: flex-start !important; 
-        align-items: center !important; 
-        line-height: 1.25 !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        background-color: {box_bg} !important;
-        border: 1px solid {border_color} !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        min-height: 72px !important; max-height: 96px !important; padding: 4px 2px !important; font-size: 10px !important; border-radius: 10px !important;
+        display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important; line-height: 1.25 !important;
+        width: 100% !important; box-sizing: border-box !important; background-color: {box_bg} !important; border: 1px solid {border_color} !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }}
     div[data-testid="column"] .stButton > button:hover {{
-        border-color: {primary_yellow} !important;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.08);
-    }}
-    .stButton > button span, .stButton > button p, .stButton > button div {{
-        white-space: pre-wrap !important; word-wrap: break-word !important; word-break: break-all !important; overflow: hidden !important;
+        border-color: {primary_yellow} !important; box-shadow: 0 3px 8px rgba(0,0,0,0.08);
     }}
 
     [data-testid="stDialog"] > div:first-child {{
@@ -249,62 +221,26 @@ responsive_css = f"""
         flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
     }}
 
-    /* 고정 스크롤 테이블 스타일 (근무자별 상세 통계표 전용) */
     .table-container {{
-        width: 100%;
-        max-height: 450px;
-        overflow-x: auto;
-        overflow-y: auto;
-        border: 1px solid {border_color};
-        border-radius: 12px;
-        background-color: {box_bg};
-        margin-top: 10px;
+        width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
     .sticky-table {{
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
-        text-align: center;
-        white-space: nowrap;
+        width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap;
     }}
     .sticky-table th, .sticky-table td {{
-        padding: 10px 12px;
-        border-bottom: 1px solid {border_color};
-        border-right: 1px solid {border_color};
+        padding: 10px 12px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
     }}
     .sticky-table th {{
-        background-color: {table_header_bg};
-        font-weight: 800;
-        position: sticky;
-        top: 0;
-        z-index: 3;
+        background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
-    /* 1열(번호) 고정 */
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky;
-        left: 0;
-        z-index: 2;
-        background-color: {box_bg};
-        width: 50px;
-        min-width: 50px;
+        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 50px; min-width: 50px;
     }}
-    .sticky-table th:nth-child(1) {{
-        z-index: 4;
-        background-color: {table_header_bg};
-    }}
-    /* 2열(근무자명) 고정 */
+    .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
     .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
-        position: sticky;
-        left: 50px;
-        z-index: 2;
-        background-color: {box_bg};
-        width: 90px;
-        min-width: 90px;
+        position: sticky; left: 50px; z-index: 2; background-color: {box_bg}; width: 90px; min-width: 90px;
     }}
-    .sticky-table th:nth-child(2) {{
-        z-index: 4;
-        background-color: {table_header_bg};
-    }}
+    .sticky-table th:nth-child(2) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -458,10 +394,7 @@ def settings_dialog():
 
         if st.button("화면 설정 적용", use_container_width=True, type="primary"):
             st.session_state.update({
-                "auto_view_type": new_view, 
-                "app_theme": new_th, 
-                "current_user_name": curr_user,
-                "show_settings_dialog": False
+                "auto_view_type": new_view, "app_theme": new_th, "current_user_name": curr_user, "show_settings_dialog": False
             })
             save_local_config("auto_view_type", new_view)
             save_local_config("app_theme", new_th)
@@ -532,7 +465,7 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-        k_token = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="REST API 키가 아닌 '사용자 액세스 토큰'을 입력하세요")
+        k_token = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="각 사용자별 개인 카카오 액세스 토큰 입력")
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("토큰 저장", use_container_width=True, type="primary"):
@@ -669,7 +602,6 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 탭 구조 구성
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡", "🔍 원본"])
 
 # ---------------------------------------------------------
@@ -693,12 +625,7 @@ with tab1:
     if "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
         st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
-    sel_month = st.selectbox(
-        "조회 월 선택", 
-        avail_months, 
-        index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0,
-        label_visibility="collapsed"
-    )
+    sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
     st.session_state.selected_month = sel_month
 
     if sel_month in avail_months:
@@ -793,21 +720,10 @@ with tab2:
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
 
     column_config = {
-        "날짜": st.column_config.DateColumn(
-            "날짜",
-            format="YYYY-MM-DD",
-            pinned=True,
-            disabled=False
-        )
+        "날짜": st.column_config.DateColumn("날짜", format="YYYY-MM-DD", pinned=True, disabled=False)
     }
 
-    edited_df = st.data_editor(
-        target_df, 
-        num_rows="dynamic", 
-        key="editor_main", 
-        use_container_width=True,
-        column_config=column_config
-    )
+    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True, column_config=column_config)
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
         m_df = st.session_state.df.copy()
@@ -843,7 +759,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰 (근무구분 참조, 1·2열 고정 및 하단 총계 요약 표시)
+# [탭 3] 통계 뷰
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -854,11 +770,9 @@ with tab3:
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
     def get_category_and_hours(row):
-        # 엑셀 파일 내 '근무구분' 또는 날짜 속성을 참조하여 정확하게 시간/구분 산정
         c_date = pd.to_datetime(row["날짜"])
         wd = c_date.weekday()
         
-        # 엑셀 파일 내에 명시된 '근무구분' 컬럼이 존재할 경우 최우선 참고
         if "근무구분" in row and pd.notnull(row["근무구분"]):
             cat_val = str(row["근무구분"]).strip()
             if "평일" in cat_val: return "평일", 7
@@ -866,15 +780,10 @@ with tab3:
             elif "토요일" in cat_val: return "토요일", 15
             elif "일요일" in cat_val or "공휴일" in cat_val: return "일요일", 7
 
-        # 기본 요일 기준 fallback 판단
-        if wd in [0, 1, 2, 3]:
-            return "평일", 7
-        elif wd == 4:
-            return "금요일", 15
-        elif wd == 5:
-            return "토요일", 15
-        else:
-            return "일요일", 7
+        if wd in [0, 1, 2, 3]: return "평일", 7
+        elif wd == 4: return "금요일", 15
+        elif wd == 5: return "토요일", 15
+        else: return "일요일", 7
 
     expanded_rows = []
     for _, r in f_df.iterrows():
@@ -898,28 +807,11 @@ with tab3:
         st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
         
         chart = alt.Chart(agg_df).mark_bar().encode(
-            x=alt.X(
-                '근무자:N', 
-                sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), 
-                title='근무자',
-                axis=alt.Axis(labelAngle=-45, labelOverlap=False)
-            ),
+            x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자', axis=alt.Axis(labelAngle=-45, labelOverlap=False)),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color(
-                '근무구분:N',
-                scale=alt.Scale(
-                    domain=['평일', '금요일', '토요일', '일요일'],
-                    range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444']
-                ),
-                title='근무 구분'
-            ),
+            color=alt.Color('근무구분:N', scale=alt.Scale(domain=['평일', '금요일', '토요일', '일요일'], range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444']), title='근무 구분'),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
-        ).properties(
-            height=380
-        ).configure_legend(
-            orient="bottom", 
-            title=None
-        )
+        ).properties(height=380).configure_legend(orient="bottom", title=None)
         
         st.altair_chart(chart, use_container_width=True)
         
@@ -944,7 +836,6 @@ with tab3:
             "총 근무시간": pivot_hours.sum(axis=1).astype(int)
         })
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
-        
         summary_table.index = range(1, len(summary_table) + 1)
         summary_table.insert(0, "번호", summary_table.index)
         
@@ -952,25 +843,15 @@ with tab3:
         <div class="table-container">
             <table class="sticky-table">
                 <thead>
-                    <tr>
-                        {"".join([f"<th>{col}</th>" for col in summary_table.columns])}
-                    </tr>
+                    <tr>{"".join([f"<th>{col}</th>" for col in summary_table.columns])}</tr>
                 </thead>
                 <tbody>
         """
         for _, row in summary_table.iterrows():
-            html_table += "<tr>"
-            for val in row:
-                html_table += f"<td>{val}</td>"
-            html_table += "</tr>"
-        html_table += """
-                </tbody>
-            </table>
-        </div>
-        """
+            html_table += "<tr>" + "".join([f"<td>{val}</td>" for val in row]) + "</tr>"
+        html_table += "</tbody></table></div>"
         st.markdown(html_table, unsafe_allow_html=True)
 
-        # 📌 표 하단 총 근무자 명수, 총 근무일수, 총 근무시간 표시 컴포넌트 추가
         total_workers_count = len(summary_table)
         total_duty_days = len(f_df)
         total_duty_hours = int(summary_table["총 근무시간"].sum())
@@ -1000,32 +881,30 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭
+# [탭 4] 카카오톡 탭 (개별 사용자 토큰 관리 및 멀티 안내 반영)
 # ---------------------------------------------------------
 with tab4:
-    st.subheader("💬 카카오톡 알림 및 근무자 연락처 관리")
-    st.markdown("화면에서 직접 근무자 명단, 휴대폰 번호, 수신 동의 여부를 1열(세로형)로 입력하고 관리할 수 있습니다.")
+    st.subheader("💬 카카오톡 알림 및 개별 사용자 토큰 관리")
+    st.markdown("""
+    > 💡 **안내**: 카카오톡 `나에게 보내기` API는 각 사용자가 앱에 입력한 **개인 액세스 토큰**을 기준으로 동작합니다. 
+    > 여러 사람이 앱을 각자 띄워 사용할 경우, **[설정 관리]** 또는 아래 입력창에 **본인의 카카오 액세스 토큰**을 입력하여 개별적으로 활용하실 수 있습니다.
+    """)
 
     workers_db = load_workers_db()
 
-    sub_k1, sub_k2 = st.tabs(["📋 근무자 정보 직접 입력 관리", "🚀 카카오 알림 발송"])
+    sub_k1, sub_k2 = st.tabs(["📋 근무자 정보 직접 입력 관리", "🚀 개별 카카오 알림 발송"])
 
     with sub_k1:
         st.markdown("#### 근무자 연락처 및 수신 동의 편집기")
-        st.markdown("아래 입력창에 근무자 이름, 휴대폰 번호, 수신 동의 여부를 세로(1열) 형식으로 입력하세요.")
-
         if "edit_workers_list" not in st.session_state:
-            if workers_db:
-                st.session_state.edit_workers_list = [dict(w) for w in workers_db]
-            else:
-                st.session_state.edit_workers_list = [{"name": "", "phone": "", "consent_agreed": True}]
+            st.session_state.edit_workers_list = [dict(w) for w in workers_db] if workers_db else [{"name": "", "phone": "", "consent_agreed": True}]
 
         with st.form("dynamic_workers_form"):
             updated_workers = []
             for i, w_item in enumerate(st.session_state.edit_workers_list):
                 st.markdown(f"**근무자 #{i+1}**")
-                n_val = st.text_input(f"성명 (근무자 #{i+1})", value=w_item.get("name", ""), placeholder="이름 입력", key=f"dyn_name_{i}")
-                p_val = st.text_input(f"휴대폰 번호 (근무자 #{i+1})", value=w_item.get("phone", ""), placeholder="01012345678", key=f"dyn_phone_{i}")
+                n_val = st.text_input(f"성명 (근무자 #{i+1})", value=w_item.get("name", ""), key=f"dyn_name_{i}")
+                p_val = st.text_input(f"휴대폰 번호 (근무자 #{i+1})", value=w_item.get("phone", ""), key=f"dyn_phone_{i}")
                 c_val = st.checkbox(f"알림 수신 동의 여부 (근무자 #{i+1})", value=w_item.get("consent_agreed", True), key=f"dyn_consent_{i}")
                 
                 updated_workers.append({"name": n_val, "phone": p_val, "consent_agreed": c_val})
@@ -1046,10 +925,10 @@ with tab4:
                 st.rerun()
 
     with sub_k2:
-        st.markdown("#### 당일 근무 안내 알림 발송 및 옵션 설정")
+        st.markdown("#### 당일 근무 안내 개별 알림 발송")
         
         current_device_user = st.session_state.get("current_user_name", "관리자")
-        st.info(f"현재 접속 중인 기기 사용자 (내): **{current_device_user}** (설정 메뉴에서 변경 가능)")
+        st.info(f"현재 접속 기기 사용자: **{current_device_user}**")
 
         target_send_date = st.date_input("알림 대상 일자", value=datetime.date.today(), key="kakao_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
@@ -1060,16 +939,11 @@ with tab4:
             r_info = matched_row.iloc[0]
             m_p1 = r_info.get("실제근무1", "미지정")
             m_p2 = r_info.get("실제근무2", "미지정")
-            st.info(f"📌 **{target_str}** 근무표 당번 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
+            st.info(f"📌 **{target_str}** 당번 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
         else:
             st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
 
-        send_option = st.radio(
-            "발송 대상 옵션 선택", 
-            ["모든 근무일 수신 (전체 수신 동의자 대상)", "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)"]
-        )
-
-        access_token_input = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", key="kakao_tab_token", placeholder="여기에 REST API 키가 아닌 '사용자 액세스 토큰'을 입력하세요")
+        access_token_input = st.text_input("내 카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", key="kakao_tab_token", placeholder="개인 카카오 액세스 토큰 입력")
         if access_token_input != st.session_state.kakao_access_token:
             st.session_state.kakao_access_token = access_token_input
             save_local_config("kakao_access_token", access_token_input)
@@ -1077,12 +951,11 @@ with tab4:
         default_msg = f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1}\n- 2근무: {m_p2}"
         custom_msg = st.text_area("전송할 메시지 내용", value=default_msg)
 
-        if st.button("📤 카카오톡 나에게 메시지 전송", type="primary", use_container_width=True):
+        if st.button("📤 카카오톡 나에게 메시지 전송 (개인)", type="primary", use_container_width=True):
             if access_token_input:
                 url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
                 headers = {"Authorization": f"Bearer {access_token_input}", "Content-Type": "application/x-www-form-urlencoded"}
-                
-                personalized_msg = f"[{current_device_user} 기기 알림]\n{custom_msg}"
+                personalized_msg = f"[{current_device_user}님 알림]\n{custom_msg}"
                 
                 template = {
                     "object_type": "text",
@@ -1097,54 +970,11 @@ with tab4:
                 else:
                     try:
                         err_json = resp.json()
-                        err_code = err_json.get("code")
-                        err_msg = err_json.get("msg")
-                        st.error(f"❌ 카카오 API 에러 발생 (HTTP {resp.status_code}, 코드: {err_code})\n- 내용: {err_msg}")
+                        st.error(f"❌ 카카오 API 에러 (코드: {err_json.get('code')}): {err_json.get('msg')}")
                     except:
                         st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text}")
             else:
-                st.warning("⚠️ 카카오 사용자 액세스 토큰이 입력되지 않았습니다. (REST API 키가 아닌 액세스 토큰을 입력해야 합니다)")
-
-        st.divider()
-
-        if st.button("🚀 조건별 동의 근무자에게 알림 일괄 발송", use_container_width=True):
-            current_db = load_workers_db()
-            consented_workers = [w for w in current_db if w.get("consent_agreed", False)]
-            
-            if send_option == "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)":
-                target_names = [str(m_p1).strip(), str(m_p2).strip()]
-                final_targets = [w for w in consented_workers if w.get("name") in target_names]
-            else:
-                final_targets = consented_workers
-
-            if not final_targets:
-                st.warning("발송 조건에 부합하는 동의 근무자가 없습니다. (근무자 정보 관리 탭에서 이름을 등록하고 동의 체크를 확인하세요.)")
-            else:
-                target_names_str = ", ".join([f"{w['name']}({w['phone']})" for w in final_targets])
-                st.info(f"📨 발송 대상자: **{target_names_str}** (총 {len(final_targets)}명)")
-                
-                if access_token_input:
-                    url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
-                    headers = {"Authorization": f"Bearer {access_token_input}", "Content-Type": "application/x-www-form-urlencoded"}
-                    template = {
-                        "object_type": "text",
-                        "text": f"[근무 안내 알림]\n{custom_msg}",
-                        "link": {"web_url": "", "mobile_web_url": ""},
-                        "button_title": "일정 확인"
-                    }
-                    resp = requests.post(url, headers=headers, data={"template_object": json.dumps(template, ensure_ascii=False)})
-                    if resp.status_code == 200:
-                        st.success(f"✅ 선택된 옵션에 따라 [{target_str}] 근무 안내 알림이 성공적으로 전송되었습니다!")
-                    else:
-                        try:
-                            err_json = resp.json()
-                            err_code = err_json.get("code")
-                            err_msg = err_json.get("msg")
-                            st.error(f"❌ 카카오 API 에러 발생 (HTTP {resp.status_code}, 코드: {err_code})\n- 내용: {err_msg}")
-                        except:
-                            st.error(f"❌ 알림 발송 실패 (코드 {resp.status_code}): {resp.text}")
-                else:
-                    st.error("카카오 사용자 액세스 토큰이 입력되지 않았습니다.")
+                st.warning("⚠️ 개인 카카오 액세스 토큰을 입력해주세요.")
 
 # ---------------------------------------------------------
 # [탭 5] 원본 데이터 뷰

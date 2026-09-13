@@ -50,7 +50,7 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_access_token": "45ff4ca30fc3557c0cf6cfc3ab3122e6",
+        "kakao_access_token": "",
         "current_user_name": "관리자",
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
@@ -84,7 +84,7 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_access_token", local_cfg.get("kakao_access_token", "45ff4ca30fc3557c0cf6cfc3ab3122e6")),
+    ("kakao_access_token", local_cfg.get("kakao_access_token", "")),
     ("current_user_name", local_cfg.get("current_user_name", "관리자")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
@@ -438,7 +438,7 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-        k_token = st.text_input("카카오 사용자 액세스 토큰", value=st.session_state.kakao_access_token, type="password")
+        k_token = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="REST API 키가 아닌 사용자 액세스 토큰을 입력하세요")
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("토큰 저장", use_container_width=True, type="primary"):
@@ -756,7 +756,7 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭 (근무자 정보 직접 입력 1열 세로형 배치 및 세로형 버튼 정렬)
+# [탭 4] 카카오톡 탭
 # ---------------------------------------------------------
 with tab4:
     st.subheader("💬 카카오톡 알림 및 근무자 연락처 관리")
@@ -787,7 +787,6 @@ with tab4:
                 updated_workers.append({"name": n_val, "phone": p_val, "consent_agreed": c_val})
                 st.divider()
 
-            # '근무자 추가하기' 버튼 밑에 '입력한 정보 최종 저장' 버튼이 세로로 오도록 배치
             add_row_btn = st.form_submit_button("➕ 근무자 추가하기", use_container_width=True)
             save_db_btn = st.form_submit_button("💾 입력한 정보 최종 저장", type="primary", use_container_width=True)
 
@@ -826,7 +825,7 @@ with tab4:
             ["모든 근무일 수신 (전체 수신 동의자 대상)", "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)"]
         )
 
-        access_token_input = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", key="kakao_tab_token")
+        access_token_input = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", key="kakao_tab_token", placeholder="여기에 REST API 키가 아닌 '사용자 액세스 토큰'을 입력하세요")
         if access_token_input != st.session_state.kakao_access_token:
             st.session_state.kakao_access_token = access_token_input
             save_local_config("kakao_access_token", access_token_input)
@@ -860,7 +859,7 @@ with tab4:
                     except:
                         st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text}")
             else:
-                st.warning("카카오 사용자 액세스 토큰을 입력해주세요.")
+                st.warning("⚠️ 카카오 사용자 액세스 토큰이 입력되지 않았습니다. (REST API 키가 아닌 액세스 토큰을 입력해야 합니다)")
 
         st.divider()
 

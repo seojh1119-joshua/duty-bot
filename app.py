@@ -4,7 +4,6 @@ import gc
 import glob
 import io
 import json
-import os
 import hmac
 import hashlib
 import uuid
@@ -106,7 +105,6 @@ if st.session_state.is_app_closed:
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-# 카카오뱅크 디자인 토큰 반영 (Yellow #FFE300 중심)
 theme_bg = "#171717" if is_dark else "#F5F5F5"
 main_text_color = "#F5F5F5" if is_dark else "#1E1E1E"
 border_color = "#343434" if is_dark else "#ECECEC"
@@ -628,7 +626,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰
+# [탭 1] 달력 뷰 (오류 수정 반영 부분)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -687,7 +685,8 @@ with tab1:
                     
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_{d_str}"):
+                # 오류 수정: 고유한 식별 키 부여 (v_YYYY-MM-DD 형식)
+                if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_list_btn_{d_str}"):
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
@@ -719,7 +718,8 @@ with tab1:
                         btn_txt = f"{t_str}\n{info['p1']}\n{info['p2']}"
                         if memo_s: btn_txt += f" {memo_s}"
 
-                        if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
+                        # 오류 수정: 달력 Grid의 버튼마다 연-월-일을 포함한 완벽히 고유한 키(g_grid_btn_YYYY-MM-DD)를 할당하여 클릭 오류 원천 차단
+                        if g_cols[c].button(btn_txt, key=f"g_grid_btn_{d_str}"):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
                         day_cnt += 1

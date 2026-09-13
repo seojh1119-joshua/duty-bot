@@ -190,9 +190,6 @@ responsive_css = f"""
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
-    /* ========================================================= */
-    /* [가로형 달력 전면 개편] 7열 그리드 카드 스타일 구조 최적화 */
-    /* ========================================================= */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important; 
         flex-direction: row !important; 
@@ -211,7 +208,6 @@ responsive_css = f"""
         margin: 0 !important;
         box-sizing: border-box !important;
     }}
-    /* 개별 날짜 셀 카드 디자인 */
     div[data-testid="column"] .stButton > button {{
         min-height: 72px !important; 
         max-height: 96px !important; 
@@ -753,45 +749,85 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰
+# [탭 3] 통계 뷰 (요일별 구분 및 비율 스택바 반영)
 # ---------------------------------------------------------
 with tab3:
-    st.subheader("근무자 월별통계")
+    st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
     
-    sel_st_m = st.selectbox("통계 월선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
+    sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    def calc_work_hours(row):
+    def get_category_and_hours(row):
         wd = pd.to_datetime(row["날짜"]).weekday()
-        return 15 if wd in [4, 5] else 7
+        # 0~3: 월~목 (평일), 4: 금요일, 5: 토요일, 6: 일요일
+        if wd in [0, 1, 2, 3]:
+            return "평일", 7
+        elif wd == 4:
+            return "금요일", 15
+        elif wd == 5:
+            return "토요일", 15
+        else:
+            return "일요일", 7
 
     expanded_rows = []
     for _, r in f_df.iterrows():
-        hours = calc_work_hours(r)
+        cat, hours = get_category_and_hours(r)
         w1 = str(r.get("실제근무1", "")).strip()
         w2 = str(r.get("실제근무2", "")).strip()
         
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
-            expanded_rows.append({"근무자": w1, "근무시간": hours, "횟수": 1})
+            expanded_rows.append({"근무자": w1, "근무구분": cat, "근무시간": hours, "횟수": 1})
         if w2 and w2 not in ["미지정", "nan", "None", ""]:
-            expanded_rows.append({"근무자": w2, "근무시간": hours, "횟수": 1})
+            expanded_rows.append({"근무자": w2, "근무구분": cat, "근무시간": hours, "횟수": 1})
 
     if expanded_rows:
         exp_df = pd.DataFrame(expanded_rows)
-        summary_df = exp_df.groupby("근무자").agg(총근무횟수=("횟수", "sum"), 총근무시간=("근무시간", "sum")).reset_index()
-        summary_df = summary_df.sort_values(by="총근무시간", ascending=False)
         
-        st.markdown("### 📈 근무시간 그래프")
-        chart = alt.Chart(summary_df).mark_bar().encode(
-            x=alt.X('근무자:N', sort='-y', title='근무자'),
-            y=alt.Y('총근무시간:Q', scale=alt.Scale(domain=[0, 70]), title='총 근무시간 (시간)')
-        ).properties(height=320)
+        # 근무자, 근무구분별 집계
+        agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(
+            근무횟수=("횟수", "sum"), 
+            근무시간=("근무시간", "sum")
+        ).reset_index()
+        
+        st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
+        chart = alt.Chart(agg_df).mark_bar().encode(
+            x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
+            y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
+            color=alt.Color('근무구분:N',
+                            scale=alt.Scale(
+                                domain=['평일', '금요일', '토요일', '일요일'],
+                                range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444'] # 평일:노랑, 금요일:녹색, 토요일:파랑, 일요일:빨강
+                            ),
+                            title='근무 구분'),
+            tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
+        ).properties(height=340)
         st.altair_chart(chart, use_container_width=True)
         
-        st.markdown("### 📊 근무자별 시수 요약표")
-        st.dataframe(summary_df, use_container_width=True)
+        st.markdown("### 📊 근무자별 상세 통계표 (구분별 횟수 및 시간)")
+        
+        pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
+        pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
+        
+        categories = ["평일", "금요일", "토요일", "일요일"]
+        for cat in categories:
+            if cat not in pivot_count.columns: pivot_count[cat] = 0
+            if cat not in pivot_hours.columns: pivot_hours[cat] = 0
+        pivot_count = pivot_count[categories]
+        pivot_hours = pivot_hours[categories]
+        
+        summary_table = pd.DataFrame({
+            "평일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["평일"], pivot_hours["평일"])],
+            "금요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["금요일"], pivot_hours["금요일"])],
+            "토요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["토요일"], pivot_hours["토요일"])],
+            "일요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["일요일"], pivot_hours["일요일"])],
+            "총 근무횟수": pivot_count.sum(axis=1).astype(int),
+            "총 근무시간": pivot_hours.sum(axis=1).astype(int)
+        })
+        summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
+        
+        st.dataframe(summary_table, use_container_width=True)
     else:
         st.info("통계 데이터가 없습니다.")
 

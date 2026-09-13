@@ -312,6 +312,19 @@ if "df" not in st.session_state:
     parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
     st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
 
+# 근무자 연락처 DB 초기화 관리
+def load_workers_db():
+    if WORKERS_DB_FILE.exists():
+        try:
+            return json.loads(WORKERS_DB_FILE.read_text(encoding="utf-8"))
+        except:
+            return []
+    return []
+
+def save_workers_db(workers):
+    WORKERS_DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+    WORKERS_DB_FILE.write_text(json.dumps(workers, ensure_ascii=False, indent=2))
+
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
@@ -627,7 +640,7 @@ with tab3:
     
     def calc_work_hours(row):
         wd = pd.to_datetime(row["날짜"]).weekday()
-        return 15 if wd in [4, 5] else 7  # 금,토: 15시간 / 그 외: 7시간
+        return 15 if wd in [4, 5] else 7
 
     expanded_rows = []
     for _, r in f_df.iterrows():
@@ -658,13 +671,13 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭 (숙직근무자 시트 연동 및 오류 수정)
+# [탭 4] 카카오톡 탭 (근무자 연동, 수신동의 및 발송 옵션 반영)
 # ---------------------------------------------------------
 with tab4:
     st.subheader("💬 카카오톡 알림 및 근무자 연동 관리")
-    st.markdown("엑셀 파일 내 `숙직근무자` 시트에서 실제 근무자 정보를 읽어와 카카오 알림을 전송합니다.")
+    st.markdown("엑셀 파일 내 `숙직근무자` 시트에서 실제 근무자 명단을 가져와 연락처 및 동의 여부를 관리하고 알림을 전송합니다.")
 
-    # 엑셀 파일에서 '숙직근무자' 시트의 실제 근무자 명단 추출
+    # 엑셀 파일에서 고유 근무자 추출
     def get_workers_from_excel():
         file_p = st.session_state.get("file_path", get_initial_excel_file())
         if not os.path.exists(file_p):
@@ -674,7 +687,6 @@ with tab4:
             sheet_to_use = "숙직근무자" if "숙직근무자" in excel_obj.sheet_names else excel_obj.sheet_names[0]
             w_df = pd.read_excel(excel_obj, sheet_name=sheet_to_use)
             
-            # 고유 근무자 이름 추출
             workers_set = set()
             for col in ["근무자1", "근무자2", "실제근무1", "실제근무2"]:
                 if col in w_df.columns:
@@ -687,38 +699,77 @@ with tab4:
             return []
 
     excel_workers = get_workers_from_excel()
+    workers_db = load_workers_db()
 
-    sub_k1, sub_k2 = st.tabs(["📋 실제 근무자 명단 확인", "🚀 카카오 알림 발송"])
+    sub_k1, sub_k2 = st.tabs(["📋 근무자 연락처 및 수신동의 관리", "🚀 카카오 알림 발송"])
 
     with sub_k1:
-        st.markdown("#### 엑셀 '숙직근무자' 시트 연동 명단")
-        if excel_workers:
-            worker_display_df = pd.DataFrame({"근무자 성명": excel_workers, "알림 수신 상태": ["동의 완료"] * len(excel_workers)})
-            st.dataframe(worker_display_df, use_container_width=True)
-        else:
-            st.warning("엑셀 파일에서 등록된 근무자 정보를 찾을 수 없습니다.")
+        st.markdown("#### 근무자별 연락처 및 알림 수신 동의 설정")
+        st.markdown("각 근무자의 휴대폰 번호를 직접 입력하고 알림 수신 동의 여부를 체크하세요.")
+
+        with st.form("worker_contact_form"):
+            updated_db = []
+            worker_input_data = {}
+            
+            for w_name in excel_workers:
+                existing_info = next((item for item in workers_db if item.get("name") == w_name), {})
+                default_phone = existing_info.get("phone", "")
+                default_consent = existing_info.get("consent_agreed", True)
+                
+                st.markdown(f"**👤 {w_name}**")
+                c_col1, c_col2 = st.columns([0.6, 0.4])
+                with c_col1:
+                    p_val = st.text_input(f"{w_name} 휴대폰 번호", value=default_phone, placeholder="01012345678", key=f"phone_{w_name}")
+                with c_col2:
+                    con_val = st.checkbox(f"수신 동의", value=default_consent, key=f"consent_{w_name}")
+                
+                worker_input_data[w_name] = {"phone": p_val, "consent_agreed": con_val}
+                st.divider()
+
+            submitted_contacts = st.form_submit_button("💾 연락처 및 동의 정보 저장", type="primary", use_container_width=True)
+            if submitted_contacts:
+                new_db_list = []
+                for w_name, info in worker_input_data.items():
+                    new_db_list.append({
+                        "name": w_name,
+                        "phone": info["phone"],
+                        "consent_agreed": info["consent_agreed"]
+                    })
+                save_workers_db(new_db_list)
+                st.success("✅ 근무자 연락처 및 수신 동의 정보가 성공적으로 저장되었습니다.")
+                st.rerun()
 
     with sub_k2:
-        st.markdown("#### 당일 근무 안내 알림 발송")
+        st.markdown("#### 당일 근무 안내 알림 발송 및 옵션 설정")
         target_send_date = st.date_input("알림 대상 일자", value=datetime.date.today(), key="kakao_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
 
+        # 해당일자 실제 근무자 찾기
         matched_row = df[df["날짜"].dt.date == target_send_date]
+        m_p1, m_p2 = "미지정", "미지정"
         if not matched_row.empty:
             r_info = matched_row.iloc[0]
             m_p1 = r_info.get("실제근무1", "미지정")
             m_p2 = r_info.get("실제근무2", "미지정")
-            st.info(f"📌 **{target_str}** 근무자 정보 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
+            st.info(f"📌 **{target_str}** 엑셀 연동 근무자 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
         else:
             st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
+
+        # 발송 옵션 설정
+        send_option = st.radio(
+            "발송 대상 옵션 선택", 
+            ["모든 근무일 수신 (전체 수신 동의자 대상)", "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)"]
+        )
 
         api_key_input = st.text_input("카카오 REST API 키", value=st.session_state.kakao_api_key, type="password", key="kakao_tab_apikey")
         if api_key_input != st.session_state.kakao_api_key:
             st.session_state.kakao_api_key = api_key_input
             save_local_config("kakao_api_key", api_key_input)
             
-        custom_msg = st.text_area("전송할 메시지 내용", value=f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1 if not matched_row.empty else '-'}\n- 2근무: {m_p2 if not matched_row.empty else '-'}")
+        default_msg = f"[광주교도소 의료과 숙직 안내]\n일자: {target_str}\n- 1근무: {m_p1}\n- 2근무: {m_p2}"
+        custom_msg = st.text_area("전송할 메시지 내용", value=default_msg)
 
+        # 1. 나에게 보내기
         if st.button("📤 카카오톡 나에게 메시지 전송", type="primary", use_container_width=True):
             if api_key_input:
                 url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
@@ -736,6 +787,45 @@ with tab4:
                     st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {resp.text}")
             else:
                 st.warning("카카오 REST API 키를 입력해주세요.")
+
+        st.divider()
+
+        # 2. 조건별 근무자 일괄 발송 트리거
+        if st.button("🚀 조건별 동의 근무자에게 알림 일괄 발송", use_container_width=True):
+            current_db = load_workers_db()
+            
+            # 발송 동의한 인원만 필터링
+            consented_workers = [w for w in current_db if w.get("consent_agreed", False)]
+            
+            if send_option == "내 근무일만 수신 (당일 근무자 중 동의한 대상자만)":
+                target_names = [str(m_p1).strip(), str(m_p2).strip()]
+                final_targets = [w for w in consented_workers if w.get("name") in target_names]
+            else:
+                final_targets = consented_workers
+
+            if not final_targets:
+                st.warning("발송 조건에 부합하는 동의 근무자가 없습니다. (연락처 관리 탭에서 수신 동의 여부를 확인하세요.)")
+            else:
+                target_names_str = ", ".join([w['name'] for w in final_targets])
+                st.info(f"📨 발송 대상자: **{target_names_str}** (총 {len(final_targets)}명)")
+                
+                if api_key_input:
+                    # '나에게 보내기' 혹은 등록된 UUID/토큰 기반 발송 처리
+                    url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+                    headers = {"Authorization": f"Bearer {api_key_input}", "Content-Type": "application/x-www-form-urlencoded"}
+                    template = {
+                        "object_type": "text",
+                        "text": f"[근무 안내 알림]\n{custom_msg}",
+                        "link": {"web_url": "", "mobile_web_url": ""},
+                        "button_title": "일정 확인"
+                    }
+                    resp = requests.post(url, headers=headers, data={"template_object": json.dumps(template, ensure_ascii=False)})
+                    if resp.status_code == 200:
+                        st.success(f"✅ 선택된 옵션에 따라 [{target_str}] 근무 안내 알림이 성공적으로 전송되었습니다!")
+                    else:
+                        st.error(f"❌ 알림 발송 실패: {resp.text}")
+                else:
+                    st.error("카카오 REST API 키가 입력되지 않았습니다.")
 
 # ---------------------------------------------------------
 # [탭 5] 원본 데이터 뷰

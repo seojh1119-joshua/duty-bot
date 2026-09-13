@@ -814,32 +814,44 @@ with tab3:
         )
         st.altair_chart(chart, use_container_width=True)
         
-        st.markdown("### 📊 근무자별 상세 통계표 (구분별 횟수 및 시간)")
-        
-        pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
-        pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
-        
-        categories = ["평일", "금요일", "토요일", "일요일"]
-        for cat in categories:
-            if cat not in pivot_count.columns: pivot_count[cat] = 0
-            if cat not in pivot_hours.columns: pivot_hours[cat] = 0
-        pivot_count = pivot_count[categories]
-        pivot_hours = pivot_hours[categories]
-        
-        summary_table = pd.DataFrame({
-            "평일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["평일"], pivot_hours["평일"])],
-            "금요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["금요일"], pivot_hours["금요일"])],
-            "토요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["토요일"], pivot_hours["토요일"])],
-            "일요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["일요일"], pivot_hours["일요일"])],
-            "총 근무횟수": pivot_count.sum(axis=1).astype(int),
-            "총 근무시간": pivot_hours.sum(axis=1).astype(int)
-        })
-        summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
-        
-        st.dataframe(summary_table, use_container_width=True)
-    else:
-        st.info("통계 데이터가 없습니다.")
+       st.subheader("📊 근무자별 숙직 통계 및 시각화")
 
+# 데이터 존재 여부 확인 후 그래프렌더링
+if "df_stats" in locals() and not df_stats.empty:
+  # Altair 스택바 차트 구성
+  chart = (
+      alt.Chart(df_stats)
+      .mark_bar()
+      .encode(
+          # X축: 근무자 이름 (총 근무 시간 순으로 정렬)
+          x=alt.X(
+              "근무자:N",
+              sort=alt.EncodingSortField(
+                  field="시간", op="sum", order="descending"
+              ),
+              title="근무자",
+          ),
+          # Y축: 총 근무 시간 (0~70시간으로 고정)
+          y=alt.Y(
+              "sum(시간):Q",
+              scale=alt.Scale(domain=[0, 70]),
+              title="총 근무 시간 (시간)",
+          ),
+          # 색상: 근무 유형별 구분 (평일, 금요일, 토요일, 일요일 등)
+          color=alt.Color("근무유형:N", title="근무 유형"),
+          tooltip=["근무자", "근무유형", "sum(시간)"],
+      )
+      .properties(height=400)
+      .configure_axisX(labelAngle=0)  # X축 글자 겹침 방지 (가로 정렬)
+      .configure_legend(
+          orient="bottom", title=None
+      )  # 범례를 하단으로 이동하고 제목 숨김 처리
+  )
+
+  # Streamlit에 차트 출력
+  st.altair_chart(chart, use_container_width=True)
+else:
+  st.info("시각화할 통계 데이터가 존재하지 않습니다.")
 # ---------------------------------------------------------
 # [탭 4] 카카오톡 탭
 # ---------------------------------------------------------

@@ -97,7 +97,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (가로형 달력 전면 개편 스타일)
+# 시스템 CSS 적용 (통계표 고정 스크롤 스타일 포함)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -114,6 +114,7 @@ input_bg = "#272727" if is_dark else "#FFFFFF"
 input_text = "#F5F5F5" if is_dark else "#1E1E1E"
 box_bg = "#1E1E1E" if is_dark else "#FFFFFF"
 primary_yellow = "#FFE300"
+table_header_bg = "#2C2C2C" if is_dark else "#EDF2F7"
 
 responsive_css = f"""
 <style>
@@ -246,6 +247,63 @@ responsive_css = f"""
     }}
     [data-baseweb="tab"] {{
         flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
+    }}
+
+    /* 고정 스크롤 테이블 스타일 (근무자별 상세 통계표 전용) */
+    .table-container {{
+        width: 100%;
+        max-height: 450px;
+        overflow-x: auto;
+        overflow-y: auto;
+        border: 1px solid {border_color};
+        border-radius: 12px;
+        background-color: {box_bg};
+        margin-top: 10px;
+    }}
+    .sticky-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        text-align: center;
+        white-space: nowrap;
+    }}
+    .sticky-table th, .sticky-table td {{
+        padding: 10px 12px;
+        border-bottom: 1px solid {border_color};
+        border-right: 1px solid {border_color};
+    }}
+    .sticky-table th {{
+        background-color: {table_header_bg};
+        font-weight: 800;
+        position: sticky;
+        top: 0;
+        z-index: 3;
+    }}
+    /* 1열(번호) 고정 */
+    .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background-color: {box_bg};
+        width: 50px;
+        min-width: 50px;
+    }}
+    .sticky-table th:nth-child(1) {{
+        z-index: 4;
+        background-color: {table_header_bg};
+    }}
+    /* 2열(근무자명) 고정 */
+    .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
+        position: sticky;
+        left: 50px;
+        z-index: 2;
+        background-color: {box_bg};
+        width: 90px;
+        min-width: 90px;
+    }}
+    .sticky-table th:nth-child(2) {{
+        z-index: 4;
+        background-color: {table_header_bg};
     }}
 </style>
 """
@@ -615,7 +673,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (전면 개편 적용)
+# [탭 1] 달력 뷰
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -749,7 +807,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰 (X축 이름 모두 표시 및 하단 범례 적용)
+# [탭 3] 통계 뷰 (1열 번호 추가 및 1, 2열 고정 스크롤 적용)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -791,7 +849,6 @@ with tab3:
         
         st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
         
-        # X축 이름 모두 표시(labelAngle) 및 범례 하단 이동(orient="bottom") 설정 적용
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X(
                 '근무자:N', 
@@ -840,7 +897,32 @@ with tab3:
         })
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
         
-        st.dataframe(summary_table, use_container_width=True)
+        # 요구사항 반영: 1열에 1부터 시작하는 순번(번호) 추가
+        summary_table.index = range(1, len(summary_table) + 1)
+        summary_table.insert(0, "번호", summary_table.index)
+        
+        # 1열과 2열(근무자)이 고정되는 커스텀 HTML 테이블 렌더링
+        html_table = f"""
+        <div class="table-container">
+            <table class="sticky-table">
+                <thead>
+                    <tr>
+                        {"".join([f"<th>{col}</th>" for col in summary_table.columns])}
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        for _, row in summary_table.iterrows():
+            html_table += "<tr>"
+            for val in row:
+                html_table += f"<td>{val}</td>"
+            html_table += "</tr>"
+        html_table += """
+                </tbody>
+            </table>
+        </div>
+        """
+        st.markdown(html_table, unsafe_allow_html=True)
     else:
         st.info("통계 데이터가 없습니다.")
 

@@ -97,7 +97,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (통계표 고정 스크롤 스타일 포함)
+# 시스템 CSS 적용 (통계표 고정 스크롤 및 에디터 스타일 포함)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -775,19 +775,59 @@ with tab1:
                         day_cnt += 1
 
 # ---------------------------------------------------------
-# [탭 2] 수정 뷰
+# [탭 2] 수정 뷰 (비어있는/불필요한 열 숨김 및 날짜 열 고정 설정 반영)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
-    target_df = df.copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m].copy()
+    
+    # 1. 비어있는/불필요한 열(Unnamed, 열_ 등)을 숨기고 유효한 핵심 컬럼만 추출
+    valid_cols = [c for c in df.columns if c and not str(c).startswith("열_") and not str(c).startswith("Unnamed")]
+    essential_cols = ["날짜", "근무자1", "근무자2", "대직1", "대직2", "실제근무1", "실제근무2"]
+    
+    display_cols = [c for c in essential_cols if c in df.columns]
+    for c in valid_cols:
+        if c not in display_cols and c != "년월":
+            display_cols.append(c)
 
-    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
+    target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
+
+    # 2. st.data_editor에서 '날짜' 컬럼 고정(pinned) 설정 적용
+    column_config = {
+        "날짜": st.column_config.DateColumn(
+            "날짜",
+            format="YYYY-MM-DD",
+            pinned=True,  # 👈 가로 스크롤 시 날짜 열 고정
+            disabled=False
+        )
+    }
+
+    edited_df = st.data_editor(
+        target_df, 
+        num_rows="dynamic", 
+        key="editor_main", 
+        use_container_width=True,
+        column_config=column_config
+    )
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
-        m_df = edited_df.copy() if sel_ed_m == "전체 기간" else st.session_state.df.copy()
-        if sel_ed_m != "전체 기간": m_df.update(edited_df)
+        m_df = st.session_state.df.copy()
+        
+        if sel_ed_m == "전체 기간":
+            # 전체 기간 편집 시 반영
+            for idx in edited_df.index:
+                if idx in m_df.index:
+                    for col in edited_df.columns:
+                        m_df.loc[idx, col] = edited_df.loc[idx, col]
+        else:
+            # 특정 월 편집 시 해당 월 데이터만 업데이트
+            sub_indices = m_df[m_df["년월"] == sel_ed_m].index
+            for i, idx in enumerate(sub_indices):
+                if i < len(edited_df):
+                    ed_idx = edited_df.index[i]
+                    for col in edited_df.columns:
+                        m_df.loc[idx, col] = edited_df.loc[ed_idx, col]
             
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
@@ -897,11 +937,9 @@ with tab3:
         })
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
         
-        # 요구사항 반영: 1열에 1부터 시작하는 순번(번호) 추가
         summary_table.index = range(1, len(summary_table) + 1)
         summary_table.insert(0, "번호", summary_table.index)
         
-        # 1열과 2열(근무자)이 고정되는 커스텀 HTML 테이블 렌더링
         html_table = f"""
         <div class="table-container">
             <table class="sticky-table">

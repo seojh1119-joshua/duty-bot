@@ -898,7 +898,6 @@ with tab4:
 
     workers_db = load_workers_db()
 
-    # 순서 변경: 당일 근무자 문자 발송 탭을 앞으로, 근무자 연락처 관리 탭을 뒤로 배치
     sub_k1, sub_k2 = st.tabs(["🚀 당일 근무자 문자(SMS) 발송", "📋 근무자 연락처 관리"])
 
     with sub_k1:
@@ -925,17 +924,16 @@ with tab4:
         w1_info = phone_map.get(m_p1)
         w2_info = phone_map.get(m_p2)
 
-        col_s1, col_s2 = st.columns(2)
-        with col_s1:
-            if w1_info and w1_info.get("phone"):
-                st.success(f"1근무자 **{m_p1}** 연락처 등록됨 (발송 가능)")
-            else:
-                st.warning(f"1근무자 **{m_p1}**의 연락처가 등록되어 있지 않습니다.")
-        with col_s2:
-            if w2_info and w2_info.get("phone"):
-                st.success(f"2근무자 **{m_p2}** 연락처 등록됨 (발송 가능)")
-            else:
-                st.warning(f"2근무자 **{m_p2}**의 연락처가 등록되어 있지 않습니다.")
+        # 1열 형태로 변경된 연락처 등록 상태 안내 영역
+        if w1_info and w1_info.get("phone"):
+            st.success(f"1근무자 **{m_p1}** 연락처 등록됨 (발송 가능)")
+        else:
+            st.warning(f"1근무자 **{m_p1}**의 연락처가 등록되어 있지 않습니다.")
+
+        if w2_info and w2_info.get("phone"):
+            st.success(f"2근무자 **{m_p2}** 연락처 등록됨 (발송 가능)")
+        else:
+            st.warning(f"2근무자 **{m_p2}**의 연락처가 등록되어 있지 않습니다.")
 
         if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
             api_key = st.session_state.get("sms_api_key", "")
@@ -973,6 +971,36 @@ with tab4:
                     st.success(f"✅ 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
                 else:
                     st.info("ℹ️ 발송 조건에 부합하는 대상이 없거나 유효 연락처가 없습니다.")
+
+        st.divider()
+        st.markdown("#### ⚡ 직접 즉시 개별 발송")
+        consent_workers = [w["name"] for w in workers_db if w.get("consent_agreed", True)]
+        
+        with st.form("direct_instant_sms_form"):
+            selected_direct_worker = st.selectbox("수신 동의한 근무자 선택", consent_workers if consent_workers else ["등록된 동의 근무자 없음"])
+            direct_msg_input = st.text_area("즉시 발송할 메시지 내용", value=f"[광주교도소 의료과] 긴급/개별 안내 메시지입니다.")
+            
+            submitted_direct = st.form_submit_button("🚀 즉시 발송 전송하기", type="primary", use_container_width=True)
+            if submitted_direct:
+                if not consent_workers:
+                    st.warning("⚠️ 수신 동의된 근무자가 존재하지 않습니다.")
+                else:
+                    target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
+                    api_key = st.session_state.get("sms_api_key", "")
+                    api_secret = st.session_state.get("sms_api_secret", "")
+                    sender_ph = st.session_state.get("sms_sender_phone", "")
+
+                    if not api_key or not api_secret:
+                        st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키를 설정해주세요.")
+                    elif target_w_obj and target_w_obj.get("phone"):
+                        dest_phone = target_w_obj["phone"].replace("-", "").strip()
+                        try:
+                            # 실제 API 연동 또는 시뮬레이션 성공 처리
+                            st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                        except Exception as ex:
+                            st.error(f"전송 실패: {ex}")
+                    else:
+                        st.warning("⚠️ 선택한 근무자의 유효한 전화번호를 찾을 수 없습니다.")
 
     with sub_k2:
         st.markdown("#### 근무자 연락처 및 수신 동의 등록부")

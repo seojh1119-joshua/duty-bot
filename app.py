@@ -5,6 +5,9 @@ import glob
 import io
 import json
 import os
+import hmac
+import hashlib
+import uuid
 import requests
 import pandas as pd
 import streamlit as st
@@ -244,6 +247,17 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
+# Solapi (CoolSMS) 인증 헤더 생성 유틸 함수
+# ---------------------------------------------------------
+def get_solapi_auth_headers(api_key, api_secret):
+    date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    salt = uuid.uuid4().hex
+    data = date + salt
+    signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
+    auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
+    return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
+
+# ---------------------------------------------------------
 # 파일 유틸 및 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
@@ -466,8 +480,8 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-        s_key = st.text_input("SMS API 키 (API Key)", value=st.session_state.sms_api_key, type="password", placeholder="CoolSMS 등 문자 서비스 API Key")
-        s_sec = st.text_input("SMS API 시크릿 (API Secret)", value=st.session_state.sms_api_secret, type="password", placeholder="문자 서비스 API Secret")
+        s_key = st.text_input("SMS API 키 (API Key)", value=st.session_state.sms_api_key, type="password", placeholder="Solapi/CoolSMS API Key")
+        s_sec = st.text_input("SMS API 시크릿 (API Secret)", value=st.session_state.sms_api_secret, type="password", placeholder="Solapi/CoolSMS API Secret")
         s_phone = st.text_input("발신자 대표 번호", value=st.session_state.sms_sender_phone, placeholder="0200000000 (등록된 발신번호)")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -893,7 +907,7 @@ with tab3:
 with tab4:
     st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
     st.markdown("""
-    > 💡 **안내**: 등록된 연락처 DB를 기반으로 근무자에게 SMS를 발송합니다.
+    > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
     """)
 
     workers_db = load_workers_db()
@@ -935,15 +949,17 @@ with tab4:
             st.warning(f"2근무자 **{m_p2}**의 연락처가 등록되어 있지 않습니다.")
 
         if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
-            api_key = st.session_state.get("sms_api_key", "")
-            api_secret = st.session_state.get("sms_api_secret", "")
-            sender_ph = st.session_state.get("sms_sender_phone", "")
+            api_key = st.session_state.get("sms_api_key", "").strip()
+            api_secret = st.session_state.get("sms_api_secret", "").strip()
+            sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
 
-            if not api_key or not api_secret:
-                st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키와 시크릿을 먼저 입력해주세요.")
+            if not api_key or not api_secret or not sender_ph:
+                st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
             else:
                 success_count = 0
                 targets_to_send = [w1_info, w2_info]
+                url = "https://api.solapi.com/messages/v4/send"
+                headers = get_solapi_auth_headers(api_key, api_secret)
                 
                 for t_info in targets_to_send:
                     if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
@@ -954,33 +970,28 @@ with tab4:
                             continue
                             
                         dest_phone = t_info["phone"].replace("-", "").strip()
+                        payload = {
+                            "message": {
+                                "to": dest_phone,
+                                "from": sender_ph,
+                                "text": custom_sms_msg
+                            }
+                        }
                         try:
-                            # 💡 [수정됨] 404 에러를 해결하기 위한 올바른 단건/다건 전송 API 호출부 구현 (예시: Solapi/CoolSMS 표준 v4 API 기준)
-                            url = "https://api.solapi.com/messages/v4/send"  # 또는 사용하는 서비스의 일반 발송 엔드포인트
-                            # 실제 인증 헤더 생성 (HMAC-SHA256 등 인증 방식이 필요할 수 있으며, 간편 인증 예시 사용)
-                            headers = {
-                                "Content-Type": "application/json"
-                            }
-                            # 참고: 실제 연동하시는 API 규격에 맞춰 인증 헤더 및 URL을 수정하세요.
-                            payload = {
-                                "message": {
-                                    "to": dest_phone,
-                                    "from": sender_ph,
-                                    "text": custom_sms_msg
-                                }
-                            }
-                            # 예시 통신 코드 추가 (실제 작동을 위해 requests 요청 구문 반영)
-                            # resp = requests.post(url, json=payload, auth=(api_key, api_secret))
-                            
-                            # 시뮬레이션 및 정상 카운트 처리
-                            success_count += 1
+                            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                            res_data = resp.json()
+                            if resp.status_code in [200, 201]:
+                                success_count += 1
+                                st.success(f"✅ [{t_info['name']}] 님에게 전송 성공!")
+                            else:
+                                st.error(f"❌ [{t_info['name']}] 전송 실패 (코드 {resp.status_code}): {res_data}")
                         except Exception as ex:
-                            st.error(f"전송 중 오류 발생 ({t_info['name']}): {ex}")
+                            st.error(f"전송 중 네트워크 오류 발생 ({t_info['name']}): {ex}")
 
                 if success_count > 0:
-                    st.success(f"✅ 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
+                    st.success(f"🎉 총 {success_count명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
                 else:
-                    st.info("ℹ️ 발송 조건에 부합하는 대상이 없거나 유효 연락처가 없습니다.")
+                    st.info("ℹ️ 발송 대상이 없거나 유효 연락처가 등록되지 않았습니다.")
 
         st.divider()
         st.markdown("#### ⚡ 직접 즉시 개별 발송")
@@ -996,17 +1007,30 @@ with tab4:
                     st.warning("⚠️ 수신 동의된 근무자가 존재하지 않습니다.")
                 else:
                     target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
-                    api_key = st.session_state.get("sms_api_key", "")
-                    api_secret = st.session_state.get("sms_api_secret", "")
-                    sender_ph = st.session_state.get("sms_sender_phone", "")
+                    api_key = st.session_state.get("sms_api_key", "").strip()
+                    api_secret = st.session_state.get("sms_api_secret", "").strip()
+                    sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
 
-                    if not api_key or not api_secret:
-                        st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키를 설정해주세요.")
+                    if not api_key or not api_secret or not sender_ph:
+                        st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키와 발신번호를 설정해주세요.")
                     elif target_w_obj and target_w_obj.get("phone"):
                         dest_phone = target_w_obj["phone"].replace("-", "").strip()
+                        url = "https://api.solapi.com/messages/v4/send"
+                        headers = get_solapi_auth_headers(api_key, api_secret)
+                        payload = {
+                            "message": {
+                                "to": dest_phone,
+                                "from": sender_ph,
+                                "text": direct_msg_input
+                            }
+                        }
                         try:
-                            # 💡 [수정됨] 단건 즉시 발송 API 통신부 추가
-                            st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                            res_data = resp.json()
+                            if resp.status_code in [200, 201]:
+                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                            else:
+                                st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {res_data}")
                         except Exception as ex:
                             st.error(f"전송 실패: {ex}")
                     else:

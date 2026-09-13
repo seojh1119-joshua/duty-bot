@@ -749,7 +749,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰 (요일별 구분 및 비율 스택바 반영)
+# [탭 3] 통계 뷰 (X축 이름 모두 표시 및 하단 범례 적용)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -761,7 +761,6 @@ with tab3:
     
     def get_category_and_hours(row):
         wd = pd.to_datetime(row["날짜"]).weekday()
-        # 0~3: 월~목 (평일), 4: 금요일, 5: 토요일, 6: 일요일
         if wd in [0, 1, 2, 3]:
             return "평일", 7
         elif wd == 4:
@@ -785,24 +784,38 @@ with tab3:
     if expanded_rows:
         exp_df = pd.DataFrame(expanded_rows)
         
-        # 근무자, 근무구분별 집계
         agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(
             근무횟수=("횟수", "sum"), 
             근무시간=("근무시간", "sum")
         ).reset_index()
         
         st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
+        
+        # X축 이름 모두 표시(labelAngle) 및 범례 하단 이동(orient="bottom") 설정 적용
         chart = alt.Chart(agg_df).mark_bar().encode(
-            x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
+            x=alt.X(
+                '근무자:N', 
+                sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), 
+                title='근무자',
+                axis=alt.Axis(labelAngle=-45, labelOverlap=False)
+            ),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N',
-                            scale=alt.Scale(
-                                domain=['평일', '금요일', '토요일', '일요일'],
-                                range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444'] # 평일:노랑, 금요일:녹색, 토요일:파랑, 일요일:빨강
-                            ),
-                            title='근무 구분'),
+            color=alt.Color(
+                '근무구분:N',
+                scale=alt.Scale(
+                    domain=['평일', '금요일', '토요일', '일요일'],
+                    range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444']
+                ),
+                title='근무 구분'
+            ),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
-        ).properties(height=340)
+        ).properties(
+            height=380
+        ).configure_legend(
+            orient="bottom", 
+            title=None
+        )
+        
         st.altair_chart(chart, use_container_width=True)
         
         st.markdown("### 📊 근무자별 상세 통계표 (구분별 횟수 및 시간)")

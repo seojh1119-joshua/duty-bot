@@ -756,11 +756,11 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 탭 (화면 직접 입력 및 사용자별 식별 기능 반영)
+# [탭 4] 카카오톡 탭 (근무자 정보 직접 입력 1열 세로형 배치)
 # ---------------------------------------------------------
 with tab4:
     st.subheader("💬 카카오톡 알림 및 근무자 연락처 관리")
-    st.markdown("화면에서 직접 근무자 명단, 휴대폰 번호, 수신 동의 여부를 입력하고 저장·관리할 수 있습니다.")
+    st.markdown("화면에서 직접 근무자 명단, 휴대폰 번호, 수신 동의 여부를 1열(세로형)로 입력하고 관리할 수 있습니다.")
 
     workers_db = load_workers_db()
 
@@ -768,7 +768,7 @@ with tab4:
 
     with sub_k1:
         st.markdown("#### 근무자 연락처 및 수신 동의 편집기")
-        st.markdown("원하시는 근무자 정보를 자유롭게 추가·수정하고 저장 버튼을 누르면 독립된 데이터베이스에 저장됩니다.")
+        st.markdown("아래 입력창에 근무자 이름, 휴대폰 번호, 수신 동의 여부를 세로(1열) 형식으로 입력하고 저장하세요.")
 
         if "edit_workers_list" not in st.session_state:
             if workers_db:
@@ -779,13 +779,10 @@ with tab4:
         with st.form("dynamic_workers_form"):
             updated_workers = []
             for i, w_item in enumerate(st.session_state.edit_workers_list):
-                col_n, col_p, col_c = st.columns([0.35, 0.45, 0.2])
-                with col_n:
-                    n_val = st.text_input(f"이름 {i+1}", value=w_item.get("name", ""), key=f"dyn_name_{i}")
-                with col_p:
-                    p_val = st.text_input(f"전화번호 {i+1}", value=w_item.get("phone", ""), placeholder="01012345678", key=f"dyn_phone_{i}")
-                with col_c:
-                    c_val = st.checkbox(f"동의 {i+1}", value=w_item.get("consent_agreed", True), key=f"dyn_consent_{i}")
+                st.markdown(f"**근무자 #{i+1}**")
+                n_val = st.text_input(f"성명 (근무자 #{i+1})", value=w_item.get("name", ""), placeholder="이름 입력", key=f"dyn_name_{i}")
+                p_val = st.text_input(f"휴대폰 번호 (근무자 #{i+1})", value=w_item.get("phone", ""), placeholder="01012345678", key=f"dyn_phone_{i}")
+                c_val = st.checkbox(f"알림 수신 동의 여부 (근무자 #{i+1})", value=w_item.get("consent_agreed", True), key=f"dyn_consent_{i}")
                 
                 updated_workers.append({"name": n_val, "phone": p_val, "consent_agreed": c_val})
                 st.divider()

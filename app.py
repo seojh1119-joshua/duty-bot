@@ -978,7 +978,8 @@ with tab4:
         
         with st.form("direct_instant_sms_form"):
             selected_direct_worker = st.selectbox("수신 동의한 근무자 선택", consent_workers if consent_workers else ["등록된 동의 근무자 없음"])
-            direct_msg_input = st.text_area("즉시 발송할 메시지 내용", value=f"[광주교도소 의료과] 긴급/개별 안내 메시지입니다.")
+            # 즉시 발송 메시지 기본값을 오늘 근무자 알림 메시지(default_sms_msg)로 지정하여 수정 가능하도록 반영
+            direct_msg_input = st.text_area("즉시 발송할 메시지 내용 (수정 가능)", value=default_sms_msg)
             
             submitted_direct = st.form_submit_button("🚀 즉시 발송 전송하기", type="primary", use_container_width=True)
             if submitted_direct:

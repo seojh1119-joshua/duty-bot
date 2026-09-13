@@ -102,24 +102,25 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용
+# 카카오뱅크 스타일 디자인 시스템 CSS 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#121212" if is_dark else "#F8F9FA"
-main_text_color = "#E0E0E0" if is_dark else "#1A1A1A"
-border_color = "#333333" if is_dark else "#E2E8F0"
-btn_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-btn_text = "#E0E0E0" if is_dark else "#2D3748"
-btn_hover_bg = "#2C2C2C" if is_dark else "#EDF2F7"
-btn_hover_border = "#3B82F6" if is_dark else "#CBD5E0"
-sidebar_bg = "#181818" if is_dark else "#FFFFFF"
-dialog_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-input_bg = "#272727" if is_dark else "#FFFFFF"
+# 카카오뱅크 디자인 토큰 반영 (Yellow #FFE300 중심)
+theme_bg = "#171717" if is_dark else "#F5F5F5"
+main_text_color = "#F5F5F5" if is_dark else "#1E1E1E"
+border_color = "#343434" if is_dark else "#ECECEC"
+btn_bg = "#242424" if is_dark else "#FFFFFF"
+btn_text = "#F5F5F5" if is_dark else "#1E1E1E"
+btn_hover_bg = "#343434" if is_dark else "#FAFAFA"
+btn_hover_border = "#FFE300" if is_dark else "#FFE300"
+sidebar_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+dialog_bg = "#242424" if is_dark else "#FFFFFF"
+input_bg = "#242424" if is_dark else "#FFFFFF"
 input_text = "#F5F5F5" if is_dark else "#1E1E1E"
-box_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-primary_blue = "#3B82F6"
-table_header_bg = "#2C2C2C" if is_dark else "#EDF2F7"
+box_bg = "#242424" if is_dark else "#FFFFFF"
+primary_yellow = "#FFE300"
+table_header_bg = "#2C2C2C" if is_dark else "#ECECEC"
 
 responsive_css = f"""
 <style>
@@ -139,7 +140,7 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.6rem 10px 1.2rem 10px !important;
+        padding: 0.8rem 12px 1.5rem 12px !important;
         max-width: 520px !important;
         margin: 0 auto !important;
         box-sizing: border-box !important;
@@ -147,38 +148,39 @@ responsive_css = f"""
 
     h1 {{
         font-size: 22px !important;
-        margin: 10px 0px 14px 0px !important;
+        margin: 12px 0px 16px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
         text-align: center;
+        letter-spacing: -0.03em;
     }}
 
     .setting-box {{
         background-color: {box_bg} !important;
         border: 1px solid {border_color} !important;
-        border-radius: 16px !important;
-        padding: 14px 16px !important;
+        border-radius: 18px !important;
+        padding: 16px 18px !important;
         margin: 10px 0px 14px 0px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     }}
 
     .today-card {{
-        background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
-        color: #FFFFFF !important;
-        padding: 16px 18px !important;
-        border-radius: 16px !important;
+        background: {primary_yellow} !important;
+        color: #1E1E1E !important;
+        padding: 18px 20px !important;
+        border-radius: 18px !important;
         margin-bottom: 16px !important;
         width: 100% !important;
         box-sizing: border-box !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        box-shadow: 0 8px 24px rgba(255, 227, 0, 0.25);
     }}
-    .today-card .today-title {{ font-size: 12px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
-    .today-card .today-content {{ font-size: 16px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
-    .today-card span {{ color: #FEF08A !important; font-size: 17px !important; font-weight: 900 !important; text-decoration: underline; }}
+    .today-card .today-title {{ font-size: 12px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #5C5200 !important; text-transform: uppercase; letter-spacing: -0.02em; }}
+    .today-card .today-content {{ font-size: 16px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #1E1E1E !important; }}
+    .today-card span {{ color: #1E1E1E !important; font-size: 17px !important; font-weight: 900 !important; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }}
 
     .month-header-card {{
-        background: {box_bg}; border: 1px solid {border_color}; border-radius: 14px; padding: 12px 16px; margin: 12px 0 14px 0; text-align: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        background: {box_bg}; border: 1px solid {border_color}; border-radius: 16px; padding: 14px 18px; margin: 12px 0 14px 0; text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 17px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
@@ -188,46 +190,46 @@ responsive_css = f"""
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .stButton > button {{
-        width: 100% !important; min-height: 40px !important;
-        padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-        transition: all 0.2s ease;
+        width: 100% !important; min-height: 44px !important;
+        padding: 10px 14px !important; border: 1px solid {border_color} !important; border-radius: 14px !important;
+        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 14px !important; font-weight: 800 !important; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        transition: all 0.15s ease;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 3px !important; margin: 0 !important; padding: 0 !important;
+        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 4px !important; margin: 0 !important; padding: 0 !important;
     }}
     [data-testid="column"] {{
         width: 14.285% !important; max-width: 14.285% !important; min-width: 14.285% !important; flex: 0 0 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
     }}
     div[data-testid="column"] .stButton > button {{
-        min-height: 72px !important; max-height: 96px !important; padding: 4px 2px !important; font-size: 10px !important; border-radius: 10px !important;
+        min-height: 76px !important; max-height: 98px !important; padding: 6px 2px !important; font-size: 11px !important; border-radius: 12px !important;
         display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important; line-height: 1.25 !important;
-        width: 100% !important; box-sizing: border-box !important; background-color: {box_bg} !important; border: 1px solid {border_color} !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        width: 100% !important; box-sizing: border-box !important; background-color: {box_bg} !important; border: 1px solid {border_color} !important; box-shadow: 0 1px 4px rgba(0,0,0,0.03);
     }}
     div[data-testid="column"] .stButton > button:hover {{
-        border-color: {primary_blue} !important; box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+        border-color: {primary_yellow} !important; box-shadow: 0 4px 12px rgba(255,227,0,0.2);
     }}
 
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 380px !important;
-        border-radius: 20px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        border-radius: 20px !important; padding: 18px 16px !important; border: 1px solid {border_color} !important; margin: auto !important;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.2);
     }}
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
-        background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
+        background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
     }}
     [data-baseweb="tab-list"] {{
-        width: 100% !important; display: flex !important; gap: 4px !important; background-color: {box_bg}; padding: 4px !important; border-radius: 14px; border: 1px solid {border_color};
+        width: 100% !important; display: flex !important; gap: 6px !important; background-color: {box_bg}; padding: 6px !important; border-radius: 16px; border: 1px solid {border_color};
     }}
     [data-baseweb="tab"] {{
-        flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
+        flex: 1 1 auto !important; padding: 9px 8px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 12px !important; justify-content: center !important;
     }}
 
     .table-container {{
-        width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
+        width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 14px; background-color: {box_bg}; margin-top: 10px;
     }}
     .sticky-table {{
         width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap;
@@ -690,7 +692,7 @@ with tab1:
                     st.rerun()
         else:
             cols_h = st.columns(7)
-            h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
+            h_names = [("일", "#FF3838"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#2563EB")]
             for idx, (h_n, col_c) in enumerate(h_names):
                 cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
@@ -830,7 +832,7 @@ with tab3:
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자', axis=alt.Axis(labelAngle=-45, labelOverlap=False)),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N', scale=alt.Scale(domain=['평일', '금요일', '토요일', '일요일'], range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444']), title='근무 구분'),
+            color=alt.Color('근무구분:N', scale=alt.Scale(domain=['평일', '금요일', '토요일', '일요일'], range=['#FFE300', '#22C55E', '#3B82F6', '#FF3838']), title='근무 구분'),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
         ).properties(height=380).configure_legend(orient="bottom", title=None)
         
@@ -879,7 +881,7 @@ with tab3:
 
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center;">
+            <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 16px; padding: 16px; margin-top: 14px; text-align: center;">
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">👥 총 근무자 명수</div>
                     <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>

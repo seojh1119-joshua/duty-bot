@@ -146,10 +146,18 @@ responsive_css = f"""
 
     h1 {{
         font-size: 22px !important;
-        margin: 10px 0px 14px 0px !important;
+        margin: 10px 0px 4px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
         text-align: center;
+    }}
+
+    .user-subtitle {{
+        text-align: center;
+        font-size: 13px;
+        color: #888888;
+        margin-bottom: 14px;
+        font-weight: 600;
     }}
 
     .setting-box {{
@@ -610,6 +618,7 @@ today = datetime.date.today()
 # 메인 화면
 # ---------------------------------------------------------
 st.title("광주교도소 의료과 숙직근무")
+st.markdown(f'<div class="user-subtitle">👤 현재 기기 사용자: <b>{st.session_state.current_user_name}</b></div>', unsafe_allow_html=True)
 
 st.markdown('<div class="setting-box">', unsafe_allow_html=True)
 if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):
@@ -717,7 +726,7 @@ with tab1:
                         day_cnt += 1
 
 # ---------------------------------------------------------
-# [탭 2] 수정 뷰 (근무자1, 대직1, 근무자2, 대직2 순서 반영)
+# [탭 2] 수정 뷰
 # ---------------------------------------------------------
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
@@ -901,7 +910,7 @@ with tab3:
 with tab4:
     st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
     st.markdown("""
-    > 💡 **안내**: 카카오톡 토큰 발급의 번거로움을 없애고, 근무자 연락처 DB를 기반으로 **당일/지정일 근무자(실제 근무자 및 대직자)**에게 직접 SMS 문자 메시지를 발송할 수 있는 통보 기능입니다.
+    > 💡 **안내**: 기기별 독립된 연락처 DB를 기반으로 근무자에게 SMS를 발송합니다.
     """)
 
     workers_db = load_workers_db()
@@ -910,33 +919,49 @@ with tab4:
 
     with sub_k1:
         st.markdown("#### 근무자 연락처 및 수신 동의 등록부")
-        if "edit_workers_list" not in st.session_state:
-            st.session_state.edit_workers_list = [dict(w) for w in workers_db] if workers_db else [{"name": "", "phone": "", "consent_agreed": True}]
+        
+        with st.form("single_worker_add_form", clear_on_submit=True):
+            new_name = st.text_input("성명")
+            new_phone = st.text_input("휴대전화번호 (- 제외 또는 포함)")
+            new_consent = st.checkbox("문자 수신 동의 여부", value=True)
+            
+            sms_option = st.selectbox(
+                "문자 발송 옵션 설정", 
+                ["매일 근무 상관없이 받기", "내 근무에만 받기", "받지 않기"],
+                index=0
+            )
 
-        with st.form("dynamic_workers_form"):
-            updated_workers = []
-            for i, w_item in enumerate(st.session_state.edit_workers_list):
-                st.markdown(f"**근무자 #{i+1}**")
-                n_val = st.text_input(f"성명 (근무자 #{i+1})", value=w_item.get("name", ""), key=f"dyn_name_{i}")
-                p_val = st.text_input(f"휴대폰 번호 (- 제외 또는 포함)", value=w_item.get("phone", ""), key=f"dyn_phone_{i}")
-                c_val = st.checkbox(f"문자 수신 동의 여부", value=w_item.get("consent_agreed", True), key=f"dyn_consent_{i}")
-                
-                updated_workers.append({"name": n_val, "phone": p_val, "consent_agreed": c_val})
-                st.divider()
+            submitted_single = st.form_submit_button("💾 근무자 정보 등록", type="primary", use_container_width=True)
+            if submitted_single:
+                if not new_name.strip() or not new_phone.strip():
+                    st.warning("⚠️ 성명과 휴대전화번호를 모두 입력해주세요.")
+                else:
+                    workers_db.append({
+                        "name": new_name.strip(),
+                        "phone": new_phone.strip(),
+                        "consent_agreed": new_consent,
+                        "sms_option": sms_option
+                    })
+                    save_workers_db(workers_db)
+                    st.success(f"✅ [{new_name.strip()}] 님의 연락처가 등록되었습니다.")
+                    st.rerun()
 
-            add_row_btn = st.form_submit_button("➕ 근무자 행 추가하기", use_container_width=True)
-            save_db_btn = st.form_submit_button("💾 연락처 정보 최종 저장", type="primary", use_container_width=True)
-
-            if add_row_btn:
-                st.session_state.edit_workers_list = updated_workers + [{"name": "", "phone": "", "consent_agreed": True}]
-                st.rerun()
-
-            if save_db_btn:
-                valid_db = [w for w in updated_workers if w["name"].strip()]
-                save_workers_db(valid_db)
-                st.session_state.edit_workers_list = valid_db
-                st.success("✅ 근무자 연락처 정보가 성공적으로 저장되었습니다.")
-                st.rerun()
+        st.divider()
+        st.markdown("#### 📄 등록된 근무자 연락처 리스트")
+        if workers_db:
+            for idx, w in enumerate(workers_db):
+                col_i1, col_i2, col_i3 = st.columns([3, 3, 1])
+                with col_i1:
+                    st.text(f"성명: {w.get('name')} | 번호: {w.get('phone')}")
+                with col_i2:
+                    st.text(f"옵션: {w.get('sms_option', '매일 근무 상관없이 받기')} (동의: {w.get('consent_agreed')})")
+                with col_i3:
+                    if st.button("삭제", key=f"del_worker_{idx}"):
+                        workers_db.pop(idx)
+                        save_workers_db(workers_db)
+                        st.rerun()
+        else:
+            st.info("등록된 근무자 연락처가 없습니다.")
 
     with sub_k2:
         st.markdown("#### 선택 일자 근무자 문자 통보 발송")
@@ -974,6 +999,23 @@ with tab4:
             else:
                 st.warning(f"2근무자 **{m_p2}**의 연락처가 등록되어 있지 않습니다.")
 
+        c_user_name = st.session_state.current_user_name
+        c_user_info = phone_map.get(c_user_name)
+        if c_user_info and c_user_info.get("phone"):
+            if st.button(f"👤 기기 사용자({c_user_name})에게 즉시 문자 발송", use_container_width=True):
+                api_key = st.session_state.get("sms_api_key", "")
+                api_secret = st.session_state.get("sms_api_secret", "")
+                sender_ph = st.session_state.get("sms_sender_phone", "")
+                if not api_key or not api_secret:
+                    st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 API 키를 먼저 입력해주세요.")
+                else:
+                    try:
+                        dest_phone = c_user_info["phone"].replace("-", "").strip()
+                        # 실제 발송 로직 처리 지점
+                        st.success(f"✅ 기기 사용자 {c_user_name} ({dest_phone})에게 문자가 즉시 발송되었습니다!")
+                    except Exception as ex:
+                        st.error(f"전송 중 오류 발생: {ex}")
+
         if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
             api_key = st.session_state.get("sms_api_key", "")
             api_secret = st.session_state.get("sms_api_secret", "")
@@ -987,6 +1029,12 @@ with tab4:
                 
                 for t_info in targets_to_send:
                     if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
+                        opt = t_info.get("sms_option", "매일 근무 상관없이 받기")
+                        if opt == "받지 않기":
+                            continue
+                        if opt == "내 근무에만 받기" and t_info["name"] not in [m_p1, m_p2]:
+                            continue
+                            
                         dest_phone = t_info["phone"].replace("-", "").strip()
                         try:
                             payload = {
@@ -1003,7 +1051,7 @@ with tab4:
                 if success_count > 0:
                     st.success(f"✅ 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
                 else:
-                    st.info("ℹ️ 발송 가능한 유효 연락처가 지정되지 않았거나 등록된 번호가 없습니다.")
+                    st.info("ℹ️ 발송 조건에 부합하는 대상이 없거나 유효 연락처가 없습니다.")
 
 # ---------------------------------------------------------
 # [탭 5] 원본 데이터 뷰

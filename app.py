@@ -749,7 +749,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰 (범례 하단 배치 및 X축 레이블 전체 표시 적용)
+# [탭 3] 통계 뷰 (버전 호환성 수정된 Alt 차트 반영)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -791,10 +791,10 @@ with tab3:
         
         st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
         
-        # 범례를 아래로 내리고, X축 이름이 겹치거나 잘리지 않도록 axis 설정 추가
+        # alt.SortField를 사용하여 최신 Altair 라이브러리 호환성 오류 해결
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', 
-                    sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), 
+                    sort=alt.SortField(field='근무시간', op='sum', order='descending'), 
                     title='근무자',
                     axis=alt.Axis(labelAngle=0, labelOverlap=False)),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),

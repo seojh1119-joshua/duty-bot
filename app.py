@@ -438,7 +438,7 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-        k_token = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="REST API 키가 아닌 사용자 액세스 토큰을 입력하세요")
+        k_token = st.text_input("카카오 사용자 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="REST API 키가 아닌 '사용자 액세스 토큰'을 입력하세요")
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("토큰 저장", use_container_width=True, type="primary"):

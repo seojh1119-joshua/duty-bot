@@ -236,7 +236,7 @@ responsive_css = f"""
         background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 80px; min-width: 80px;
+        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 90px; min-width: 90px;
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
@@ -1006,11 +1006,9 @@ with tab4:
         st.divider()
         st.markdown("#### 📄 등록된 근무자 연락처 리스트")
         if workers_db:
-            # 전화번호 마스킹 처리 함수 (예: 010-1234-5678 -> 010-****-5678 또는 뒷자리 일부 가리기)
             def mask_phone(phone_str):
                 p_clean = phone_str.replace("-", "").strip()
                 if len(p_clean) >= 10:
-                    # 중간 4자리를 마스킹
                     return f"{p_clean[:3]}-****-{p_clean[7:]}"
                 return "***-****-***"
 
@@ -1023,12 +1021,11 @@ with tab4:
                             <th>전화번호</th>
                             <th>수신동의</th>
                             <th>발송옵션</th>
-                            <th>관리</th>
                         </tr>
                     </thead>
                     <tbody>
             """
-            for idx, w in enumerate(workers_db):
+            for w in workers_db:
                 masked_num = mask_phone(w.get('phone', ''))
                 consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
                 opt_txt = w.get('sms_option', '매일 근무 상관없이 받기')
@@ -1039,20 +1036,17 @@ with tab4:
                         <td>{masked_num}</td>
                         <td>{consent_txt}</td>
                         <td>{opt_txt}</td>
-                        <td>
-                    """
-                html_workers += "</td></tr>"
+                    </tr>
+                """
             html_workers += "</tbody></table></div>"
             st.markdown(html_workers, unsafe_allow_html=True)
 
-            # 삭제 버튼 개별 처리용 폼
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             with st.form("delete_worker_form"):
                 del_target = st.selectbox("삭제할 근무자 선택", [w['name'] for w in workers_db])
                 if st.form_submit_button("선택한 근무자 삭제", use_container_width=True):
-                    global workers_db
-                    workers_db = [w for w in workers_db if w['name'] != del_target]
-                    save_workers_db(workers_db)
+                    updated_db = [w for w in workers_db if w['name'] != del_target]
+                    save_workers_db(updated_db)
                     st.success(f"✅ [{del_target}] 님의 정보가 삭제되었습니다.")
                     st.rerun()
         else:

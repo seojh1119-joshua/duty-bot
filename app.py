@@ -5,6 +5,9 @@ import glob
 import io
 import json
 import os
+import hmac
+import hashlib
+import base64
 import requests
 import pandas as pd
 import streamlit as st
@@ -955,6 +958,19 @@ with tab4:
                             
                         dest_phone = t_info["phone"].replace("-", "").strip()
                         try:
+                            # 실제 CoolSMS / REST API 통신 구현부
+                            date_str_iso = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                            salt = os.urandom(16).hex()
+                            signature = hmac.new(
+                                api_secret.encode('utf-8'),
+                                (date_str_iso + salt).encode('utf-8'),
+                                hashlib.sha256
+                            ).hexdigest()
+                            
+                            headers = {
+                                'Authorization': f'HMAC-SHA256 apiKey={api_key}, date={date_str_iso}, salt={salt}, signature={signature}',
+                                'Content-Type': 'application/json; charset=utf-8'
+                            }
                             payload = {
                                 "messages": [{
                                     "to": dest_phone,
@@ -962,9 +978,16 @@ with tab4:
                                     "text": custom_sms_msg
                                 }]
                             }
-                            success_count += 1
+                            
+                            # 실제 API 서버 전송 요청 (예시 엔드포인트: CoolSMS 표준 기준, 서비스에 맞게 조정 가능)
+                            response = requests.post("https://api.coolsms.co.kr/messages/v4/send-many", json=payload, headers=headers, timeout=10)
+                            
+                            if response.status_code in [200, 201]:
+                                success_count += 1
+                            else:
+                                st.error(f"전송 실패 ({t_info['name']}): 응답 코드 {response.status_code} - {response.text}")
                         except Exception as ex:
-                            st.error(f"전송 중 오류 발생 ({t_info['name']}): {ex}")
+                            st.error(f"통신 중 오류 발생 ({t_info['name']}): {ex}")
 
                 if success_count > 0:
                     st.success(f"✅ 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
@@ -994,7 +1017,32 @@ with tab4:
                     elif target_w_obj and target_w_obj.get("phone"):
                         dest_phone = target_w_obj["phone"].replace("-", "").strip()
                         try:
-                            st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                            date_str_iso = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+                            salt = os.urandom(16).hex()
+                            signature = hmac.new(
+                                api_secret.encode('utf-8'),
+                                (date_str_iso + salt).encode('utf-8'),
+                                hashlib.sha256
+                            ).hexdigest()
+                            
+                            headers = {
+                                'Authorization': f'HMAC-SHA256 apiKey={api_key}, date={date_str_iso}, salt={salt}, signature={signature}',
+                                'Content-Type': 'application/json; charset=utf-8'
+                            }
+                            payload = {
+                                "messages": [{
+                                    "to": dest_phone,
+                                    "from": sender_ph,
+                                    "text": direct_msg_input
+                                }]
+                            }
+                            
+                            response = requests.post("https://api.coolsms.co.kr/messages/v4/send-many", json=payload, headers=headers, timeout=10)
+                            
+                            if response.status_code in [200, 201]:
+                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                            else:
+                                st.error(f"전송 실패: 응답 코드 {response.status_code} - {response.text}")
                         except Exception as ex:
                             st.error(f"전송 실패: {ex}")
                     else:
@@ -1038,7 +1086,6 @@ with tab4:
                     return f"{p_clean[:3]}-****-{p_clean[7:]}"
                 return "***-****-***"
 
-            # 원시 HTML 대신 오류 없는 네이티브 DataFrame 출력 방식으로 변경
             worker_display_data = []
             for w in workers_db:
                 masked_num = mask_phone(w.get('phone', ''))

@@ -733,9 +733,8 @@ with tab3:
 
     expanded_rows = []
     for _, r in f_df.iterrows():
-        # 엑셀 파일의 근무구분 값 우선 적용, 없으면 기본값 부여
         cat = str(r[cat_col]).strip() if cat_col and pd.notnull(r[cat_col]) and str(r[cat_col]).strip() not in ["", "nan", "None"] else "일반근무"
-        hours = 7 if "평일" in cat or "주간" in cat else 15 # 기본 시간 설정 예외 처리
+        hours = 7 if "평일" in cat or "주간" in cat else 15
         
         w1 = str(r.get("실제근무1", "")).strip()
         w2 = str(r.get("실제근무2", "")).strip()
@@ -748,19 +747,20 @@ with tab3:
         exp_df = pd.DataFrame(expanded_rows)
         agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(근무횟수=("횟수", "sum"), 근무시간=("근무시간", "sum")).reset_index()
         
+        # 통계 그래프 범례 색상 기본(오리지널) 색상표 적용
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N'),
+            color=alt.Color('근무구분:N', legend=alt.Legend(title=None)),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
-        ).properties(height=380).configure_legend(orient="bottom", title=None)
+        ).properties(height=380).configure_legend(orient="bottom")
         st.altair_chart(chart, use_container_width=True)
 
         pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
         pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
         
         categories = sorted(exp_df["근무구분"].unique())
-        summary_dict = {"번호": [], "근무자": []}
+        summary_dict = {}
         
         for cat in categories:
             if cat not in pivot_count.columns: pivot_count[cat] = 0
@@ -773,13 +773,10 @@ with tab3:
         workers_list = pivot_count.index.tolist()
         summary_table = pd.DataFrame(summary_dict, index=workers_list)
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
-        summary_table["번호"] = range(1, len(summary_table) + 1)
+        
+        # 번호 및 근무자 열 삽입 및 정렬 안전화
+        summary_table.insert(0, "번호", range(1, len(summary_table) + 1))
         summary_table.insert(1, "근무자", summary_table.index)
-        summary_table = summary_table.drop(columns=["근무자"] if "근무자" in summary_table.columns and summary_table.columns.get_loc("근무자") == 0 else []) # 정리
-
-        # 순서 재배치 (번호, 근무자, 나머지...)
-        cols_order = ["번호", "근무자"] + [c for c in summary_table.columns if c not in ["번호", "근무자"]]
-        summary_table = summary_table[cols_order]
 
         html_table = f"""<div class="table-container"><table class="sticky-table"><thead><tr>{"".join([f"<th>{col}</th>" for col in summary_table.columns])}</tr></thead><tbody>"""
         for _, row in summary_table.iterrows():

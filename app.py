@@ -240,7 +240,6 @@ responsive_css = f"""
     .sticky-table th {{
         background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
-    /* 통계표용 고정 컬럼 설정 (번호, 근무자) */
     .stat-table th:nth-child(1), .stat-table td:nth-child(1) {{
         position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 60px; min-width: 60px;
     }}
@@ -251,7 +250,6 @@ responsive_css = f"""
     }}
     .stat-table th:nth-child(2) {{ z-index: 4; background-color: {table_header_bg}; }}
 
-    /* 연락처 리스트용 고정 컬럼 설정 (성명) */
     .contact-table th:nth-child(1), .contact-table td:nth-child(1) {{
         position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 100px; min-width: 100px;
     }}
@@ -996,7 +994,7 @@ with tab4:
                 
                 for t_info in targets_to_send:
                     if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
-                        opt = t_info.get("sms_option", "매일 근무 상관없이 받기")
+                        opt = t_info.get("sms_option", "자동발송 (매일 근무 상관없이 받기)")
                         if "받지 않기" in opt:
                             continue
                         if "내 근무에만 받기" in opt and t_info["name"] not in [m_p1, m_p2]:
@@ -1079,7 +1077,7 @@ with tab4:
             
             sms_option = st.selectbox(
                 "문자 발송 옵션 설정", 
-                ["매일 근무 상관없이 받기", "내 근무에만 받기", "받지 않기"],
+                ["자동발송 (매일 근무 상관없이 받기)", "내 근무에만 받기", "받지 않기"],
                 index=0
             )
             
@@ -1119,7 +1117,7 @@ with tab4:
                     <tr>
                         <td><b>{w_name}</b></td>
                         <td>{mask_phone(w.get('phone', ''))}</td>
-                        <td>{w.get('sms_option', '매일')}</td>
+                        <td>{w.get('sms_option', '자동발송 (매일 근무 상관없이 받기)')}</td>
                         <td>{w.get('sms_send_time', '08:00')}</td>
                         <td>{consent_txt}</td>
                         <td><a href="?del_worker={encoded_w_name}" target="_self" style="text-decoration:none; padding:2px 6px; background-color:#FF3838; color:white; border-radius:4px; font-size:11px; font-weight:bold;">삭제</a></td>

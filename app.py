@@ -96,7 +96,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마 및 UI / 표 열 고정 최적화)
+# 동적 CSS (테마 및 UI / 표 열 고정 및 간격 밀착 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -202,16 +202,18 @@ responsive_css = f"""
         top: 0;
         z-index: 3;
     }}
-    /* 번호 및 근무자 열 고정 (Sticky Left) */
+    /* 번호 및 근무자 열 고정 및 공백 밀착 설정 */
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
         position: sticky;
         left: 0;
         z-index: 4;
         background-color: {table_sticky_bg};
+        width: 45px;
+        min-width: 45px;
     }}
     .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
         position: sticky;
-        left: 55px;
+        left: 45px;
         z-index: 4;
         background-color: {table_sticky_bg};
         border-right: 2px solid {border_color};
@@ -719,7 +721,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰 (엑셀 '근무구분' 기반 카운트 & 번호/근무자 고정)
+# [탭 3] 통계 뷰 (범례 색상 적용 및 번호/근무자 밀착)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -733,7 +735,7 @@ with tab3:
 
     expanded_rows = []
     for _, r in f_df.iterrows():
-        cat = str(r[cat_col]).strip() if cat_col and pd.notnull(r[cat_col]) and str(r[cat_col]).strip() not in ["", "nan", "None"] else "일반근무"
+        cat = str(r[cat_col]).strip() if cat_col and pd.notnull(r[cat_col]) and str(r[cat_col]).strip() not in ["", "nan", "None"] else "평일"
         hours = 7 if "평일" in cat or "주간" in cat else 15
         
         w1 = str(r.get("실제근무1", "")).strip()
@@ -747,11 +749,18 @@ with tab3:
         exp_df = pd.DataFrame(expanded_rows)
         agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(근무횟수=("횟수", "sum"), 근무시간=("근무시간", "sum")).reset_index()
         
-        # 통계 그래프 범례 색상 기본(오리지널) 색상표 적용
+        # 통계 그래프 범례 색상 적용: 평일(노랑), 금요일(초록), 토요일(파랑), 일요일(빨강)
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N', legend=alt.Legend(title=None)),
+            color=alt.Color(
+                '근무구분:N', 
+                scale=alt.Scale(
+                    domain=['평일', '금요일', '토요일', '일요일', '주간', '야간', '일반근무'], 
+                    range=['#FACC15', '#10B981', '#3B82F6', '#EF4444', '#FACC15', '#3B82F6', '#FACC15']
+                ),
+                legend=alt.Legend(title=None)
+            ),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
         ).properties(height=380).configure_legend(orient="bottom")
         st.altair_chart(chart, use_container_width=True)
@@ -774,7 +783,7 @@ with tab3:
         summary_table = pd.DataFrame(summary_dict, index=workers_list)
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
         
-        # 번호 및 근무자 열 삽입 및 정렬 안전화
+        # 번호 및 근무자 열 삽입 (공백 없이 밀착되도록 CSS 처리됨)
         summary_table.insert(0, "번호", range(1, len(summary_table) + 1))
         summary_table.insert(1, "근무자", summary_table.index)
 

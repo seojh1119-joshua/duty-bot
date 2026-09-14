@@ -102,149 +102,283 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용
+# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#121212" if is_dark else "#F8F9FA"
-main_text_color = "#E0E0E0" if is_dark else "#1A1A1A"
-border_color = "#333333" if is_dark else "#E2E8F0"
-btn_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-btn_text = "#E0E0E0" if is_dark else "#2D3748"
-btn_hover_bg = "#2C2C2C" if is_dark else "#EDF2F7"
-btn_hover_border = "#3B82F6" if is_dark else "#CBD5E0"
-sidebar_bg = "#181818" if is_dark else "#FFFFFF"
-dialog_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-input_bg = "#272727" if is_dark else "#FFFFFF"
-input_text = "#F5F5F5" if is_dark else "#1E1E1E"
-box_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-primary_blue = "#3B82F6"
-table_header_bg = "#2C2C2C" if is_dark else "#EDF2F7"
+theme_bg = "#0F172A" if is_dark else "#FFFFFF"
+main_text_color = "#F8FAFC" if is_dark else "#0F172A"
+card_bg = "#1E293B" if is_dark else "#F8FAFC"
+border_color = "#334155" if is_dark else "#CBD5E1"
+btn_bg = "#1E293B" if is_dark else "#FFFFFF"
+btn_text = "#F8FAFC" if is_dark else "#0F172A"
+btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
+btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
+sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
+
+dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
+input_bg = "#0F172A" if is_dark else "#FFFFFF"
+input_text = "#F8FAFC" if is_dark else "#0F172A"
+
+# 테마별 오늘 날짜 하이라이트 스타일 정의
+today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
+today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
+today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-
-    [data-testid="stSidebarNav"] {{ z-index: 100000 !important; }}
-    [data-testid="collapsedControl"] {{ z-index: 99999 !important; top: 5px !important; }}
-    
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
+    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        font-family: Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
+        width: 100vw !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
     }}
 
+    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.6rem 10px 1.2rem 10px !important;
-        max-width: 520px !important;
-        margin: 0 auto !important;
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+        padding-top: 0.1rem !important;
+        padding-bottom: 0.2rem !important;
+        max-width: 100vw !important;
+        width: 100% !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: 22px !important;
-        margin: 10px 0px 14px 0px !important;
-        font-weight: 800 !important;
-        color: {main_text_color} !important;
-        text-align: center;
+        font-size: clamp(16px, 4vw, 24px) !important;
+        margin-top: 0px !important;
+        padding-top: 0px !important;
     }}
 
-    .setting-box {{
-        background-color: {box_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 16px !important;
-        padding: 14px 16px !important;
-        margin: 10px 0px 14px 0px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    [data-testid="stSidebar"] {{
+        background-color: {sidebar_bg} !important;
+        color: {main_text_color} !important;
+    }}
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{
+        color: {main_text_color} !important;
+    }}
+
+    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{
+        color: {main_text_color} !important;
+    }}
+
+    .month-header-card {{
+        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
+        border: 1px solid {border_color};
+        border-radius: 6px;
+        padding: 3px 8px;
+        margin-top: 1px;
+        margin-bottom: 4px;
+        text-align: center;
+    }}
+    .month-header-card h2 {{
+        margin: 0 !important;
+        font-size: clamp(14px, 3.2vw, 18px) !important;
+        font-weight: 800 !important;
+        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
     }}
 
     .today-card {{
-        background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
-        color: #FFFFFF !important;
-        padding: 16px 18px !important;
-        border-radius: 16px !important;
-        margin-bottom: 16px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
+        color: {"white" if is_dark else "#0F172A"};
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid {border_color};
+        margin-bottom: 4px;
+        width: 100%;
+        box-sizing: border-box;
     }}
-    .today-card .today-title {{ font-size: 12px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
-    .today-card .today-content {{ font-size: 16px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
-    .today-card span {{ color: #FEF08A !important; font-size: 17px !important; font-weight: 900 !important; text-decoration: underline; }}
-
-    .month-header-card {{
-        background: {box_bg}; border: 1px solid {border_color}; border-radius: 14px; padding: 12px 16px; margin: 12px 0 14px 0; text-align: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    
+    .today-card span {{
+        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
+        font-weight: bold;
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: 17px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
-        background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
-    }}
-    p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
-
+    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
     .stButton > button {{
-        width: 100% !important; min-height: 40px !important;
-        padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-        transition: all 0.2s ease;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 38px !important;
+        padding: 2px 1px !important;
+        border: 1px solid {border_color} !important;
+        border-radius: 4px !important;
+        background-color: {btn_bg} !important;
+        color: {btn_text} !important;
+        box-sizing: border-box !important;
+        text-align: center !important;
+        font-size: clamp(6.5px, 1.8vw, 10px) !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+        overflow-wrap: anywhere !important;
+        line-height: 1.1 !important;
     }}
-    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
+    .stButton > button:hover {{
+        border-color: {btn_hover_border} !important;
+        background-color: {btn_hover_bg} !important;
+    }}
+
+    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 3px !important; margin: 0 !important; padding: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 1px !important;
+        margin: 0 !important;
     }}
+
     [data-testid="column"] {{
-        width: 14.285% !important; max-width: 14.285% !important; min-width: 14.285% !important; flex: 0 0 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
-    }}
-    div[data-testid="column"] .stButton > button {{
-        min-height: 72px !important; max-height: 96px !important; padding: 4px 2px !important; font-size: 10px !important; border-radius: 10px !important;
-        display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important; line-height: 1.25 !important;
-        width: 100% !important; box-sizing: border-box !important; background-color: {box_bg} !important; border: 1px solid {border_color} !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }}
-    div[data-testid="column"] .stButton > button:hover {{
-        border-color: {primary_blue} !important; box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+        width: 14.285% !important;
+        max-width: 14.285% !important;
+        min-width: 0 !important;
+        flex: 1 1 14.285% !important;
+        padding: 0px 0px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
     }}
 
+    [data-testid="stElementContainer"] {{
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
+
+    /* 팝업 스타일 */
     [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 380px !important;
-        border-radius: 20px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    }}
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
-        background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
-    }}
-    [data-baseweb="tab-list"] {{
-        width: 100% !important; display: flex !important; gap: 4px !important; background-color: {box_bg}; padding: 4px !important; border-radius: 14px; border: 1px solid {border_color};
-    }}
-    [data-baseweb="tab"] {{
-        flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
+        background-color: {dialog_bg} !important;
+        color: {main_text_color} !important;
+        width: clamp(290px, 92vw, 600px) !important;
+        max-width: 95vw !important;
+        max-height: 88vh !important;
+        border-radius: 12px !important;
+        padding: 1rem !important;
+        overflow-y: auto !important;
+        border: 1px solid {border_color} !important;
     }}
 
-    .table-container {{
-        width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
+        background-color: {input_bg} !important;
+        color: {input_text} !important;
+        border-color: {border_color} !important;
     }}
-    .sticky-table {{
-        width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap;
+
+    /* JS 히든 스와이프 버튼 은닉 */
+    .swipe-hidden-container {{
+        display: none !important;
+        height: 0px !important;
+        width: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        position: absolute !important;
+        left: -9999px !important;
     }}
-    .sticky-table th, .sticky-table td {{
-        padding: 10px 12px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
-    }}
-    .sticky-table th {{
-        background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
-    }}
-    .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 90px; min-width: 90px;
-    }}
-    .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# 모바일 터치 스와이프 & 오늘 날짜 테마별 음영 처리 JS
+# ---------------------------------------------------------
+calendar_enhancer_js = f"""
+<script>
+(function() {{
+    function enhanceCalendarUI() {{
+        const doc = window.parent.document;
+        if (!doc) return;
+
+        // 1. 스와이프 히든 버튼 숨김
+        const buttons = Array.from(doc.querySelectorAll('button'));
+        buttons.forEach(btn => {{
+            const txt = btn.innerText || '';
+            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
+                const container = btn.closest('[data-testid="stElementContainer"]');
+                if (container) {{
+                    container.style.setProperty('display', 'none', 'important');
+                    container.style.setProperty('height', '0px', 'important');
+                }}
+            }}
+
+            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
+            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
+                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
+                btn.style.setProperty('color', '{today_highlight_text}', 'important');
+                btn.style.setProperty('border', '{today_highlight_border}', 'important');
+                btn.style.setProperty('font-weight', '800', 'important');
+            }}
+        }});
+
+        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
+        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
+        horizBlocks.forEach(block => {{
+            if (block.children.length === 7) {{
+                block.style.setProperty('display', 'flex', 'important');
+                block.style.setProperty('flex-direction', 'row', 'important');
+                block.style.setProperty('flex-wrap', 'nowrap', 'important');
+                block.style.setProperty('width', '100%', 'important');
+                block.style.setProperty('max-width', '100%', 'important');
+                block.style.setProperty('gap', '1px', 'important');
+
+                Array.from(block.children).forEach(child => {{
+                    child.style.setProperty('width', '14.285%', 'important');
+                    child.style.setProperty('max-width', '14.285%', 'important');
+                    child.style.setProperty('min-width', '0px', 'important');
+                    child.style.setProperty('flex', '1 1 14.285%', 'important');
+                    child.style.setProperty('padding', '0px', 'important');
+                }});
+            }}
+        }});
+    }}
+
+    // 터치 스와이프 감지
+    let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
+    function triggerMonthChange(dir) {{
+        const doc = window.parent.document;
+        const buttons = Array.from(doc.querySelectorAll('button'));
+        const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
+        const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
+        if (targetBtn) targetBtn.click();
+    }}
+
+    function handleGesture() {{
+        const diffX = touchendX - touchstartX;
+        const diffY = touchendY - touchstartY;
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {{
+            if (diffX < 0) triggerMonthChange('next');
+            else triggerMonthChange('prev');
+        }}
+    }}
+
+    const doc = window.parent.document;
+    if (!doc._enhancerAttached) {{
+        doc._enhancerAttached = true;
+        doc.addEventListener('touchstart', function(e) {{
+            touchstartX = e.changedTouches[0].screenX;
+            touchstartY = e.changedTouches[0].screenY;
+        }}, {{passive: true}});
+
+        doc.addEventListener('touchend', function(e) {{
+            touchendX = e.changedTouches[0].screenX;
+            touchendY = e.changedTouches[0].screenY;
+            handleGesture();
+        }}, {{passive: true}});
+    }}
+
+    setInterval(enhanceCalendarUI, 200);
+}})();
+</script>
+"""
+components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
 # Solapi (CoolSMS) 인증 헤더 생성 유틸 함수

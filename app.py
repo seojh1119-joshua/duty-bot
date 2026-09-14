@@ -611,7 +611,12 @@ elif st.session_state.editing_date and st.session_state.editing_duty_info:
     edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
 
 df = st.session_state.df
-today = datetime.date.today()
+
+# ---------------------------------------------------------
+# 근무자 변경 기준 07시 반영 날짜 계산 (현재 시간이 07시 이전이면 전날로 간주)
+# ---------------------------------------------------------
+now_dt = datetime.datetime.now()
+today = (now_dt - datetime.timedelta(days=1)).date() if now_dt.hour < 7 else now_dt.date()
 
 # ---------------------------------------------------------
 # 메인 화면
@@ -627,7 +632,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (오류 수정 반영 부분)
+# [탭 1] 달력 뷰
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -639,7 +644,7 @@ with tab1:
         p1 = f"{tr['실제근무1']}(대)" if sub1_t and sub1_t not in ["nan", "None", ""] else tr["실제근무1"]
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
-        st.markdown(f'<div class="today-card"><div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div><div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="today-card"><div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")} 기준)</div><div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div></div>', unsafe_allow_html=True)
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
@@ -686,7 +691,6 @@ with tab1:
                     
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                # 오류 수정: 고유한 식별 키 부여 (v_YYYY-MM-DD 형식)
                 if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_list_btn_{d_str}"):
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
@@ -719,7 +723,6 @@ with tab1:
                         btn_txt = f"{t_str}\n{info['p1']}\n{info['p2']}"
                         if memo_s: btn_txt += f" {memo_s}"
 
-                        # 오류 수정: 달력 Grid의 버튼마다 연-월-일을 포함한 완벽히 고유한 키(g_grid_btn_YYYY-MM-DD)를 할당하여 클릭 오류 원천 차단
                         if g_cols[c].button(btn_txt, key=f"g_grid_btn_{d_str}"):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
@@ -920,7 +923,7 @@ with tab4:
     with sub_k1:
         st.markdown("#### 선택 일자 근무자 문자 통보 발송")
         
-        target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="sms_target_send_date")
+        target_send_date = st.date_input("알림 대상 일자 선택", value=today, key="sms_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
 
         matched_row = df[df["날짜"].dt.date == target_send_date]
@@ -1049,9 +1052,11 @@ with tab4:
             
             sms_option = st.selectbox(
                 "문자 발송 옵션 설정", 
-                ["매일 근무 상관없이 받기", "내 근무에만 받기", "받지 않기"],
+                ["자동발송 (매일 근무 상관없이 받기)", "자동발송 (내 근무에만 받기)", "수동발송 (받지 않기)"],
                 index=0
             )
+            
+            sms_send_time = st.time_input("문자 발송 시간 설정", value=datetime.time(8, 0))
 
             submitted_single = st.form_submit_button("💾 근무자 정보 등록", type="primary", use_container_width=True)
             if submitted_single:
@@ -1062,7 +1067,8 @@ with tab4:
                         "name": new_name.strip(),
                         "phone": new_phone.strip(),
                         "consent_agreed": new_consent,
-                        "sms_option": sms_option
+                        "sms_option": sms_option,
+                        "sms_send_time": sms_send_time.strftime("%H:%M")
                     })
                     save_workers_db(workers_db)
                     st.success(f"✅ [{new_name.strip()}] 님의 연락처가 등록되었습니다.")
@@ -1077,29 +1083,24 @@ with tab4:
                     return f"{p_clean[:3]}-****-{p_clean[7:]}"
                 return "***-****-***"
 
-            worker_display_data = []
-            for w in workers_db:
-                masked_num = mask_phone(w.get('phone', ''))
-                consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
-                opt_txt = w.get('sms_option', '매일 근무 상관없이 받기')
-                worker_display_data.append({
-                    "성명": w.get('name'),
-                    "전화번호": masked_num,
-                    "수신동의": consent_txt,
-                    "발송옵션": opt_txt
-                })
-            
-            df_workers_view = pd.DataFrame(worker_display_data)
-            st.dataframe(df_workers_view, use_container_width=True, hide_index=True)
-
-            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            with st.form("delete_worker_form"):
-                del_target = st.selectbox("삭제할 근무자 선택", [w['name'] for w in workers_db])
-                if st.form_submit_button("선택한 근무자 삭제", use_container_width=True):
-                    updated_db = [w for w in workers_db if w['name'] != del_target]
-                    save_workers_db(updated_db)
-                    st.success(f"✅ [{del_target}] 님의 정보가 삭제되었습니다.")
-                    st.rerun()
+            for idx, w in enumerate(workers_db):
+                col_info1, col_info2, col_info3, col_info4, col_del = st.columns([1.5, 2, 2.5, 1.5, 1])
+                with col_info1:
+                    st.markdown(f"**{w.get('name')}**")
+                with col_info2:
+                    st.markdown(f"{mask_phone(w.get('phone', ''))}")
+                with col_info3:
+                    st.markdown(f"옵션: {w.get('sms_option', '매일')} / 시간: {w.get('sms_send_time', '08:00')}")
+                with col_info4:
+                    consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
+                    st.markdown(f"수신: {consent_txt}")
+                with col_del:
+                    if st.button("삭제", key=f"del_worker_row_{idx}", use_container_width=True):
+                        workers_db.pop(idx)
+                        save_workers_db(workers_db)
+                        st.success(f"✅ [{w.get('name')}] 님의 정보가 삭제되었습니다.")
+                        st.rerun()
+                st.markdown("---")
         else:
             st.info("등록된 근무자 연락처가 없습니다.")
 

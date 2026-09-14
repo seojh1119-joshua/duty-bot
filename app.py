@@ -12,7 +12,7 @@ import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-import altair as alt
+import altair alt
 from pathlib import Path
 
 # 대한민국 공휴일 라이브러리 예외 처리
@@ -240,7 +240,7 @@ responsive_css = f"""
         background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 90px; min-width: 90px;
+        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 100px; min-width: 100px;
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
@@ -963,6 +963,7 @@ with tab4:
                 st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
             else:
                 success_count = 0
+                fail_count = 0
                 targets_to_send = [w1_info, w2_info]
                 url = "https://api.solapi.com/messages/v4/send"
                 headers = get_solapi_auth_headers(api_key, api_secret)
@@ -970,9 +971,9 @@ with tab4:
                 for t_info in targets_to_send:
                     if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
                         opt = t_info.get("sms_option", "매일 근무 상관없이 받기")
-                        if opt == "받지 않기":
+                        if "받지 않기" in opt:
                             continue
-                        if opt == "내 근무에만 받기" and t_info["name"] not in [m_p1, m_p2]:
+                        if "내 근무에만 받기" in opt and t_info["name"] not in [m_p1, m_p2]:
                             continue
                             
                         dest_phone = t_info["phone"].replace("-", "").strip()
@@ -986,18 +987,18 @@ with tab4:
                         try:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
                             res_data = resp.json()
-                            if resp.status_code in [200, 201]:
+                            if resp.status_code in [200, 201] and res_data.get("statusCode") in ["2000", "4000", None]:
                                 success_count += 1
-                                st.success(f"✅ [{t_info['name']}] 님에게 전송 성공!")
+                                st.success(f"✅ [{t_info['name']}] 님에게 전송 성공! (수신번호: {dest_phone})")
                             else:
-                                st.error(f"❌ [{t_info['name']}] 전송 실패 (코드 {resp.status_code}): {res_data}")
+                                fail_count += 1
+                                st.error(f"❌ [{t_info['name']}] 전송 실패 (응답코드 {resp.status_code}): {res_data}")
                         except Exception as ex:
+                            fail_count += 1
                             st.error(f"전송 중 네트워크 오류 발생 ({t_info['name']}): {ex}")
 
-                if success_count > 0:
-                    st.success(f"🎉 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
-                else:
-                    st.info("ℹ️ 발송 대상이 없거나 유효 연락처가 등록되지 않았습니다.")
+                if success_count > 0 or fail_count > 0:
+                    st.info(f"📊 [발송 결과 요약] 성공: {success_count}건 / 실패: {fail_count}건")
 
         st.divider()
         st.markdown("#### ⚡ 직접 즉시 개별 발송")
@@ -1034,9 +1035,9 @@ with tab4:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
                             res_data = resp.json()
                             if resp.status_code in [200, 201]:
-                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone}, 응답: {res_data.get('statusCode', '성공')})")
                             else:
-                                st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {res_data}")
+                                st.error(f"❌ 즉시 전송 실패 (코드 {resp.status_code}): {res_data}")
                         except Exception as ex:
                             st.error(f"전송 실패: {ex}")
                     else:
@@ -1052,7 +1053,7 @@ with tab4:
             
             sms_option = st.selectbox(
                 "문자 발송 옵션 설정", 
-                ["자동발송 (매일 근무 상관없이 받기)", "자동발송 (내 근무에만 받기)", "수동발송 (받지 않기)"],
+                ["매일 근무 상관없이 받기", "내 근무에만 받기", "받지 않기"],
                 index=0
             )
             
@@ -1083,24 +1084,50 @@ with tab4:
                     return f"{p_clean[:3]}-****-{p_clean[7:]}"
                 return "***-****-***"
 
+            table_rows_html = ""
             for idx, w in enumerate(workers_db):
-                col_info1, col_info2, col_info3, col_info4, col_del = st.columns([1.5, 2, 2.5, 1.5, 1])
-                with col_info1:
-                    st.markdown(f"**{w.get('name')}**")
-                with col_info2:
-                    st.markdown(f"{mask_phone(w.get('phone', ''))}")
-                with col_info3:
-                    st.markdown(f"옵션: {w.get('sms_option', '매일')} / 시간: {w.get('sms_send_time', '08:00')}")
-                with col_info4:
-                    consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
-                    st.markdown(f"수신: {consent_txt}")
-                with col_del:
-                    if st.button("삭제", key=f"del_worker_row_{idx}", use_container_width=True):
-                        workers_db.pop(idx)
-                        save_workers_db(workers_db)
-                        st.success(f"✅ [{w.get('name')}] 님의 정보가 삭제되었습니다.")
-                        st.rerun()
-                st.markdown("---")
+                consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
+                table_rows_html += f"""
+                    <tr>
+                        <td><b>{w.get('name')}</b></td>
+                        <td>{mask_phone(w.get('phone', ''))}</td>
+                        <td>{w.get('sms_option', '매일')}</td>
+                        <td>{w.get('sms_send_time', '08:00')}</td>
+                        <td>{consent_txt}</td>
+                    </tr>
+                """
+
+            contact_table_html = f"""
+            <div class="table-container">
+                <table class="sticky-table">
+                    <thead>
+                        <tr>
+                            <th>성명</th>
+                            <th>전화번호</th>
+                            <th>발송 옵션</th>
+                            <th>발송 시간</th>
+                            <th>수신 동의</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {table_rows_html}
+                    </tbody>
+                </table>
+            </div>
+            """
+            st.markdown(contact_table_html, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("##### 🗑️ 개별 연락처 삭제 관리")
+            del_options = [f"{w['name']} ({w['phone']})" for w in workers_db]
+            selected_del_target = st.selectbox("삭제할 근무자 선택", del_options, key="select_del_worker_target")
+            if st.button("선택한 근무자 연락처 삭제", type="primary"):
+                target_idx = del_options.index(selected_del_target)
+                removed_name = workers_db[target_idx]['name']
+                workers_db.pop(target_idx)
+                save_workers_db(workers_db)
+                st.success(f"✅ [{removed_name}] 님의 연락처가 삭제되었습니다.")
+                st.rerun()
         else:
             st.info("등록된 근무자 연락처가 없습니다.")
 

@@ -239,10 +239,22 @@ responsive_css = f"""
     .sticky-table th {{
         background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
-    .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
+    /* 통계표용 고정 컬럼 설정 (번호, 근무자) */
+    .stat-table th:nth-child(1), .stat-table td:nth-child(1) {{
+        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 60px; min-width: 60px;
+    }}
+    .stat-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
+
+    .stat-table th:nth-child(2), .stat-table td:nth-child(2) {{
+        position: sticky; left: 60px; z-index: 2; background-color: {box_bg}; width: 100px; min-width: 100px;
+    }}
+    .stat-table th:nth-child(2) {{ z-index: 4; background-color: {table_header_bg}; }}
+
+    /* 연락처 리스트용 고정 컬럼 설정 (성명) */
+    .contact-table th:nth-child(1), .contact-table td:nth-child(1) {{
         position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 100px; min-width: 100px;
     }}
-    .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
+    .contact-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -868,7 +880,7 @@ with tab3:
         
         html_table = f"""
         <div class="table-container">
-            <table class="sticky-table">
+            <table class="sticky-table stat-table">
                 <thead>
                     <tr>{"".join([f"<th>{col}</th>" for col in summary_table.columns])}</tr>
                 </thead>
@@ -915,6 +927,18 @@ with tab4:
     st.markdown("""
     > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
     """)
+
+    # 쿼리스트링 파라미터를 이용한 개별 삭제 처리 감지
+    query_params = st.query_params
+    if "del_worker" in query_params:
+        target_name_to_del = query_params["del_worker"]
+        workers_db_current = load_workers_db()
+        new_workers_db = [w for w in workers_db_current if w.get("name") != target_name_to_del]
+        if len(new_workers_db) < len(workers_db_current):
+            save_workers_db(new_workers_db)
+            st.success(f"✅ [{target_name_to_del}] 님의 연락처가 삭제되었습니다.")
+        st.query_params.clear()
+        st.rerun()
 
     workers_db = load_workers_db()
 
@@ -1087,19 +1111,21 @@ with tab4:
             table_rows_html = ""
             for idx, w in enumerate(workers_db):
                 consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
+                w_name = w.get('name')
                 table_rows_html += f"""
                     <tr>
-                        <td><b>{w.get('name')}</b></td>
+                        <td><b>{w_name}</b></td>
                         <td>{mask_phone(w.get('phone', ''))}</td>
                         <td>{w.get('sms_option', '매일')}</td>
                         <td>{w.get('sms_send_time', '08:00')}</td>
                         <td>{consent_txt}</td>
+                        <td><a href="?del_worker={w_name}" target="_self" style="text-decoration:none; padding:2px 6px; background-color:#FF3838; color:white; border-radius:4px; font-size:11px; font-weight:bold;">삭제</a></td>
                     </tr>
                 """
 
             contact_table_html = f"""
             <div class="table-container">
-                <table class="sticky-table">
+                <table class="sticky-table contact-table">
                     <thead>
                         <tr>
                             <th>성명</th>
@@ -1107,6 +1133,7 @@ with tab4:
                             <th>발송 옵션</th>
                             <th>발송 시간</th>
                             <th>수신 동의</th>
+                            <th>관리</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1116,18 +1143,6 @@ with tab4:
             </div>
             """
             st.markdown(contact_table_html, unsafe_allow_html=True)
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("##### 🗑️ 개별 연락처 삭제 관리")
-            del_options = [f"{w['name']} ({w['phone']})" for w in workers_db]
-            selected_del_target = st.selectbox("삭제할 근무자 선택", del_options, key="select_del_worker_target")
-            if st.button("선택한 근무자 연락처 삭제", type="primary"):
-                target_idx = del_options.index(selected_del_target)
-                removed_name = workers_db[target_idx]['name']
-                workers_db.pop(target_idx)
-                save_workers_db(workers_db)
-                st.success(f"✅ [{removed_name}] 님의 연락처가 삭제되었습니다.")
-                st.rerun()
         else:
             st.info("등록된 근무자 연락처가 없습니다.")
 

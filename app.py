@@ -5,9 +5,6 @@ import glob
 import io
 import json
 import os
-import hmac
-import hashlib
-import uuid
 import requests
 import pandas as pd
 import streamlit as st
@@ -44,7 +41,7 @@ TOKEN_FILE = Path("data/kakao_tokens.json")
 # 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="광주교도소 의료과 숙직근무 & 카카오 연계 시스템",
+    page_title="광주교도소 의료과 숙직근무 & 개인 카카오 연계 시스템",
     page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -54,9 +51,7 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_api_key": "",
-        "kakao_api_secret": "",
-        "kakao_sender_key": "",
+        "kakao_access_token": "",
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
         "batch_days_c": 30,
@@ -89,9 +84,7 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_api_key", local_cfg.get("kakao_api_key", "")),
-    ("kakao_api_secret", local_cfg.get("kakao_api_secret", "")),
-    ("kakao_sender_key", local_cfg.get("kakao_sender_key", "")),
+    ("kakao_access_token", local_cfg.get("kakao_access_token", "")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -103,7 +96,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마 및 UI 최적화)
+# 동적 CSS (테마 및 UI / 표 열 고정 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -116,16 +109,7 @@ btn_text = "#F8FAFC" if is_dark else "#0F172A"
 btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
-
-dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
-input_bg = "#0F172A" if is_dark else "#FFFFFF"
-input_text = "#F8FAFC" if is_dark else "#0F172A"
 table_sticky_bg = "#1E293B" if is_dark else "#F1F5F9"
-box_bg = "#1E293B" if is_dark else "#F8FAFC"
-
-today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
-today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
-today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
@@ -218,43 +202,27 @@ responsive_css = f"""
         top: 0;
         z-index: 3;
     }}
+    /* 번호 및 근무자 열 고정 (Sticky Left) */
+    .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
+        position: sticky;
+        left: 0;
+        z-index: 4;
+        background-color: {table_sticky_bg};
+    }}
+    .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
+        position: sticky;
+        left: 55px;
+        z-index: 4;
+        background-color: {table_sticky_bg};
+        border-right: 2px solid {border_color};
+    }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 토큰 및 근무자 DB 관리 함수 연계 (kakao_sender.py 로직 결합)[cite: 4]
+# 데이터베이스 및 엑셀 유틸 함수
 # ---------------------------------------------------------
-def load_tokens() -> dict:
-    if TOKEN_FILE.exists():
-        try:
-            return json.loads(TOKEN_FILE.read_text(encoding="utf-8"))
-        except:
-            return {}
-    return {}
-
-def save_tokens(tokens: dict):
-    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    TOKEN_FILE.write_text(json.dumps(tokens, ensure_ascii=False, indent=2))
-
-def refresh_access_token(refresh_token: str, rest_api_key: str) -> Optional[str]:
-    url = "https://kauth.kakao.com/oauth/token"
-    data = {
-        "grant_type": "refresh_token",
-        "client_id": rest_api_key,
-        "refresh_token": refresh_token
-    }
-    resp = requests.post(url, data=data)
-    if resp.status_code == 200:
-        new_tokens = resp.json()
-        tokens = load_tokens()
-        tokens["access_token"] = new_tokens.get("access_token")
-        if "refresh_token" in new_tokens:
-            tokens["refresh_token"] = new_tokens["refresh_token"]
-        save_tokens(tokens)
-        return new_tokens.get("access_token")
-    return None
-
 def load_workers_db() -> list:
     if WORKERS_DB_FILE.exists():
         try:
@@ -267,17 +235,6 @@ def save_workers_db(workers: list):
     WORKERS_DB_FILE.parent.mkdir(parents=True, exist_ok=True)
     WORKERS_DB_FILE.write_text(json.dumps(workers, ensure_ascii=False, indent=2))
 
-def get_solapi_auth_headers(api_key, api_secret):
-    date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-    salt = uuid.uuid4().hex
-    data = date + salt
-    signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
-    auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
-    return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
-
-# ---------------------------------------------------------
-# 파일 유틸 및 엑셀 파싱 함수
-# ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
@@ -406,7 +363,7 @@ def confirm_exit_dialog():
 
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
-    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오톡 연동 설정"])
+    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오톡 개인계정 연동"])
     
     with tab_s1:
         new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
@@ -473,19 +430,15 @@ def settings_dialog():
             st.rerun()
 
     with tab_s3:
-        k_key = st.text_input("카카오 API 키 (API Key)", value=st.session_state.kakao_api_key, type="password", placeholder="Solapi/Biztalk API Key")
-        k_sec = st.text_input("카카오 API 시크릿 (API Secret)", value=st.session_state.kakao_api_secret, type="password", placeholder="Solapi/Biztalk API Secret")
-        k_sender = st.text_input("카카오 채널 발신프로필 키 (Sender Key)", value=st.session_state.kakao_sender_key, placeholder="발신프로필 키")
+        st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
+        st.info("카카오developers에서 발급받은 **사용자 액세스 토큰(User Access Token)**을 입력하면, 본인 카카오톡(나에게 보내기)으로 근무 알림이 전송됩니다.")
+        k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="Bearer 토큰 값 입력")
 
-        if st.button("카카오톡 설정 저장", use_container_width=True, type="primary"):
-            st.session_state.kakao_api_key = k_key
-            st.session_state.kakao_api_secret = k_sec
-            st.session_state.kakao_sender_key = k_sender
-            save_local_config("kakao_api_key", k_key)
-            save_local_config("kakao_api_secret", k_sec)
-            save_local_config("kakao_sender_key", k_sender)
+        if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
+            st.session_state.kakao_access_token = k_token
+            save_local_config("kakao_access_token", k_token)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 카카오톡 API 설정이 저장되었습니다.")
+            st.success("✅ 카카오 액세스 토큰이 저장되었습니다.")
             st.rerun()
 
 @st.dialog("✏️ 근무자 및 메모 수정")
@@ -713,7 +666,7 @@ with tab1:
                         day_cnt += 1
 
 # ---------------------------------------------------------
-# [탭 2] 수정 뷰
+# [탭 2] 수정 뷰 (날짜열 고정 적용)
 # ---------------------------------------------------------
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
@@ -724,7 +677,12 @@ with tab2:
     display_cols = [c for c in preferred_order if c in df.columns]
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
 
-    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True)
+    # 날짜 컬럼 수정 불가(고정) 처리 설정
+    column_configs = {}
+    if "날짜" in display_cols:
+        column_configs["날짜"] = st.column_config.DateColumn("날짜", format="YYYY-MM-DD", disabled=True)
+
+    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True, column_config=column_configs)
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
         m_df = st.session_state.df.copy()
@@ -732,14 +690,16 @@ with tab2:
             for idx in edited_df.index:
                 if idx in m_df.index:
                     for col in edited_df.columns:
-                        m_df.loc[idx, col] = edited_df.loc[idx, col]
+                        if col != "날짜": # 날짜는 보호
+                            m_df.loc[idx, col] = edited_df.loc[idx, col]
         else:
             sub_indices = m_df[m_df["년월"] == sel_ed_m].index
             for i, idx in enumerate(sub_indices):
                 if i < len(edited_df):
                     ed_idx = edited_df.index[i]
                     for col in edited_df.columns:
-                        m_df.loc[idx, col] = edited_df.loc[ed_idx, col]
+                        if col != "날짜":
+                            m_df.loc[idx, col] = edited_df.loc[ed_idx, col]
             
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
@@ -759,7 +719,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰
+# [탭 3] 통계 뷰 (엑셀 '근무구분' 기반 카운트 & 번호/근무자 고정)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -768,16 +728,15 @@ with tab3:
     sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    def get_category_and_hours(row):
-        wd = pd.to_datetime(row["날짜"]).weekday()
-        if wd in [0, 1, 2, 3]: return "평일", 7
-        elif wd == 4: return "금요일", 15
-        elif wd == 5: return "토요일", 15
-        else: return "일요일", 7
+    # 엑셀 파일 내 근무구분 컬럼 탐색 ('근무구분', '구분' 등 포함된 컬럼)
+    cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월"), None)
 
     expanded_rows = []
     for _, r in f_df.iterrows():
-        cat, hours = get_category_and_hours(r)
+        # 엑셀 파일의 근무구분 값 우선 적용, 없으면 기본값 부여
+        cat = str(r[cat_col]).strip() if cat_col and pd.notnull(r[cat_col]) and str(r[cat_col]).strip() not in ["", "nan", "None"] else "일반근무"
+        hours = 7 if "평일" in cat or "주간" in cat else 15 # 기본 시간 설정 예외 처리
+        
         w1 = str(r.get("실제근무1", "")).strip()
         w2 = str(r.get("실제근무2", "")).strip()
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
@@ -792,7 +751,7 @@ with tab3:
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N', scale=alt.Scale(domain=['평일', '금요일', '토요일', '일요일'], range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444'])),
+            color=alt.Color('근무구분:N'),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
         ).properties(height=380).configure_legend(orient="bottom", title=None)
         st.altair_chart(chart, use_container_width=True)
@@ -800,20 +759,27 @@ with tab3:
         pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
         pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
         
-        for cat in ["평일", "금요일", "토요일", "일요일"]:
+        categories = sorted(exp_df["근무구분"].unique())
+        summary_dict = {"번호": [], "근무자": []}
+        
+        for cat in categories:
             if cat not in pivot_count.columns: pivot_count[cat] = 0
             if cat not in pivot_hours.columns: pivot_hours[cat] = 0
-            
-        summary_table = pd.DataFrame({
-            "평일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["평일"], pivot_hours["평일"])],
-            "금요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["금요일"], pivot_hours["금요일"])],
-            "토요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["토요일"], pivot_hours["토요일"])],
-            "일요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["일요일"], pivot_hours["일요일"])],
-            "총 근무횟수": pivot_count.sum(axis=1).astype(int),
-            "총 근무시간": pivot_hours.sum(axis=1).astype(int)
-        }).sort_values(by="총 근무시간", ascending=False).reset_index()
-        summary_table.index = range(1, len(summary_table) + 1)
-        summary_table.insert(0, "번호", summary_table.index)
+            summary_dict[f"{cat}(회/시)"] = [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count[cat], pivot_hours[cat])]
+
+        summary_dict["총 근무횟수"] = pivot_count.sum(axis=1).astype(int).tolist()
+        summary_dict["총 근무시간"] = pivot_hours.sum(axis=1).astype(int).tolist()
+        
+        workers_list = pivot_count.index.tolist()
+        summary_table = pd.DataFrame(summary_dict, index=workers_list)
+        summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
+        summary_table["번호"] = range(1, len(summary_table) + 1)
+        summary_table.insert(1, "근무자", summary_table.index)
+        summary_table = summary_table.drop(columns=["근무자"] if "근무자" in summary_table.columns and summary_table.columns.get_loc("근무자") == 0 else []) # 정리
+
+        # 순서 재배치 (번호, 근무자, 나머지...)
+        cols_order = ["번호", "근무자"] + [c for c in summary_table.columns if c not in ["번호", "근무자"]]
+        summary_table = summary_table[cols_order]
 
         html_table = f"""<div class="table-container"><table class="sticky-table"><thead><tr>{"".join([f"<th>{col}</th>" for col in summary_table.columns])}</tr></thead><tbody>"""
         for _, row in summary_table.iterrows():
@@ -822,89 +788,59 @@ with tab3:
         st.markdown(html_table, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# [탭 4] 카카오톡 통보 탭 (파일 간 연계 핵심)
+# [탭 4] 카카오톡 개인 계정 통보 탭
 # ---------------------------------------------------------
 with tab4:
-    st.subheader("💬 실제 근무자 카카오톡(알림톡) 자동 통보 시스템")
+    st.subheader("💬 개인 카카오톡 계정(나에게 보내기) 자동 통보 시스템")
     workers_db = load_workers_db()
 
-    sub_k1, sub_k2 = st.tabs(["🚀 당일 근무자 카카오톡 발송", "📋 근무자 연락처 관리"])
+    target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="kakao_target_send_date")
+    target_str = target_send_date.strftime("%Y-%m-%d")
 
-    with sub_k1:
-        target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="kakao_target_send_date")
-        target_str = target_send_date.strftime("%Y-%m-%d")
+    matched_row = df[df["날짜"].dt.date == target_send_date]
+    m_p1, m_p2 = "미지정", "미지정"
+    if not matched_row.empty:
+        r_info = matched_row.iloc[0]
+        m_p1 = r_info.get("실제근무1", "미지정")
+        m_p2 = r_info.get("실제근무2", "미지정")
+        st.info(f"📌 **{target_str}** 당일 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
 
-        matched_row = df[df["날짜"].dt.date == target_send_date]
-        m_p1, m_p2 = "미지정", "미지정"
-        if not matched_row.empty:
-            r_info = matched_row.iloc[0]
-            m_p1 = r_info.get("실제근무1", "미지정")
-            m_p2 = r_info.get("실제근무2", "미지정")
-            st.info(f"📌 **{target_str}** 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
+    default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
+    custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
 
-        default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
-        custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
+    if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
+        access_token = st.session_state.get("kakao_access_token", "").strip()
 
-        phone_map = {w["name"].strip(): w for w in workers_db}
-        w1_info = phone_map.get(m_p1)
-        w2_info = phone_map.get(m_p2)
-
-        if st.button("📤 실제 근무자들에게 카카오톡 일괄 통보 전송", type="primary", use_container_width=True):
-            api_key = st.session_state.get("kakao_api_key", "").strip()
-            api_secret = st.session_state.get("kakao_api_secret", "").strip()
-            sender_key = st.session_state.get("kakao_sender_key", "").strip()
-
-            if not api_key or not api_secret or not sender_key:
-                st.warning("⚠️ [설정 관리] ➔ [카카오톡 연동 설정] 탭에서 카카오 API 키, 시크릿, 발신프로필 키를 모두 입력해주세요.")
-            else:
-                success_count = 0
-                targets_to_send = [w1_info, w2_info]
-                url = "https://api.solapi.com/messages/v4/send"
-                headers = get_solapi_auth_headers(api_key, api_secret)
-                
-                for t_info in targets_to_send:
-                    if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
-                        dest_phone = t_info["phone"].replace("-", "").strip()
-                        payload = {
-                            "message": {
-                                "to": dest_phone,
-                                "kakaoOptions": {"pfId": sender_key},
-                                "text": custom_kakao_msg
-                            }
-                        }
-                        try:
-                            resp = requests.post(url, headers=headers, json=payload, timeout=10)
-                            if resp.status_code in [200, 201]:
-                                success_count += 1
-                                st.success(f"✅ [{t_info['name']}] 님에게 카카오톡 전송 성공!")
-                            else:
-                                st.error(f"❌ [{t_info['name']}] 전송 실패: {resp.text}")
-                        except Exception as ex:
-                            st.error(f"전송 중 네트워크 오류 발생: {ex}")
-
-                if success_count > 0:
-                    st.success(f"🎉 총 {success_count}명에게 카카오톡 통보 전송 완료!")
-
-    with sub_k2:
-        st.markdown("#### 근무자 연락처 및 수신 동의 등록부")
-        with st.form("single_worker_add_form", clear_on_submit=True):
-            new_name = st.text_input("성명")
-            new_phone = st.text_input("휴대전화번호")
-            new_consent = st.checkbox("카카오톡 수신 동의 여부", value=True)
-            
-            if st.form_submit_button("💾 근무자 정보 등록", type="primary", use_container_width=True):
-                if new_name.strip() and new_phone.strip():
-                    workers_db.append({
-                        "name": new_name.strip(),
-                        "phone": new_phone.strip(),
-                        "consent_agreed": new_consent
-                    })
-                    save_workers_db(workers_db)
-                    st.success(f"✅ [{new_name.strip()}] 님 등록 완료!")
-                    st.rerun()
-
-        if workers_db:
-            st.dataframe(pd.DataFrame(workers_db), use_container_width=True, hide_index=True)
+        if not access_token:
+            st.warning("⚠️ [화면 및 설정 관리] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
+        else:
+            url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+            payload = {
+                "template_object": json.dumps({
+                    "object_type": "text",
+                    "text": custom_kakao_msg,
+                    "link": {
+                        "web_url": "https://developers.kakao.com",
+                        "mobile_web_url": "https://developers.kakao.com"
+                    }
+                })
+            }
+            try:
+                resp = requests.post(url, headers=headers, data=payload, timeout=10)
+                if resp.status_code in [200, 201]:
+                    res_json = resp.json()
+                    if res_json.get("result_code") == 0:
+                        st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
+                    else:
+                        st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
+                else:
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
+            except Exception as ex:
+                st.error(f"전송 중 네트워크 오류 발생: {ex}")
 
 # ---------------------------------------------------------
 # [탭 5] 원본 데이터 뷰

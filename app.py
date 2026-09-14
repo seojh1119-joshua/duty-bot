@@ -987,7 +987,6 @@ with tab4:
                         try:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
                             res_data = resp.json() if resp.content else {}
-                            # Solapi 정상 응답 코드 범위 체크 (성공 시 statusCode가 2000이거나 그룹 전송 성공 응답 포함)
                             if resp.status_code in [200, 201] and (str(res_data.get("statusCode", "")) in ["2000", "4000"] or "groupId" in res_data):
                                 success_count += 1
                                 st.success(f"✅ [{t_info['name']}] 님에게 전송 성공! (수신번호: {dest_phone})")

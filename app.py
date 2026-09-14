@@ -8,6 +8,7 @@ import hmac
 import hashlib
 import uuid
 import os
+import urllib.parse
 import requests
 import pandas as pd
 import streamlit as st
@@ -928,10 +929,11 @@ with tab4:
     > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
     """)
 
-    # 쿼리스트링 파라미터를 이용한 개별 삭제 처리 감지
+    # 쿼리스트링 파라미터를 이용한 개별 삭제 처리 감지 (안전한 디코딩 처리)
     query_params = st.query_params
-    if "del_worker" in query_params:
-        target_name_to_del = query_params["del_worker"]
+    del_worker_param = query_params.get("del_worker")
+    if del_worker_param:
+        target_name_to_del = urllib.parse.unquote(str(del_worker_param))
         workers_db_current = load_workers_db()
         new_workers_db = [w for w in workers_db_current if w.get("name") != target_name_to_del]
         if len(new_workers_db) < len(workers_db_current):
@@ -1112,6 +1114,7 @@ with tab4:
             for idx, w in enumerate(workers_db):
                 consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
                 w_name = w.get('name')
+                encoded_w_name = urllib.parse.quote(w_name)  # 한글 이름 및 공백 URL 인코딩 처리
                 table_rows_html += f"""
                     <tr>
                         <td><b>{w_name}</b></td>
@@ -1119,7 +1122,7 @@ with tab4:
                         <td>{w.get('sms_option', '매일')}</td>
                         <td>{w.get('sms_send_time', '08:00')}</td>
                         <td>{consent_txt}</td>
-                        <td><a href="?del_worker={w_name}" target="_self" style="text-decoration:none; padding:2px 6px; background-color:#FF3838; color:white; border-radius:4px; font-size:11px; font-weight:bold;">삭제</a></td>
+                        <td><a href="?del_worker={encoded_w_name}" target="_self" style="text-decoration:none; padding:2px 6px; background-color:#FF3838; color:white; border-radius:4px; font-size:11px; font-weight:bold;">삭제</a></td>
                     </tr>
                 """
 

@@ -119,6 +119,7 @@ sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
+box_bg = "#1E293B" if is_dark else "#F8FAFC"  # 누락된 box_bg 변수 정의 추가
 
 # 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
@@ -297,7 +298,6 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
 
-        // 1. 스와이프 히든 버튼 숨김
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -309,7 +309,6 @@ calendar_enhancer_js = f"""
                 }}
             }}
 
-            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -318,7 +317,6 @@ calendar_enhancer_js = f"""
             }}
         }});
 
-        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
         const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
         horizBlocks.forEach(block => {{
             if (block.children.length === 7) {{
@@ -340,7 +338,6 @@ calendar_enhancer_js = f"""
         }});
     }}
 
-    // 터치 스와이프 감지
     let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
     function triggerMonthChange(dir) {{
         const doc = window.parent.document;

@@ -53,9 +53,9 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "sms_api_key": "",
-        "sms_api_secret": "",
-        "sms_sender_phone": "",
+        "kakao_api_key": "",
+        "kakao_api_secret": "",
+        "kakao_sender_key": "", # 카카오 비즈톡 채널 발신프로필 키
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
         "batch_days_c": 30,
@@ -88,9 +88,9 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("sms_api_key", local_cfg.get("sms_api_key", "")),
-    ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
-    ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
+    ("kakao_api_key", local_cfg.get("kakao_api_key", "")),
+    ("kakao_api_secret", local_cfg.get("kakao_api_secret", "")),
+    ("kakao_sender_key", local_cfg.get("kakao_sender_key", "")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -102,7 +102,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (한 화면에 쏙 들어오는 한눈 핏 레이아웃)
+# 동적 CSS (한 화면 핏 레이아웃 및 통계표 열 고정 스크롤 스타일)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -119,16 +119,16 @@ sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
-box_bg = "#1E293B" if is_dark else "#F8FAFC"  # 누락된 box_bg 변수 정의 추가
+box_bg = "#1E293B" if is_dark else "#F8FAFC"
+table_header_bg = "#334155" if is_dark else "#E2E8F0"
+table_sticky_bg = "#1E293B" if is_dark else "#F8FAFC"
 
-# 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
-    /* 기본 바디 및 컨테이너 최적화 (한 화면 핏) */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -137,7 +137,6 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -200,7 +199,6 @@ responsive_css = f"""
         font-weight: bold;
     }}
 
-    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
@@ -227,7 +225,6 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -255,7 +252,60 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 팝업 스타일 */
+    /* 📊 번호 및 근무자 열 고정 + 가로 스크롤 테이블 스타일 */
+    .table-container {{
+        width: 100%;
+        max-height: 450px;
+        overflow-x: auto;
+        overflow-y: auto;
+        border: 1px solid {border_color};
+        border-radius: 8px;
+        margin-top: 8px;
+        background-color: {theme_bg};
+    }}
+    .sticky-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        text-align: center;
+        white-space: nowrap;
+    }}
+    .sticky-table th, .sticky-table td {{
+        padding: 8px 12px;
+        border-bottom: 1px solid {border_color};
+        border-right: 1px solid {border_color};
+    }}
+    .sticky-table th {{
+        background-color: {table_header_bg};
+        color: {main_text_color};
+        font-weight: 700;
+        position: sticky;
+        top: 0;
+        z-index: 3;
+    }}
+    /* 첫 번째 열(번호) 고정 */
+    .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
+        position: sticky;
+        left: 0;
+        background-color: {table_sticky_bg};
+        z-index: 2;
+        width: 50px;
+        min-width: 50px;
+    }}
+    /* 두 번째 열(근무자) 고정 */
+    .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
+        position: sticky;
+        left: 50px;
+        background-color: {table_sticky_bg};
+        z-index: 2;
+        font-weight: 700;
+        width: 90px;
+        min-width: 90px;
+    }}
+    .sticky-table th:nth-child(1), .sticky-table th:nth-child(2) {{
+        z-index: 4;
+    }}
+
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important;
         color: {main_text_color} !important;
@@ -273,19 +323,9 @@ responsive_css = f"""
         color: {input_text} !important;
         border-color: {border_color} !important;
     }}
-
-    /* JS 히든 스와이프 버튼 은닉 */
-    .swipe-hidden-container {{
-        display: none !important;
-        height: 0px !important;
-        width: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        position: absolute !important;
-        left: -9999px !important;
-    }}
 </style>
 """
+markdown_res = responsive_css
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
@@ -301,14 +341,6 @@ calendar_enhancer_js = f"""
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
-            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
-                const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) {{
-                    container.style.setProperty('display', 'none', 'important');
-                    container.style.setProperty('height', '0px', 'important');
-                }}
-            }}
-
             if (txt.includes('🌟') || txt.includes('[오늘]')) {{
                 btn.style.setProperty('background', '{today_highlight_bg}', 'important');
                 btn.style.setProperty('color', '{today_highlight_text}', 'important');
@@ -316,61 +348,7 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
-
-        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
-        horizBlocks.forEach(block => {{
-            if (block.children.length === 7) {{
-                block.style.setProperty('display', 'flex', 'important');
-                block.style.setProperty('flex-direction', 'row', 'important');
-                block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                block.style.setProperty('width', '100%', 'important');
-                block.style.setProperty('max-width', '100%', 'important');
-                block.style.setProperty('gap', '1px', 'important');
-
-                Array.from(block.children).forEach(child => {{
-                    child.style.setProperty('width', '14.285%', 'important');
-                    child.style.setProperty('max-width', '14.285%', 'important');
-                    child.style.setProperty('min-width', '0px', 'important');
-                    child.style.setProperty('flex', '1 1 14.285%', 'important');
-                    child.style.setProperty('padding', '0px', 'important');
-                }});
-            }}
-        }});
     }}
-
-    let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
-    function triggerMonthChange(dir) {{
-        const doc = window.parent.document;
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
-        const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
-        if (targetBtn) targetBtn.click();
-    }}
-
-    function handleGesture() {{
-        const diffX = touchendX - touchstartX;
-        const diffY = touchendY - touchstartY;
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {{
-            if (diffX < 0) triggerMonthChange('next');
-            else triggerMonthChange('prev');
-        }}
-    }}
-
-    const doc = window.parent.document;
-    if (!doc._enhancerAttached) {{
-        doc._enhancerAttached = true;
-        doc.addEventListener('touchstart', function(e) {{
-            touchstartX = e.changedTouches[0].screenX;
-            touchstartY = e.changedTouches[0].screenY;
-        }}, {{passive: true}});
-
-        doc.addEventListener('touchend', function(e) {{
-            touchendX = e.changedTouches[0].screenX;
-            touchendY = e.changedTouches[0].screenY;
-            handleGesture();
-        }}, {{passive: true}});
-    }}
-
     setInterval(enhanceCalendarUI, 200);
 }})();
 </script>
@@ -378,7 +356,7 @@ calendar_enhancer_js = f"""
 components.html(calendar_enhancer_js, height=0, width=0)
 
 # ---------------------------------------------------------
-# Solapi (CoolSMS) 인증 헤더 생성 유틸 함수
+# API 인증 헤더 생성 유틸 함수 (카카오/솔알림톡 공용)
 # ---------------------------------------------------------
 def get_solapi_auth_headers(api_key, api_secret):
     date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -531,7 +509,7 @@ def confirm_exit_dialog():
 
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
-    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "SMS 연동 설정"])
+    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오톡 연동 설정"])
     
     with tab_s1:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -611,20 +589,20 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
-        s_key = st.text_input("SMS API 키 (API Key)", value=st.session_state.sms_api_key, type="password", placeholder="Solapi/CoolSMS API Key")
-        s_sec = st.text_input("SMS API 시크릿 (API Secret)", value=st.session_state.sms_api_secret, type="password", placeholder="Solapi/CoolSMS API Secret")
-        s_phone = st.text_input("발신자 대표 번호", value=st.session_state.sms_sender_phone, placeholder="0200000000 (등록된 발신번호)")
+        k_key = st.text_input("카카오 API 키 (API Key)", value=st.session_state.kakao_api_key, type="password", placeholder="Solapi/Biztalk API Key")
+        k_sec = st.text_input("카카오 API 시크릿 (API Secret)", value=st.session_state.kakao_api_secret, type="password", placeholder="Solapi/Biztalk API Secret")
+        k_sender = st.text_input("카카오 채널 발신프로필 키 (Sender Key)", value=st.session_state.kakao_sender_key, placeholder="카카오톡 비즈니스 채널 발신프로필 키")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("SMS 설정 저장", use_container_width=True, type="primary"):
-            st.session_state.sms_api_key = s_key
-            st.session_state.sms_api_secret = s_sec
-            st.session_state.sms_sender_phone = s_phone
-            save_local_config("sms_api_key", s_key)
-            save_local_config("sms_api_secret", s_sec)
-            save_local_config("sms_sender_phone", s_phone)
+        if st.button("카카오톡 설정 저장", use_container_width=True, type="primary"):
+            st.session_state.kakao_api_key = k_key
+            st.session_state.kakao_api_secret = k_sec
+            st.session_state.kakao_sender_key = k_sender
+            save_local_config("kakao_api_key", k_key)
+            save_local_config("kakao_api_secret", k_sec)
+            save_local_config("kakao_sender_key", k_sender)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 문자(SMS) API 설정이 저장되었습니다.")
+            st.success("✅ 카카오톡(알림톡) API 설정이 저장되었습니다.")
             st.rerun()
 
 @st.dialog("✏️ 근무자 및 메모 수정")
@@ -754,7 +732,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡 통보", "🔍 원본"])
 
 # ---------------------------------------------------------
 # [탭 1] 달력 뷰
@@ -911,7 +889,7 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰
+# [탭 3] 통계 뷰 (열 고정 스크롤 통계표 적용)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
@@ -967,7 +945,7 @@ with tab3:
         
         st.altair_chart(chart, use_container_width=True)
         
-        st.markdown("### 📊 근무자별 상세 통계표 (구분별 횟수 및 시간)")
+        st.markdown("### 📊 근무자별 상세 통계표 (번호/근무자 고정 및 가로 스크롤)")
         
         pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
         pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
@@ -991,6 +969,7 @@ with tab3:
         summary_table.index = range(1, len(summary_table) + 1)
         summary_table.insert(0, "번호", summary_table.index)
         
+        # 📌 번호, 근무자 고정 테이블 HTML 렌더링
         html_table = f"""
         <div class="table-container">
             <table class="sticky-table">
@@ -1033,22 +1012,22 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 문자 통보 탭
+# [탭 4] 카카오톡 통보 탭
 # ---------------------------------------------------------
 with tab4:
-    st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
+    st.subheader("💬 실제 근무자 카카오톡(알림톡) 자동 통보 시스템")
     st.markdown("""
-    > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
+    > 💡 **안내**: 등록된 연락처 DB를 기반으로 카카오톡 비즈니스 알림톡/친구톡 API를 통해 근무자에게 메시지를 발송합니다.
     """)
 
     workers_db = load_workers_db()
 
-    sub_k1, sub_k2 = st.tabs(["🚀 당일 근무자 문자(SMS) 발송", "📋 근무자 연락처 관리"])
+    sub_k1, sub_k2 = st.tabs(["🚀 당일 근무자 카카오톡 발송", "📋 근무자 연락처 관리"])
 
     with sub_k1:
-        st.markdown("#### 선택 일자 근무자 문자 통보 발송")
+        st.markdown("#### 선택 일자 근무자 카카오톡 통보 발송")
         
-        target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="sms_target_send_date")
+        target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="kakao_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
 
         matched_row = df[df["날짜"].dt.date == target_send_date]
@@ -1061,8 +1040,8 @@ with tab4:
         else:
             st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
 
-        default_sms_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
-        custom_sms_msg = st.text_area("발송할 문자 내용 작성", value=default_sms_msg)
+        default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
+        custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
 
         phone_map = {w["name"].strip(): w for w in workers_db}
         
@@ -1079,13 +1058,13 @@ with tab4:
         else:
             st.warning(f"2근무자 **{m_p2}**의 연락처가 등록되어 있지 않습니다.")
 
-        if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
-            api_key = st.session_state.get("sms_api_key", "").strip()
-            api_secret = st.session_state.get("sms_api_secret", "").strip()
-            sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
+        if st.button("📤 실제 근무자들에게 카카오톡 일괄 통보 전송", type="primary", use_container_width=True):
+            api_key = st.session_state.get("kakao_api_key", "").strip()
+            api_secret = st.session_state.get("kakao_api_secret", "").strip()
+            sender_key = st.session_state.get("kakao_sender_key", "").strip()
 
-            if not api_key or not api_secret or not sender_ph:
-                st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
+            if not api_key or not api_secret or not sender_key:
+                st.warning("⚠️ [설정 관리] ➔ [카카오톡 연동 설정] 탭에서 카카오 API 키, 시크릿, 발신프로필 키를 모두 입력해주세요.")
             else:
                 success_count = 0
                 targets_to_send = [w1_info, w2_info]
@@ -1101,11 +1080,19 @@ with tab4:
                             continue
                             
                         dest_phone = t_info["phone"].replace("-", "").strip()
+                        # 카카오톡 알림톡 전송 페이로드 구조 (Solapi 규격 기준)
                         payload = {
                             "message": {
                                 "to": dest_phone,
-                                "from": sender_ph,
-                                "text": custom_sms_msg
+                                "kakaoOptions": {
+                                    "pfId": sender_key,
+                                    "variables": {
+                                        "#{근무자}": t_info['name'],
+                                        "#{날짜}": target_str,
+                                        "#{내용}": custom_kakao_msg
+                                    }
+                                },
+                                "text": custom_kakao_msg
                             }
                         }
                         try:
@@ -1113,14 +1100,14 @@ with tab4:
                             res_data = resp.json()
                             if resp.status_code in [200, 201]:
                                 success_count += 1
-                                st.success(f"✅ [{t_info['name']}] 님에게 전송 성공!")
+                                st.success(f"✅ [{t_info['name']}] 님에게 카카오톡 전송 성공!")
                             else:
                                 st.error(f"❌ [{t_info['name']}] 전송 실패 (코드 {resp.status_code}): {res_data}")
                         except Exception as ex:
                             st.error(f"전송 중 네트워크 오류 발생 ({t_info['name']}): {ex}")
 
                 if success_count > 0:
-                    st.success(f"🎉 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
+                    st.success(f"🎉 총 {success_count}명의 근무자에게 카카오톡 통보가 성공적으로 발송되었습니다!")
                 else:
                     st.info("ℹ️ 발송 대상이 없거나 유효 연락처가 등록되지 않았습니다.")
 
@@ -1128,22 +1115,22 @@ with tab4:
         st.markdown("#### ⚡ 직접 즉시 개별 발송")
         consent_workers = [w["name"] for w in workers_db if w.get("consent_agreed", True)]
         
-        with st.form("direct_instant_sms_form"):
+        with st.form("direct_instant_kakao_form"):
             selected_direct_worker = st.selectbox("수신 동의한 근무자 선택", consent_workers if consent_workers else ["등록된 동의 근무자 없음"])
-            direct_msg_input = st.text_area("즉시 발송할 메시지 내용 (수정 가능)", value=default_sms_msg)
+            direct_msg_input = st.text_area("즉시 발송할 카카오 메시지 내용", value=default_kakao_msg)
             
-            submitted_direct = st.form_submit_button("🚀 즉시 발송 전송하기", type="primary", use_container_width=True)
+            submitted_direct = st.form_submit_button("🚀 카카오톡 즉시 전송하기", type="primary", use_container_width=True)
             if submitted_direct:
                 if not consent_workers:
                     st.warning("⚠️ 수신 동의된 근무자가 존재하지 않습니다.")
                 else:
                     target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
-                    api_key = st.session_state.get("sms_api_key", "").strip()
-                    api_secret = st.session_state.get("sms_api_secret", "").strip()
-                    sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
+                    api_key = st.session_state.get("kakao_api_key", "").strip()
+                    api_secret = st.session_state.get("kakao_api_secret", "").strip()
+                    sender_key = st.session_state.get("kakao_sender_key", "").strip()
 
-                    if not api_key or not api_secret or not sender_ph:
-                        st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키와 발신번호를 설정해주세요.")
+                    if not api_key or not api_secret or not sender_key:
+                        st.warning("⚠️ [설정 관리] ➔ [카카오톡 연동 설정]에서 API 정보를 설정해주세요.")
                     elif target_w_obj and target_w_obj.get("phone"):
                         dest_phone = target_w_obj["phone"].replace("-", "").strip()
                         url = "https://api.solapi.com/messages/v4/send"
@@ -1151,7 +1138,9 @@ with tab4:
                         payload = {
                             "message": {
                                 "to": dest_phone,
-                                "from": sender_ph,
+                                "kakaoOptions": {
+                                    "pfId": sender_key
+                                },
                                 "text": direct_msg_input
                             }
                         }
@@ -1159,7 +1148,7 @@ with tab4:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
                             res_data = resp.json()
                             if resp.status_code in [200, 201]:
-                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                                st.success(f"✅ [{selected_direct_worker}] 님에게 카카오톡 즉시 전송이 완료되었습니다!")
                             else:
                                 st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {res_data}")
                         except Exception as ex:
@@ -1173,10 +1162,10 @@ with tab4:
         with st.form("single_worker_add_form", clear_on_submit=True):
             new_name = st.text_input("성명")
             new_phone = st.text_input("휴대전화번호 (- 제외 또는 포함)")
-            new_consent = st.checkbox("문자 수신 동의 여부", value=True)
+            new_consent = st.checkbox("카카오톡 수신 동의 여부", value=True)
             
             sms_option = st.selectbox(
-                "문자 발송 옵션 설정", 
+                "메시지 발송 옵션 설정", 
                 ["매일 근무 상관없이 받기", "내 근무에만 받기", "받지 않기"],
                 index=0
             )

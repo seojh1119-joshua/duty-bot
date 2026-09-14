@@ -119,6 +119,8 @@ sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 dialog_bg = "#1E293B" if is_dark else "#FFFFFF"
 input_bg = "#0F172A" if is_dark else "#FFFFFF"
 input_text = "#F8FAFC" if is_dark else "#0F172A"
+table_sticky_bg = "#1E293B" if is_dark else "#F1F5F9"
+box_bg = "#1E293B" if is_dark else "#F8FAFC"
 
 # 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
@@ -136,7 +138,6 @@ responsive_css = f"""
         overflow-x: hidden !important;
     }}
 
-    /* 여백 극소화 (스크롤 최소화 및 한 화면 표출) */
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -193,13 +194,11 @@ responsive_css = f"""
         width: 100%;
         box-sizing: border-box;
     }}
-    
     .today-card span {{
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
         font-weight: bold;
     }}
 
-    /* 🚨 콤팩트 셀 버튼 높이 조절 (한 화면 한눈에 보기) */
     .stButton > button {{
         width: 100% !important;
         min-width: 0 !important;
@@ -226,7 +225,6 @@ responsive_css = f"""
         background-color: {btn_hover_bg} !important;
     }}
 
-    /* 🚨 7개 컬럼 강제 가로 한 화면 정렬 */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -254,132 +252,31 @@ responsive_css = f"""
         padding: 0 !important;
     }}
 
-    /* 팝업 스타일 */
-    [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important;
-        color: {main_text_color} !important;
-        width: clamp(290px, 92vw, 600px) !important;
-        max-width: 95vw !important;
-        max-height: 88vh !important;
-        border-radius: 12px !important;
-        padding: 1rem !important;
-        overflow-y: auto !important;
-        border: 1px solid {border_color} !important;
+    /* 스티키 테이블 스타일 */
+    .table-container {{
+        width: 100%;
+        max-height: 450px;
+        overflow: auto;
+        border: 1px solid {border_color};
+        border-radius: 8px;
     }}
-
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
-        background-color: {input_bg} !important;
-        color: {input_text} !important;
-        border-color: {border_color} !important;
+    .sticky-table {{
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
     }}
-
-    /* JS 히든 스와이프 버튼 은닉 */
-    .swipe-hidden-container {{
-        display: none !important;
-        height: 0px !important;
-        width: 0px !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        position: absolute !important;
-        left: -9999px !important;
+    .sticky-table th, .sticky-table td {{
+        padding: 8px 10px;
+        border-bottom: 1px solid {border_color};
+        text-align: center;
+        white-space: nowrap;
     }}
-</style>
-"""
-st.markdown(responsive_css, unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 모바일 터치 스와이프 & 오늘 날짜 테마별 음영 처리 JS
-# ---------------------------------------------------------
-calendar_enhancer_js = f"""
-<script>
-(function() {{
-    function enhanceCalendarUI() {{
-        const doc = window.parent.document;
-        if (!doc) return;
-
-        // 1. 스와이프 히든 버튼 숨김
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {{
-            const txt = btn.innerText || '';
-            if (txt.includes('HIDDEN_PREV') || txt.includes('HIDDEN_NEXT')) {{
-                const container = btn.closest('[data-testid="stElementContainer"]');
-                if (container) {{
-                    container.style.setProperty('display', 'none', 'important');
-                    container.style.setProperty('height', '0px', 'important');
-                }}
-            }}
-
-            // 2. 오늘 날짜 테마별 개별 음영 및 스타일 적용
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
-                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
-                btn.style.setProperty('color', '{today_highlight_text}', 'important');
-                btn.style.setProperty('border', '{today_highlight_border}', 'important');
-                btn.style.setProperty('font-weight', '800', 'important');
-            }}
-        }});
-
-        // 3. 7개 컬럼 100% 폭 강제 밀착 (모바일 스크롤 방지)
-        const horizBlocks = doc.querySelectorAll('[data-testid="stHorizontalBlock"]');
-        horizBlocks.forEach(block => {{
-            if (block.children.length === 7) {{
-                block.style.setProperty('display', 'flex', 'important');
-                block.style.setProperty('flex-direction', 'row', 'important');
-                block.style.setProperty('flex-wrap', 'nowrap', 'important');
-                block.style.setProperty('width', '100%', 'important');
-                block.style.setProperty('max-width', '100%', 'important');
-                block.style.setProperty('gap', '1px', 'important');
-
-                Array.from(block.children).forEach(child => {{
-                    child.style.setProperty('width', '14.285%', 'important');
-                    child.style.setProperty('max-width', '14.285%', 'important');
-                    child.style.setProperty('min-width', '0px', 'important');
-                    child.style.setProperty('flex', '1 1 14.285%', 'important');
-                    child.style.setProperty('padding', '0px', 'important');
-                }});
-            }}
-        }});
+    .sticky-table th {{
+        background-color: {table_sticky_bg};
+        position: sticky;
+        top: 0;
+        z-index: 3;
     }}
-
-    // 터치 스와이프 감지
-    let touchstartX = 0, touchstartY = 0, touchendX = 0, touchendY = 0;
-    function triggerMonthChange(dir) {{
-        const doc = window.parent.document;
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        const targetText = dir === 'next' ? 'HIDDEN_NEXT' : 'HIDDEN_PREV';
-        const targetBtn = buttons.find(b => b.innerText && b.innerText.includes(targetText));
-        if (targetBtn) targetBtn.click();
-    }}
-
-    function handleGesture() {{
-        const diffX = touchendX - touchstartX;
-        const diffY = touchendY - touchstartY;
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {{
-            if (diffX < 0) triggerMonthChange('next');
-            else triggerMonthChange('prev');
-        }}
-    }}
-
-    const doc = window.parent.document;
-    if (!doc._enhancerAttached) {{
-        doc._enhancerAttached = true;
-        doc.addEventListener('touchstart', function(e) {{
-            touchstartX = e.changedTouches[0].screenX;
-            touchstartY = e.changedTouches[0].screenY;
-        }}, {{passive: true}});
-
-        doc.addEventListener('touchend', function(e) {{
-            touchendX = e.changedTouches[0].screenX;
-            touchendY = e.changedTouches[0].screenY;
-            handleGesture();
-        }}, {{passive: true}});
-    }}
-
-    setInterval(enhanceCalendarUI, 200);
-}})();
-</script>
-"""
-components.html(calendar_enhancer_js, height=0, width=0)
-    /* 첫 번째 열(번호) 고정 */
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
         position: sticky;
         left: 0;
@@ -388,7 +285,6 @@ components.html(calendar_enhancer_js, height=0, width=0)
         width: 50px;
         min-width: 50px;
     }}
-    /* 두 번째 열(근무자) 고정 */
     .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
         position: sticky;
         left: 50px;
@@ -421,7 +317,6 @@ components.html(calendar_enhancer_js, height=0, width=0)
     }}
 </style>
 """
-markdown_res = responsive_css
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
@@ -1176,7 +1071,6 @@ with tab4:
                             continue
                             
                         dest_phone = t_info["phone"].replace("-", "").strip()
-                        # 카카오톡 알림톡 전송 페이로드 구조 (Solapi 규격 기준)
                         payload = {
                             "message": {
                                 "to": dest_phone,

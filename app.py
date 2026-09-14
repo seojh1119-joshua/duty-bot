@@ -12,7 +12,7 @@ import requests
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-import altair alt
+import altair as alt
 from pathlib import Path
 
 # 대한민국 공휴일 라이브러리 예외 처리
@@ -986,8 +986,9 @@ with tab4:
                         }
                         try:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
-                            res_data = resp.json()
-                            if resp.status_code in [200, 201] and res_data.get("statusCode") in ["2000", "4000", None]:
+                            res_data = resp.json() if resp.content else {}
+                            # Solapi 정상 응답 코드 범위 체크 (성공 시 statusCode가 2000이거나 그룹 전송 성공 응답 포함)
+                            if resp.status_code in [200, 201] and (str(res_data.get("statusCode", "")) in ["2000", "4000"] or "groupId" in res_data):
                                 success_count += 1
                                 st.success(f"✅ [{t_info['name']}] 님에게 전송 성공! (수신번호: {dest_phone})")
                             else:
@@ -1033,9 +1034,9 @@ with tab4:
                         }
                         try:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
-                            res_data = resp.json()
-                            if resp.status_code in [200, 201]:
-                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone}, 응답: {res_data.get('statusCode', '성공')})")
+                            res_data = resp.json() if resp.content else {}
+                            if resp.status_code in [200, 201] and (str(res_data.get("statusCode", "")) in ["2000", "4000"] or "groupId" in res_data):
+                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
                             else:
                                 st.error(f"❌ 즉시 전송 실패 (코드 {resp.status_code}): {res_data}")
                         except Exception as ex:

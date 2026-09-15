@@ -101,7 +101,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (app(12) 스타일 가로형 캘리포니아 그리드 통합)
+# 시스템 CSS 및 자바스크립트 적용 (7열 균등 배치 그리드 통합)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -139,7 +139,7 @@ responsive_css = f"""
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
         padding: 0.5rem 12px 1rem 12px !important;
-        max-width: 800px !important;
+        max-width: 850px !important;
         margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
@@ -183,13 +183,21 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    /* app(12) 스타일 가로형 캘린더 컨테이너 구조 */
+    /* 7열 균등 배치 가로형 캘린더 컨테이너 구조 */
     .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; border-radius: 12px; overflow: hidden; }}
-    .cal-week-row {{ display: flex; border-bottom: 1px solid {border_color}; }}
+    .cal-week-row {{ display: flex; width: 100%; border-bottom: 1px solid {border_color}; }}
     .cal-week-row:last-child {{ border-bottom: none; }}
+    
+    .cal-day-cell, .cal-header-cell {{
+        flex: 1 1 0% !important;
+        width: calc(100% / 7) !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }}
+
     .cal-day-cell {{
-        flex: 1; min-height: 110px; padding: 6px 4px; border-right: 1px solid {border_color};
-        display: flex; flex-direction: column; box-sizing: border-box; position: relative;
+        min-height: 115px; padding: 6px 3px; border-right: 1px solid {border_color};
+        display: flex; flex-direction: column; position: relative;
         background-color: {box_bg};
     }}
     .cal-day-cell:last-child {{ border-right: none; }}
@@ -200,7 +208,7 @@ responsive_css = f"""
     }}
     
     .cal-day-number {{
-        font-size: 13px; font-weight: 900; text-align: right; display: block; margin-bottom: 4px;
+        font-size: 13px; font-weight: 900; text-align: right; display: block; margin-bottom: 2px;
     }}
     
     .text-sun {{ color: #EF4444 !important; }}
@@ -350,7 +358,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     holiday_map = {}
     memo_dict = {}
     try:
-        if df_raw.shape[1] >= 13:
+        if df_raw.shape[1] >= 13: # M열 (인덱스 12)
             for r_idx in range(len(df_raw)):
                 row_vals = df_raw.iloc[r_idx].values
                 parsed_d = None
@@ -604,7 +612,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (app(12) 가로형 그리드 구조 완벽 적용)
+# [탭 1] 달력 뷰 (7열 균등배치, 이름 앞 숫자/콜론 제거, M열 공휴일 표시, 메모 반영)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -624,8 +632,27 @@ with tab1:
     if "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
         st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
-    sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
-    st.session_state.selected_month = sel_month
+    # 좌우 드래그/클릭 이동을 위한 이전달 / 다음달 네비게이션 버튼 배치
+    col_prev, col_sel, col_next = st.columns([1, 3, 1])
+    with col_prev:
+        if st.button("◀ 이전달", use_container_width=True):
+            curr_idx = avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0
+            if curr_idx > 0:
+                st.session_state.selected_month = avail_months[curr_idx - 1]
+                st.rerun()
+    with col_sel:
+        sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
+        if sel_month != st.session_state.selected_month:
+            st.session_state.selected_month = sel_month
+            st.rerun()
+    with col_next:
+        if st.button("다음달 ▶", use_container_width=True):
+            curr_idx = avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0
+            if curr_idx < len(avail_months) - 1:
+                st.session_state.selected_month = avail_months[curr_idx + 1]
+                st.rerun()
+
+    sel_month = st.session_state.selected_month
 
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
@@ -658,9 +685,9 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
-            # app(12) 스타일 가로형 그리드 구조 적용
+            # 7열 균등 배치 가로형 캘린더 그리드 구조
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
@@ -690,13 +717,20 @@ with tab1:
                         memo = st.session_state.memos.get(d_str, "")
                         
                         html_content += f'<div class="cal-day-cell {day_class}">'
-                        if holiday_name:
-                            html_content += f'<div style="font-size:9px; font-weight:700; color:#EF4444; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">[{holiday_name}]</div>'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
+                        
+                        # M열 공휴일 이름 표시 (일자 아래)
+                        if holiday_name:
+                            html_content += f'<div style="font-size:9px; font-weight:700; color:#EF4444; text-align:center; line-height:1.1; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">[{holiday_name}]</div>'
+                        
+                        # 이름 앞 숫자 및 콜론(:) 제거된 순수 근무자명 표시
                         if w1 or w2:
-                            html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:2px; line-height:1.3;">1: <b>{w1}</b><br>2: <b>{w2}</b></div>'
+                            html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:1px; line-height:1.3;"><b>{w1}</b><br><b>{w2}</b></div>'
+                        
+                        # 메모 표시
                         if memo and str(memo).strip():
                             html_content += f'<div style="font-size:10px; font-weight:700; color:#D97706; text-align:center; margin-top:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📌 {memo}</div>'
+                        
                         html_content += '</div>'
                 html_content += '</div>'
             html_content += '</div>'

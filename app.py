@@ -98,14 +98,15 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# 쿼리 파라미터로 오늘 근무 카드 클릭 시 다이얼로그 호출 처리 (충돌 방지 최적화)
+# 쿼리 파라미터로 오늘 근무 카드 클릭 시 다이얼로그 호출 처리 (안정성 강화)
 if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_today_dialog": True,
         "show_settings_dialog": False,
         "show_exit_dialog": False
     })
-    st.query_params.pop("open_today", None)
+    if "open_today" in st.query_params:
+        del st.query_params["open_today"]
     st.rerun()
 
 if st.session_state.is_app_closed:
@@ -114,7 +115,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (가상키보드, 스와이프, 뒤로가기 팝업 종료 최적화)
+# 시스템 CSS 및 자바스크립트 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -286,10 +287,8 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 
-<!-- 모바일 최적화 및 가상키보드, 스와이프, 뒤로가기 처리 스크립트 -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {{
-    // 1. 드롭메뉴 한번 클릭은 선택/오픈, 두 번 클릭(또는 터치/포커스)시 가상키보드가 나오도록 최적화
     document.addEventListener("click", function(e) {{
         const selectBox = e.target.closest('[data-baseweb="select"]');
         if (selectBox) {{
@@ -309,7 +308,6 @@ document.addEventListener("DOMContentLoaded", function() {{
             const tapLength = currentTime - lastTapTime;
             const inputField = selectBox.querySelector("input");
             if (tapLength < 300 && tapLength > 0 && inputField) {{
-                // 더블탭 감지 시 가상키보드 강제 활성화 (포커스 후 입력창 호출)
                 inputField.focus();
                 inputField.click();
             }}
@@ -317,7 +315,6 @@ document.addEventListener("DOMContentLoaded", function() {{
         }}
     }}, {{passive: true}});
 
-    // 2. 모바일 스와이프 전후 달 이동 감지
     let touchstartX = 0;
     let touchendX = 0;
 
@@ -368,7 +365,6 @@ document.addEventListener("DOMContentLoaded", function() {{
         }}
     }}
 
-    // 3. 모바일 환경에서 뒤로가기 누를 때 팝업 종료 또는 달력 화면으로 돌아가도록 처리
     window.addEventListener('popstate', function(event) {{
         const url = new URL(window.location.href);
         if (url.searchParams.has('open_today') || url.searchParams.has('month')) {{
@@ -472,7 +468,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     holiday_map = {}
     memo_dict = {}
     try:
-        if df_raw.shape[1] >= 13: # M열 (인덱스 12)
+        if df_raw.shape[1] >= 13:
             for r_idx in range(len(df_raw)):
                 row_vals = df_raw.iloc[r_idx].values
                 parsed_d = None
@@ -559,7 +555,7 @@ def save_workers_db(workers):
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 모음 (상태 충돌 방지 최적화 적용)
+# 다이얼로그 모음
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -784,7 +780,6 @@ with st.sidebar:
         })
         st.rerun()
 
-# 다이얼로그 호출 상태 반영 (충돌 방지)
 if st.session_state.show_exit_dialog: 
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
@@ -811,7 +806,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (일자/요일 일치, 스와이프 이동 및 공휴일 표시 연동)
+# [탭 1] 달력 뷰
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -824,7 +819,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 근무 안내 박스 클릭 시 '일자별 수정(today_edit_dialog)' 다이얼로그가 열리도록 연동
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
@@ -937,7 +931,6 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # 전역 스와이프 인식을 위한 월 데이터 태그 주입
         avail_months_json = json.dumps(avail_months)
         st.markdown(f"""
         <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
@@ -1023,7 +1016,7 @@ with tab2:
         st.info("등록된 날짜 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 3] 전체 수정 뷰
+# [탭 3] 전체 수정 뷰 (동적 행 추가/삭제 안정화 반영)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("전체 근무표 에디터 수정")
@@ -1050,20 +1043,14 @@ with tab3:
         m_df = st.session_state.df.copy()
         
         if sel_ed_m == "전체 기간":
-            for idx in edited_df.index:
-                if idx in m_df.index:
-                    for col in edited_df.columns:
-                        m_df.loc[idx, col] = edited_df.loc[idx, col]
+            m_df = edited_df.copy()
         else:
-            sub_indices = m_df[m_df["년월"] == sel_ed_m].index
-            for i, idx in enumerate(sub_indices):
-                if i < len(edited_df):
-                    ed_idx = edited_df.index[i]
-                    for col in edited_df.columns:
-                        m_df.loc[idx, col] = edited_df.loc[ed_idx, col]
+            other_df = m_df[m_df["년월"] != sel_ed_m]
+            m_df = pd.concat([other_df, edited_df], ignore_index=True)
             
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
+            m_df = m_df.dropna(subset=["날짜"]).sort_values("날짜").reset_index(drop=True)
             m_df["년월"] = m_df["날짜"].dt.strftime("%Y-%m")
             
         p1 = m_df["근무자1"].astype(str).str.strip() if "근무자1" in m_df.columns else "미지정"

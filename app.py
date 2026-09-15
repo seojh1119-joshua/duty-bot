@@ -5,6 +5,9 @@ import glob
 import io
 import json
 import os
+import hmac
+import hashlib
+import uuid
 import requests
 import pandas as pd
 import streamlit as st
@@ -40,7 +43,7 @@ WORKERS_DB_FILE = Path("data/workers_db.json")
 # 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="광주교도소 의료과 숙직근무 & 개인 카카오 연계 시스템",
+    page_title="광주교도소 의료과 숙직근무",
     page_icon="📋",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -50,7 +53,9 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_access_token": "",
+        "sms_api_key": "",
+        "sms_api_secret": "",
+        "sms_sender_phone": "",
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
         "batch_days_c": 30,
@@ -83,7 +88,9 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_access_token", local_cfg.get("kakao_access_token", "")),
+    ("sms_api_key", local_cfg.get("sms_api_key", "")),
+    ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
+    ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -95,395 +102,163 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 모바일 세로 화면(9:16 등) 및 버튼 간격 제로(밀착) 최적화 CSS
+# 시스템 CSS 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#0F172A" if is_dark else "#FFFFFF"
-main_text_color = "#F8FAFC" if is_dark else "#0F172A"
-card_bg = "#1E293B" if is_dark else "#F8FAFC"
-border_color = "#334155" if is_dark else "#CBD5E1"
-btn_bg = "#1E293B" if is_dark else "#FFFFFF"
-btn_text = "#F8FAFC" if is_dark else "#0F172A"
-btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
-btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
-sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
-table_sticky_bg = "#1E293B" if is_dark else "#F1F5F9"
-
-today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
-today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
-today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
+theme_bg = "#121212" if is_dark else "#F8F9FA"
+main_text_color = "#E0E0E0" if is_dark else "#1A1A1A"
+border_color = "#333333" if is_dark else "#E2E8F0"
+btn_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+btn_text = "#E0E0E0" if is_dark else "#2D3748"
+btn_hover_bg = "#2C2C2C" if is_dark else "#EDF2F7"
+btn_hover_border = "#3B82F6" if is_dark else "#CBD5E0"
+sidebar_bg = "#181818" if is_dark else "#FFFFFF"
+dialog_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+input_bg = "#272727" if is_dark else "#FFFFFF"
+input_text = "#F5F5F5" if is_dark else "#1E1E1E"
+box_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+primary_blue = "#3B82F6"
+table_header_bg = "#2C2C2C" if is_dark else "#EDF2F7"
 
 responsive_css = f"""
 <style>
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+    [data-testid="stSidebarNav"] {{ z-index: 100000 !important; }}
+    [data-testid="collapsedControl"] {{ z-index: 99999 !important; top: 5px !important; }}
+    
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        width: 100vw !important;
+        font-family: Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
         max-width: 100vw !important;
         overflow-x: hidden !important;
     }}
+
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.1rem 1px 0.2rem 1px !important;
-        max-width: 100vw !important;
-        width: 100% !important;
+        padding: 0.6rem 10px 1.2rem 10px !important;
+        max-width: 520px !important;
+        margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
-    [data-testid="stSidebar"] {{
-        background-color: {sidebar_bg} !important;
+
+    h1 {{
+        font-size: 22px !important;
+        margin: 10px 0px 14px 0px !important;
+        font-weight: 800 !important;
         color: {main_text_color} !important;
-    }}
-    p, span, label, .stMarkdown, h1, h2, h3, h4, h5, h6 {{
-        color: {main_text_color} !important;
-    }}
-    .month-header-card {{
-        background: { "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_dark else "linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 100%)" };
-        border: 1px solid {border_color};
-        border-radius: 6px;
-        padding: 3px 8px;
-        margin: 1px 0 2px 0;
         text-align: center;
     }}
-    .month-header-card h2 {{
-        margin: 0 !important;
-        font-size: clamp(14px, 3.2vw, 18px) !important;
-        font-weight: 800 !important;
-        color: {"#60A5FA" if is_dark else "#2563EB"} !important;
-    }}
-    .today-card {{
-        background: { "linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%)" if is_dark else "linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)" };
-        color: {"white" if is_dark else "#0F172A"};
-        padding: 4px 8px;
-        border-radius: 6px;
-        border: 1px solid {border_color};
-        margin-bottom: 2px;
-        width: 100%;
-        box-sizing: border-box;
-    }}
-    .today-card span {{
-        color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
-        font-weight: bold;
-    }}
-    .stButton > button {{
-        width: 100% !important;
-        height: auto !important;
-        min-height: 44px !important;
-        padding: 4px 2px !important;
-        margin: 0px !important;
+
+    .setting-box {{
+        background-color: {box_bg} !important;
         border: 1px solid {border_color} !important;
-        border-radius: 2px !important;
-        background-color: {btn_bg} !important;
-        color: {btn_text} !important;
-        font-size: clamp(8px, 1.9vw, 11px) !important;
-        line-height: 1.35 !important;
-        font-weight: 500 !important;
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
-        overflow: visible !important;
-        overflow-wrap: break-word !important;
+        border-radius: 16px !important;
+        padding: 14px 16px !important;
+        margin: 10px 0px 14px 0px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }}
-    .stButton > button:hover {{
-        border-color: {btn_hover_border} !important;
-        background-color: {btn_hover_bg} !important;
-    }}
-    [data-testid="stHorizontalBlock"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: stretch !important;
+
+    .today-card {{
+        background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
+        color: #FFFFFF !important;
+        padding: 16px 18px !important;
+        border-radius: 16px !important;
+        margin-bottom: 16px !important;
         width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        gap: 4px !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        box-sizing: border-box !important;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    }}
+    .today-card .today-title {{ font-size: 12px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
+    .today-card .today-content {{ font-size: 16px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
+    .today-card span {{ color: #FEF08A !important; font-size: 17px !important; font-weight: 900 !important; text-decoration: underline; }}
+
+    .month-header-card {{
+        background: {box_bg}; border: 1px solid {border_color}; border-radius: 14px; padding: 12px 16px; margin: 12px 0 14px 0; text-align: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: 17px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
+
+    [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
+        background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
+    }}
+    p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
+
+    .stButton > button {{
+        width: 100% !important; min-height: 40px !important;
+        padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
+        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
+    }}
+    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
+
+    [data-testid="stHorizontalBlock"] {{
+        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 3px !important; margin: 0 !important; padding: 0 !important;
     }}
     [data-testid="column"] {{
-        min-width: 0 !important;
-        padding: 0px 2px !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        flex-direction: column !important;
+        width: 14.285% !important; max-width: 14.285% !important; min-width: 14.285% !important; flex: 0 0 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
     }}
-    [data-testid="column"] [data-testid="stVerticalBlock"] {{
-        height: 100% !important;
+    div[data-testid="column"] .stButton > button {{
+        min-height: 72px !important; max-height: 96px !important; padding: 4px 2px !important; font-size: 10px !important; border-radius: 10px !important;
+        display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important; line-height: 1.25 !important;
+        width: 100% !important; box-sizing: border-box !important; background-color: {box_bg} !important; border: 1px solid {border_color} !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }}
-    [data-testid="column"] .stButton {{
-        height: 100% !important;
+    div[data-testid="column"] .stButton > button:hover {{
+        border-color: {primary_blue} !important; box-shadow: 0 3px 8px rgba(0,0,0,0.08);
     }}
-    [data-testid="column"] .stButton > button {{
-        height: 100% !important;
+
+    [data-testid="stDialog"] > div:first-child {{
+        background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 380px !important;
+        border-radius: 20px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
     }}
-    /* 요일 헤더 / 달력 그리드처럼 정확히 7개 열인 행에만 동일폭(각 14.285%)·간격 0을 강제 적용
-       (제목줄, 팝업 버튼줄, 통계 요약카드 등 다른 st.columns 배치는 원래 비율을 그대로 유지) */
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
-        gap: 0px !important;
+    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
+        background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
     }}
-    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) > [data-testid="column"] {{
-        width: 14.285% !important;
-        max-width: 14.285% !important;
-        flex: 1 1 14.285% !important;
-        padding: 0px !important;
+    [data-baseweb="tab-list"] {{
+        width: 100% !important; display: flex !important; gap: 4px !important; background-color: {box_bg}; padding: 4px !important; border-radius: 14px; border: 1px solid {border_color};
     }}
-    /* 600px 이하(모바일 세로 화면)에서도 가로 달력이 항상 7열을 유지하도록 강제 고정 */
-    @media (max-width: 600px) {{
-        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-        }}
-        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) > [data-testid="column"] {{
-            flex: 1 1 calc(100% / 7) !important;
-            width: calc(100% / 7) !important;
-            max-width: calc(100% / 7) !important;
-        }}
-        .stButton > button {{
-            font-size: clamp(7px, 2.6vw, 10px) !important;
-            padding: 3px 1px !important;
-            line-height: 1.3 !important;
-        }}
+    [data-baseweb="tab"] {{
+        flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
     }}
-    input, select, textarea {{
-        caret-color: transparent !important;
-    }}
+
     .table-container {{
-        width: 100%;
-        max-height: 450px;
-        overflow: auto;
-        border: 1px solid {border_color};
-        border-radius: 8px;
+        width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
     .sticky-table {{
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 13px;
+        width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap;
     }}
     .sticky-table th, .sticky-table td {{
-        padding: 8px 10px;
-        border-bottom: 1px solid {border_color};
-        text-align: center;
-        white-space: nowrap;
+        padding: 10px 12px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
     }}
     .sticky-table th {{
-        background-color: {table_sticky_bg};
-        position: sticky;
-        top: 0;
-        z-index: 3;
+        background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky;
-        left: 0;
-        z-index: 4;
-        background-color: {table_sticky_bg};
-        width: 45px;
-        min-width: 45px;
+        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 90px; min-width: 90px;
     }}
-    .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
-        position: sticky;
-        left: 45px;
-        z-index: 4;
-        background-color: {table_sticky_bg};
-        border-right: 2px solid {border_color};
-    }}
-    .stat-metric-card {{
-        background: {card_bg};
-        border: 1px solid {border_color};
-        border-radius: 8px;
-        padding: 8px 4px;
-        text-align: center;
-    }}
-    .stat-metric-card .m-label {{
-        font-size: clamp(10px, 2.6vw, 12px) !important;
-        opacity: 0.75;
-        margin-bottom: 2px;
-    }}
-    .stat-metric-card .m-value {{
-        font-size: clamp(16px, 4.2vw, 22px) !important;
-        font-weight: 800;
-        color: {"#60A5FA" if is_dark else "#2563EB"};
-    }}
-    html {{
-        touch-action: manipulation;
-    }}
-    /* ---------------- 모바일 세로 화면(≤600px) 전용 최적화 ---------------- */
-    @media (max-width: 600px) {{
-        .main .block-container {{
-            padding: 0.1rem 2px 0.6rem 2px !important;
-        }}
-        h1 {{
-            font-size: clamp(16px, 5vw, 20px) !important;
-        }}
-        [data-baseweb="tab-list"] {{
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            flex-wrap: nowrap !important;
-            scrollbar-width: none !important;
-        }}
-        [data-baseweb="tab-list"]::-webkit-scrollbar {{
-            display: none !important;
-        }}
-        [data-baseweb="tab-list"] button {{
-            font-size: clamp(10px, 3vw, 13px) !important;
-            padding: 6px 8px !important;
-            white-space: nowrap !important;
-        }}
-        .sticky-table {{
-            font-size: 11px !important;
-        }}
-        .sticky-table th, .sticky-table td {{
-            padding: 5px 6px !important;
-        }}
-        .today-card, .month-header-card {{
-            padding: 4px 6px !important;
-        }}
-    }}
+    .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 가상키보드 방지 및 오늘 날짜 테마 음영 처리 JS
+# Solapi (CoolSMS) 인증 헤더 생성 유틸 함수
 # ---------------------------------------------------------
-calendar_enhancer_js = f"""
-<script>
-(function() {{
-    // 탭(더블클릭/더블탭) 판정 시간(ms)
-    const DBL_TAP_MS = 350;
-
-    function ensureViewportMeta(doc) {{
-        let meta = doc.querySelector('meta[name="viewport"]');
-        const content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
-        if (!meta) {{
-            meta = doc.createElement('meta');
-            meta.name = 'viewport';
-            doc.head.appendChild(meta);
-        }}
-        if (meta.getAttribute('content') !== content) {{
-            meta.setAttribute('content', content);
-        }}
-    }}
-
-    // ---------------------------------------------------------
-    // 모바일 "뒤로가기" 버튼 처리: 팝업(다이얼로그)이 열려있거나
-    // 달력 탭이 아닌 다른 탭에 있을 때는 뒤로가기를 누르면
-    // 앱이 최소화(종료)되지 않고 팝업 닫기 / 달력 탭으로 복귀하도록 함
-    // ---------------------------------------------------------
-    function isDialogOpen(doc) {{
-        return !!doc.querySelector('[aria-label="Close"]');
-    }}
-
-    function getActiveTabLabel(doc) {{
-        const activeTab = doc.querySelector('[data-baseweb="tab"][aria-selected="true"]');
-        return activeTab ? (activeTab.innerText || '').trim() : null;
-    }}
-
-    function isHomeState(doc) {{
-        if (isDialogOpen(doc)) return false;
-        const label = getActiveTabLabel(doc);
-        return label === null || label.includes('달력');
-    }}
-
-    function goToCalendarTab(doc) {{
-        const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
-        const calTab = tabs.find(t => (t.innerText || '').includes('달력'));
-        if (calTab) calTab.click();
-    }}
-
-    function closeOpenDialog(doc) {{
-        const closeBtn = doc.querySelector('[aria-label="Close"]');
-        if (closeBtn) closeBtn.click();
-    }}
-
-    function backGuardTick() {{
-        const doc = window.parent.document;
-        const win = window.parent;
-        if (!doc || !win || !win.history) return;
-
-        if (!isHomeState(doc)) {{
-            const st = win.history.state;
-            if (!st || !st.dutyAppGuard) {{
-                win.history.pushState({{ dutyAppGuard: true }}, '');
-            }}
-        }}
-    }}
-
-    if (!window.parent.__dutyBackGuardBound) {{
-        window.parent.__dutyBackGuardBound = true;
-        window.parent.addEventListener('popstate', function() {{
-            const doc = window.parent.document;
-            if (!doc) return;
-            if (isDialogOpen(doc)) {{
-                closeOpenDialog(doc);
-            }} else if (!isHomeState(doc)) {{
-                goToCalendarTab(doc);
-            }}
-        }});
-    }}
-
-    function enhanceUI() {{
-        const doc = window.parent.document;
-        if (!doc) return;
-
-        ensureViewportMeta(doc);
-        backGuardTick();
-
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {{
-            const txt = btn.innerText || '';
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
-                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
-                btn.style.setProperty('color', '{today_highlight_text}', 'important');
-                btn.style.setProperty('border', '{today_highlight_border}', 'important');
-                btn.style.setProperty('font-weight', '800', 'important');
-            }}
-        }});
-
-        // 드롭다운(셀렉트박스) 입력: 기본은 readonly(한번 클릭/탭 = 목록에서 선택만 가능),
-        // 짧은 시간 안에 두번 클릭/탭 하면 readonly를 해제해 가상키보드로 직접 검색 입력이 가능하도록 처리
-        const selects = doc.querySelectorAll('input[aria-autocomplete="list"], div[data-baseweb="select"] input');
-        selects.forEach(sel => {{
-            if (sel.dataset.dtapBound === '1') return;
-            sel.dataset.dtapBound = '1';
-            sel.setAttribute('readonly', 'readonly');
-            sel.dataset.lastTap = '0';
-
-            const handleTap = (e) => {{
-                const now = Date.now();
-                const last = parseInt(sel.dataset.lastTap || '0', 10);
-                const delta = now - last;
-                sel.dataset.lastTap = String(now);
-
-                if (delta > 0 && delta < DBL_TAP_MS) {{
-                    // 두번째 클릭/탭: 가상키보드가 뜨도록 readonly 해제
-                    sel.removeAttribute('readonly');
-                    sel.focus();
-                }} else {{
-                    // 첫번째 클릭/탭: 선택 전용 모드 유지(가상키보드 방지)
-                    if (!sel.hasAttribute('readonly')) {{
-                        sel.setAttribute('readonly', 'readonly');
-                    }}
-                }}
-            }};
-
-            sel.addEventListener('pointerdown', handleTap, true);
-
-            // 포커스를 벗어나면(드롭다운이 닫히면) 다음 클릭이 다시 "한번=선택"이 되도록 초기화
-            sel.addEventListener('blur', () => {{
-                sel.setAttribute('readonly', 'readonly');
-                sel.dataset.lastTap = '0';
-            }});
-        }});
-    }}
-    setInterval(enhanceUI, 200);
-}})();
-</script>
-"""
-components.html(calendar_enhancer_js, height=0, width=0)
+def get_solapi_auth_headers(api_key, api_secret):
+    date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    salt = uuid.uuid4().hex
+    data = date + salt
+    signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
+    auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
+    return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 데이터베이스 및 엑셀 유틸 함수
+# 파일 유틸 및 저장 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -538,8 +313,6 @@ def save_app_state(df, sheet_name, memos):
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
-PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
-
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
     file_obj = io.BytesIO(file_bytes)
@@ -579,14 +352,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["실제근무1"] = df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자1"]).fillna("미지정")
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     
-    # M열 (Index 12) 값 가져오기 (공휴일/구분 정보)
-    if len(df.columns) > 12:
-        m_col_name = df.columns[12]
-        df["M열구분"] = df[m_col_name].astype(str).str.strip().replace(["nan", "None", "nat", "NaT"], "")
-    else:
-        df["M열구분"] = ""
-
-    base_cols = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2", "M열구분"]
+    base_cols = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
     other_cols = [c for c in df.columns if c not in base_cols and c != "년월"]
     ordered_cols = base_cols + other_cols + ["년월"]
     
@@ -601,6 +367,18 @@ if "file_bytes" not in st.session_state and os.path.exists(initial_file):
 if "df" not in st.session_state:
     parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
     st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
+
+def load_workers_db():
+    if WORKERS_DB_FILE.exists():
+        try:
+            return json.loads(WORKERS_DB_FILE.read_text(encoding="utf-8"))
+        except:
+            return []
+    return []
+
+def save_workers_db(workers):
+    WORKERS_DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+    WORKERS_DB_FILE.write_text(json.dumps(workers, ensure_ascii=False, indent=2))
 
 update_excel_download_bytes(st.session_state.df)
 
@@ -622,21 +400,26 @@ def confirm_exit_dialog():
 
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
-    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오톡 개인계정 연동"])
+    tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "SMS 연동 설정"])
     
     with tab_s1:
-        st.markdown("#### 📱 해당 기기 전용 화면 설정")
+        st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
         new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("화면 설정 적용 (이 기기만)", use_container_width=True, type="primary"):
-            st.session_state.update({"auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False})
+        if st.button("화면 설정 적용", use_container_width=True, type="primary"):
+            st.session_state.update({
+                "auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False
+            })
             save_local_config("auto_view_type", new_view)
             save_local_config("app_theme", new_th)
             st.rerun()
 
     with tab_s2:
+        st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         st.markdown("#### 🔄 순환 등록 설정")
+        
         cfg = load_local_config()
         try:
             default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
@@ -654,6 +437,7 @@ def settings_dialog():
         i2 = st.number_input("근무자2 주기", 1, 30, int(cfg.get("batch_i2", 3)), key="batch_i2_input")
         saved_w2 = cfg.get("batch_w2_names", ["", "", ""])
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
+        st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
             save_local_config("batch_start_date", str(start_d))
@@ -667,7 +451,12 @@ def settings_dialog():
             df_cur = st.session_state.df
             cur_d = start_d
             v1, v2 = [n for n in w1_names if n], [n for n in w2_names if n]
-            delta_days = (datetime.date(start_d.year, 12, 31) - start_d).days + 1 if infinite_repeat else int(days_c)
+            
+            if infinite_repeat:
+                target_end_date = datetime.date(start_d.year, 12, 31)
+                delta_days = (target_end_date - start_d).days + 1
+            else:
+                delta_days = int(days_c)
 
             for i in range(delta_days):
                 idx_m = df_cur[df_cur["날짜"].dt.date == cur_d].index
@@ -690,15 +479,21 @@ def settings_dialog():
             st.rerun()
 
     with tab_s3:
-        st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
-        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**을 입력하여 연동하세요.\n\n⚠️ 액세스 토큰은 유효기간이 있어 시간이 지나면 만료됩니다. 전송 시 '토큰 만료/유효하지 않음' 오류가 뜨면 카카오 로그인으로 토큰을 다시 발급받아 여기에 입력해주세요.")
-        k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="토큰 값 입력 (Bearer 접두어 제외)")
+        st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+        s_key = st.text_input("SMS API 키 (API Key)", value=st.session_state.sms_api_key, type="password", placeholder="Solapi/CoolSMS API Key")
+        s_sec = st.text_input("SMS API 시크릿 (API Secret)", value=st.session_state.sms_api_secret, type="password", placeholder="Solapi/CoolSMS API Secret")
+        s_phone = st.text_input("발신자 대표 번호", value=st.session_state.sms_sender_phone, placeholder="0200000000 (등록된 발신번호)")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
-            st.session_state.kakao_access_token = k_token
-            save_local_config("kakao_access_token", k_token)
+        if st.button("SMS 설정 저장", use_container_width=True, type="primary"):
+            st.session_state.sms_api_key = s_key
+            st.session_state.sms_api_secret = s_sec
+            st.session_state.sms_sender_phone = s_phone
+            save_local_config("sms_api_key", s_key)
+            save_local_config("sms_api_secret", s_sec)
+            save_local_config("sms_sender_phone", s_phone)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 카카오 액세스 토큰이 저장되었습니다.")
+            st.success("✅ 문자(SMS) API 설정이 저장되었습니다.")
             st.rerun()
 
 @st.dialog("✏️ 근무자 및 메모 수정")
@@ -773,6 +568,9 @@ def edit_worker_dialog(date_str, duty_info):
         st.session_state.update({"editing_date": None, "editing_duty_info": None})
         st.rerun()
 
+# ---------------------------------------------------------
+# 사이드바
+# ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
     if "file_name" in st.session_state: st.info(f"📄 `{st.session_state.file_name}`")
@@ -814,17 +612,22 @@ elif st.session_state.editing_date and st.session_state.editing_duty_info:
 df = st.session_state.df
 today = datetime.date.today()
 
-col_title, col_settings = st.columns([0.82, 0.18])
-with col_title:
-    st.title("광주교도소 의료과 숙직근무")
-with col_settings:
-    st.write("")
-    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
-        st.session_state.show_settings_dialog = True
-        st.rerun()
+# ---------------------------------------------------------
+# 메인 화면
+# ---------------------------------------------------------
+st.title("광주교도소 의료과 숙직근무")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡 통보", "🔍 원본"])
+st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):
+    st.session_state.show_settings_dialog = True
+    st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
+
+# ---------------------------------------------------------
+# [탭 1] 달력 뷰
+# ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
     if not today_df.empty:
@@ -863,10 +666,7 @@ with tab1:
             if sub1_val and sub1_val not in ["nan", "None", ""]: p1_name = f"{p1_name}(대)"
             if sub2_val and sub2_val not in ["nan", "None", ""]: p2_name = f"{p2_name}(대)"
                 
-            m_val = str(row.get("M열구분", "")).strip()
-            if m_val in ["nan", "None", "NaT", "nat"]:
-                m_val = ""
-            duty_map[row["날짜"].day] = {"idx": i, "p1": p1_name, "p2": p2_name, "m_val": m_val}
+            duty_map[row["날짜"].day] = {"idx": i, "p1": p1_name, "p2": p2_name}
 
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
@@ -875,29 +675,24 @@ with tab1:
                 d_str = c_date.strftime("%Y-%m-%d")
                 weekday_idx = c_date.weekday()
                 weekday_str = weekdays_kr[weekday_idx]
-                info = duty_map.get(d, {"p1": "-", "p2": "-", "m_val": ""})
+                info = duty_map.get(d, {"p1": "-", "p2": "-"})
                 
                 is_today = (c_date == today)
-                m_val = info["m_val"]
-                
-                if is_today: 
-                    t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
-                elif m_val: 
-                    t_str = f"[{m_val}] {d:02d}일({weekday_str})"
-                else: 
-                    t_str = f"🗓️ {d:02d}일({weekday_str})"
+                if is_today: t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
+                elif weekday_idx == 6 or c_date in kr_holidays: t_str = f"🔴 {d:02d}일({weekday_str})"
+                elif weekday_idx == 5: t_str = f"🔵 {d:02d}일({weekday_str})"
+                else: t_str = f"🗓️ {d:02d}일({weekday_str})"
                     
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                btn_display_label = f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}"
-                if st.button(btn_display_label, key=f"v_{d_str}"):
+                if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_{d_str}"):
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
             cols_h = st.columns(7)
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 11px; padding: 2px 0;'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -909,61 +704,63 @@ with tab1:
                     else:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
-                        info = duty_map.get(day_cnt, {"p1": "-", "p2": "-", "m_val": ""})
-                        memo_val = st.session_state.memos.get(d_str, "").strip()
-                        m_val = info.get("m_val", "")
+                        info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
+                        memo_s = "📌" if st.session_state.memos.get(d_str) else ""
                         
                         is_today = (c_date == today)
-                        
-                        if is_today:
-                            prefix = "🌟[오늘] "
-                        elif m_val:
-                            prefix = f"[{m_val}] "
-                        else:
-                            prefix = ""
+                        if is_today: day_prefix = "🌟"
+                        elif c == 0 or c_date in kr_holidays: day_prefix = "🔴"
+                        elif c == 6: day_prefix = "🔵"
+                        else: day_prefix = ""
                             
-                        t_header = f"{prefix}{day_cnt}일"
-                        
-                        btn_txt = f"{t_header}\n{info['p1']}\n{info['p2']}"
-                        if memo_val:
-                            btn_txt += f"\n📌 {memo_val}"
+                        t_str = f"{day_prefix}{day_cnt}" if day_prefix else str(day_cnt)
+                        btn_txt = f"{t_str}\n{info['p1']}\n{info['p2']}"
+                        if memo_s: btn_txt += f" {memo_s}"
 
                         if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
                         day_cnt += 1
 
+# ---------------------------------------------------------
+# [탭 2] 수정 뷰
+# ---------------------------------------------------------
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
     
-    preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2", "M열구분"]
+    valid_cols = [c for c in df.columns if c and not str(c).startswith("열_") and not str(c).startswith("Unnamed")]
+    
+    preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
     display_cols = [c for c in preferred_order if c in df.columns]
+    for c in valid_cols:
+        if c not in display_cols and c != "년월":
+            display_cols.append(c)
+
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
 
-    column_configs = {}
-    if "날짜" in display_cols:
-        column_configs["날짜"] = st.column_config.DateColumn("날짜", format="YYYY-MM-DD", disabled=True)
+    column_config = {
+        "날짜": st.column_config.DateColumn("날짜", format="YYYY-MM-DD", pinned=True, disabled=False)
+    }
 
-    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True, column_config=column_configs)
+    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True, column_config=column_config)
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
         m_df = st.session_state.df.copy()
+        
         if sel_ed_m == "전체 기간":
             for idx in edited_df.index:
                 if idx in m_df.index:
                     for col in edited_df.columns:
-                        if col != "날짜":
-                            m_df.loc[idx, col] = edited_df.loc[idx, col]
+                        m_df.loc[idx, col] = edited_df.loc[idx, col]
         else:
             sub_indices = m_df[m_df["년월"] == sel_ed_m].index
             for i, idx in enumerate(sub_indices):
                 if i < len(edited_df):
                     ed_idx = edited_df.index[i]
                     for col in edited_df.columns:
-                        if col != "날짜":
-                            m_df.loc[idx, col] = edited_df.loc[ed_idx, col]
+                        m_df.loc[idx, col] = edited_df.loc[ed_idx, col]
             
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
@@ -982,183 +779,330 @@ with tab2:
         st.success("✅ 변경사항이 저장되었습니다.")
         st.rerun()
 
+# ---------------------------------------------------------
+# [탭 3] 통계 뷰
+# ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
+    
     sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월" and c != "M열구분"), None)
+    def get_category_and_hours(row):
+        c_date = pd.to_datetime(row["날짜"])
+        wd = c_date.weekday()
+        
+        if "근무구분" in row and pd.notnull(row["근무구분"]):
+            cat_val = str(row["근무구분"]).strip()
+            if "평일" in cat_val: return "평일", 7
+            elif "금요일" in cat_val: return "금요일", 15
+            elif "토요일" in cat_val: return "토요일", 15
+            elif "일요일" in cat_val or "공휴일" in cat_val: return "일요일", 7
 
-    # 근무 구분(평일/금요일/토요일/일요일) 정렬 순서 및 색상 매핑
-    # 순서: 평일 -> 금요일 -> 토요일 -> 일요일 -> 그 외
-    # 색상: 평일=노랑, 금요일=녹색, 토요일=파랑, 일요일=빨강
-    def get_cat_rank(cat):
-        if "평일" in cat: return 0
-        if "금" in cat: return 1
-        if "토" in cat: return 2
-        if "일" in cat: return 3
-        return 4
-
-    def get_cat_color(cat):
-        if "평일" in cat: return "#FACC15"  # 노랑
-        if "금" in cat: return "#22C55E"    # 녹색
-        if "토" in cat: return "#3B82F6"    # 파랑
-        if "일" in cat: return "#EF4444"    # 빨강
-        return "#94A3B8"                    # 그 외(회색)
+        if wd in [0, 1, 2, 3]: return "평일", 7
+        elif wd == 4: return "금요일", 15
+        elif wd == 5: return "토요일", 15
+        else: return "일요일", 7
 
     expanded_rows = []
-    duty_dates = set()
     for _, r in f_df.iterrows():
-        cat = str(r[cat_col]).strip() if cat_col and pd.notnull(r[cat_col]) and str(r[cat_col]).strip() not in ["", "nan", "None"] else "평일"
-        hours = 7 if "평일" in cat or "주간" in cat else 15
-        
+        cat, hours = get_category_and_hours(r)
         w1 = str(r.get("실제근무1", "")).strip()
         w2 = str(r.get("실제근무2", "")).strip()
-        has_duty = False
+        
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w1, "근무구분": cat, "근무시간": hours, "횟수": 1})
-            has_duty = True
         if w2 and w2 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w2, "근무구분": cat, "근무시간": hours, "횟수": 1})
-            has_duty = True
-        if has_duty and pd.notnull(r.get("날짜")):
-            duty_dates.add(pd.to_datetime(r["날짜"]).date())
 
     if expanded_rows:
         exp_df = pd.DataFrame(expanded_rows)
-        agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(근무횟수=("횟수", "sum"), 근무시간=("근무시간", "sum")).reset_index()
-
-        categories = sorted(exp_df["근무구분"].unique(), key=lambda c: (get_cat_rank(c), c))
-        color_range = [get_cat_color(c) for c in categories]
-
-        # ---------------- 한눈에 보는 요약 지표 ----------------
-        total_workers_n = exp_df["근무자"].nunique()
-        total_duty_days_n = len(duty_dates)
-        total_hours_n = int(exp_df["근무시간"].sum())
-
-        m1, m2, m3 = st.columns(3)
-        for col, label, value in [
-            (m1, "👥 총근무인원수", f"{total_workers_n}명"),
-            (m2, "📅 총근무일수", f"{total_duty_days_n}일"),
-            (m3, "⏱️ 총근무시간", f"{total_hours_n}시간"),
-        ]:
-            col.markdown(
-                f'<div class="stat-metric-card"><div class="m-label">{label}</div><div class="m-value">{value}</div></div>',
-                unsafe_allow_html=True
-            )
-        st.write("")
-
+        
+        agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(
+            근무횟수=("횟수", "sum"), 
+            근무시간=("근무시간", "sum")
+        ).reset_index()
+        
+        st.markdown("### 📈 근무시간 비율 그래프 (구분별 스택바)")
+        
         chart = alt.Chart(agg_df).mark_bar().encode(
-            x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
+            x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자', axis=alt.Axis(labelAngle=-45, labelOverlap=False)),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N', scale=alt.Scale(domain=categories, range=color_range), legend=alt.Legend(title=None)),
+            color=alt.Color('근무구분:N', scale=alt.Scale(domain=['평일', '금요일', '토요일', '일요일'], range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444']), title='근무 구분'),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
-        ).properties(height=380).configure_legend(orient="bottom")
+        ).properties(height=380).configure_legend(orient="bottom", title=None)
+        
         st.altair_chart(chart, use_container_width=True)
-
+        
+        st.markdown("### 📊 근무자별 상세 통계표 (구분별 횟수 및 시간)")
+        
         pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
         pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
-
-        summary_dict = {}
+        
+        categories = ["평일", "금요일", "토요일", "일요일"]
         for cat in categories:
             if cat not in pivot_count.columns: pivot_count[cat] = 0
             if cat not in pivot_hours.columns: pivot_hours[cat] = 0
-            summary_dict[f"{cat}(회/시)"] = [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count[cat], pivot_hours[cat])]
-
-        summary_dict["총 근무횟수"] = pivot_count[categories].sum(axis=1).astype(int).tolist()
-        summary_dict["총 근무시간"] = pivot_hours[categories].sum(axis=1).astype(int).tolist()
-
-        workers_list = pivot_count.index.tolist()
-        summary_table = pd.DataFrame(summary_dict, index=workers_list)
-        summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
-
-        # 열 순서: 번호, 근무자, 평일, 금요일, 토요일, 일요일, 총근무횟수, 총근무시간
-        summary_table.insert(0, "번호", range(1, len(summary_table) + 1))
-        summary_table.insert(1, "근무자", summary_table.index)
-
-        html_table = f"""<div class="table-container"><table class="sticky-table"><thead><tr>{"".join([f"<th>{col}</th>" for col in summary_table.columns])}</tr></thead><tbody>"""
+        pivot_count = pivot_count[categories]
+        pivot_hours = pivot_hours[categories]
+        
+        summary_table = pd.DataFrame({
+            "평일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["평일"], pivot_hours["평일"])],
+            "금요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["금요일"], pivot_hours["금요일"])],
+            "토요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["토요일"], pivot_hours["토요일"])],
+            "일요일(회/시)": [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count["일요일"], pivot_hours["일요일"])],
+            "총 근무횟수": pivot_count.sum(axis=1).astype(int),
+            "총 근무시간": pivot_hours.sum(axis=1).astype(int)
+        })
+        summary_table = summary_table.sort_values(by="총 근무시간", ascending=False).reset_index()
+        summary_table.index = range(1, len(summary_table) + 1)
+        summary_table.insert(0, "번호", summary_table.index)
+        
+        html_table = f"""
+        <div class="table-container">
+            <table class="sticky-table">
+                <thead>
+                    <tr>{"".join([f"<th>{col}</th>" for col in summary_table.columns])}</tr>
+                </thead>
+                <tbody>
+        """
         for _, row in summary_table.iterrows():
             html_table += "<tr>" + "".join([f"<td>{val}</td>" for val in row]) + "</tr>"
         html_table += "</tbody></table></div>"
         st.markdown(html_table, unsafe_allow_html=True)
 
+        total_workers_count = len(summary_table)
+        total_duty_days = len(f_df)
+        total_duty_hours = int(summary_table["총 근무시간"].sum())
+
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center;">
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">👥 총 근무자 명수</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>
+                </div>
+                <div style="border-right: 1px solid {border_color};"></div>
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">📅 총 근무일수</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_days} 일</div>
+                </div>
+                <div style="border-right: 1px solid {border_color};"></div>
+                <div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">⏱️ 총 근무시간</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_hours} 시간</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.info("통계 데이터가 없습니다.")
+
+# ---------------------------------------------------------
+# [탭 4] 문자 통보 탭
+# ---------------------------------------------------------
 with tab4:
-    st.subheader("💬 개인 카카오톡 계정(나에게 보내기) 자동 통보 시스템")
-    target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="kakao_target_send_date")
-    target_str = target_send_date.strftime("%Y-%m-%d")
+    st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
+    st.markdown("""
+    > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
+    """)
 
-    matched_row = df[df["날짜"].dt.date == target_send_date]
-    m_p1, m_p2 = "미지정", "미지정"
-    if not matched_row.empty:
-        r_info = matched_row.iloc[0]
-        m_p1 = r_info.get("실제근무1", "미지정")
-        m_p2 = r_info.get("실제근무2", "미지정")
-        st.info(f"📌 **{target_str}** 당일 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
+    workers_db = load_workers_db()
 
-    default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
-    custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
+    sub_k1, sub_k2 = st.tabs(["🚀 당일 근무자 문자(SMS) 발송", "📋 근무자 연락처 관리"])
 
-    # 카카오 기본 템플릿(text)은 최대 200자까지만 허용되므로, 미리 확인해 오류를 방지
-    _msg_len = len(custom_kakao_msg)
-    if _msg_len > 200:
-        st.warning(f"⚠️ 메시지가 {_msg_len}자입니다. 카카오톡 기본 템플릿은 최대 200자까지만 전송할 수 있어 전송 시 오류가 발생합니다. 내용을 줄여주세요.")
+    with sub_k1:
+        st.markdown("#### 선택 일자 근무자 문자 통보 발송")
+        
+        target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="sms_target_send_date")
+        target_str = target_send_date.strftime("%Y-%m-%d")
 
-    if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
-        access_token = st.session_state.get("kakao_access_token", "").strip()
-
-        if not access_token:
-            st.warning("⚠️ [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
-        elif _msg_len > 200:
-            st.error("❌ 메시지가 200자를 초과하여 전송하지 않았습니다. 내용을 줄인 뒤 다시 시도해주세요.")
+        matched_row = df[df["날짜"].dt.date == target_send_date]
+        m_p1, m_p2 = "미지정", "미지정"
+        if not matched_row.empty:
+            r_info = matched_row.iloc[0]
+            m_p1 = r_info.get("실제근무1", "미지정")
+            m_p2 = r_info.get("실제근무2", "미지정")
+            st.info(f"📌 **{target_str}** 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
         else:
-            url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
-            headers = {
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
-            }
-            payload = {
-                "template_object": json.dumps({
-                    "object_type": "text",
-                    "text": custom_kakao_msg,
-                    "link": {
-                        "web_url": "https://developers.kakao.com",
-                        "mobile_web_url": "https://developers.kakao.com"
-                    }
-                }, ensure_ascii=False)
-            }
-            # 카카오 API가 자주 반환하는 오류 코드에 대한 안내 문구
-            kakao_error_guide = {
-                -401: "액세스 토큰이 유효하지 않습니다. [⚙️ 설정] ➔ [카카오톡 개인계정 연동]에서 토큰을 다시 발급받아 입력해주세요.",
-                -402: "액세스 토큰이 만료되었습니다. 카카오 로그인으로 토큰을 재발급받아 다시 입력해주세요.",
-                -403: "카카오 개발자 콘솔에서 '카카오톡 메시지 전송(talk_message)' 동의 항목이 활성화되어 있는지 확인해주세요.",
-                -9798: "카카오톡이 설치되지 않은 계정이거나 메시지를 받을 수 없는 사용자입니다.",
-            }
-            try:
-                resp = requests.post(url, headers=headers, data=payload, timeout=10)
-                try:
-                    res_json = resp.json()
-                except ValueError:
-                    res_json = None
+            st.warning(f"⚠️ {target_str}에 해당하는 근무 정보가 없습니다.")
 
-                if resp.status_code in [200, 201] and res_json and res_json.get("result_code") == 0:
-                    st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
+        default_sms_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
+        custom_sms_msg = st.text_area("발송할 문자 내용 작성", value=default_sms_msg)
+
+        phone_map = {w["name"].strip(): w for w in workers_db}
+        
+        w1_info = phone_map.get(m_p1)
+        w2_info = phone_map.get(m_p2)
+
+        if w1_info and w1_info.get("phone"):
+            st.success(f"1근무자 **{m_p1}** 연락처 등록됨 (발송 가능)")
+        else:
+            st.warning(f"1근무자 **{m_p1}**의 연락처가 등록되어 있지 않습니다.")
+
+        if w2_info and w2_info.get("phone"):
+            st.success(f"2근무자 **{m_p2}** 연락처 등록됨 (발송 가능)")
+        else:
+            st.warning(f"2근무자 **{m_p2}**의 연락처가 등록되어 있지 않습니다.")
+
+        if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
+            api_key = st.session_state.get("sms_api_key", "").strip()
+            api_secret = st.session_state.get("sms_api_secret", "").strip()
+            sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
+
+            if not api_key or not api_secret or not sender_ph:
+                st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
+            else:
+                success_count = 0
+                targets_to_send = [w1_info, w2_info]
+                url = "https://api.solapi.com/messages/v4/send"
+                headers = get_solapi_auth_headers(api_key, api_secret)
+                
+                for t_info in targets_to_send:
+                    if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
+                        opt = t_info.get("sms_option", "매일 근무 상관없이 받기")
+                        if opt == "받지 않기":
+                            continue
+                        if opt == "내 근무에만 받기" and t_info["name"] not in [m_p1, m_p2]:
+                            continue
+                            
+                        dest_phone = t_info["phone"].replace("-", "").strip()
+                        payload = {
+                            "message": {
+                                "to": dest_phone,
+                                "from": sender_ph,
+                                "text": custom_sms_msg
+                            }
+                        }
+                        try:
+                            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                            res_data = resp.json()
+                            if resp.status_code in [200, 201]:
+                                success_count += 1
+                                st.success(f"✅ [{t_info['name']}] 님에게 전송 성공!")
+                            else:
+                                st.error(f"❌ [{t_info['name']}] 전송 실패 (코드 {resp.status_code}): {res_data}")
+                        except Exception as ex:
+                            st.error(f"전송 중 네트워크 오류 발생 ({t_info['name']}): {ex}")
+
+                if success_count > 0:
+                    st.success(f"🎉 총 {success_count}명의 근무자에게 문자(SMS) 통보가 성공적으로 발송되었습니다!")
                 else:
-                    err_code = (res_json or {}).get("code")
-                    guide = kakao_error_guide.get(err_code)
-                    detail = res_json if res_json is not None else resp.text
-                    msg = f"❌ 카카오 전송 실패 (HTTP {resp.status_code}): {detail}"
-                    if guide:
-                        msg += f"\n\n💡 **안내**: {guide}"
-                    else:
-                        msg += "\n\n💡 **안내**: 문제가 계속되면 카카오 Developers 콘솔에서 새 토큰을 재발급받아 입력해주세요. 클라우드 서버 IP 보안 정책 오류가 지속될 경우, 콘솔에서 IP 등록란을 공백으로 두고 토큰을 재발급받아 보세요."
-                    st.error(msg)
-            except requests.exceptions.Timeout:
-                st.error("❌ 전송 시간이 초과되었습니다. 네트워크 상태를 확인 후 다시 시도해주세요.")
-            except requests.exceptions.RequestException as ex:
-                st.error(f"❌ 전송 중 네트워크 오류가 발생했습니다: {ex}")
+                    st.info("ℹ️ 발송 대상이 없거나 유효 연락처가 등록되지 않았습니다.")
 
+        st.divider()
+        st.markdown("#### ⚡ 직접 즉시 개별 발송")
+        consent_workers = [w["name"] for w in workers_db if w.get("consent_agreed", True)]
+        
+        with st.form("direct_instant_sms_form"):
+            selected_direct_worker = st.selectbox("수신 동의한 근무자 선택", consent_workers if consent_workers else ["등록된 동의 근무자 없음"])
+            direct_msg_input = st.text_area("즉시 발송할 메시지 내용 (수정 가능)", value=default_sms_msg)
+            
+            submitted_direct = st.form_submit_button("🚀 즉시 발송 전송하기", type="primary", use_container_width=True)
+            if submitted_direct:
+                if not consent_workers:
+                    st.warning("⚠️ 수신 동의된 근무자가 존재하지 않습니다.")
+                else:
+                    target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
+                    api_key = st.session_state.get("sms_api_key", "").strip()
+                    api_secret = st.session_state.get("sms_api_secret", "").strip()
+                    sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
+
+                    if not api_key or not api_secret or not sender_ph:
+                        st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키와 발신번호를 설정해주세요.")
+                    elif target_w_obj and target_w_obj.get("phone"):
+                        dest_phone = target_w_obj["phone"].replace("-", "").strip()
+                        url = "https://api.solapi.com/messages/v4/send"
+                        headers = get_solapi_auth_headers(api_key, api_secret)
+                        payload = {
+                            "message": {
+                                "to": dest_phone,
+                                "from": sender_ph,
+                                "text": direct_msg_input
+                            }
+                        }
+                        try:
+                            resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                            res_data = resp.json()
+                            if resp.status_code in [200, 201]:
+                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                            else:
+                                st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {res_data}")
+                        except Exception as ex:
+                            st.error(f"전송 실패: {ex}")
+                    else:
+                        st.warning("⚠️ 선택한 근무자의 유효한 전화번호를 찾을 수 없습니다.")
+
+    with sub_k2:
+        st.markdown("#### 근무자 연락처 및 수신 동의 등록부")
+        
+        with st.form("single_worker_add_form", clear_on_submit=True):
+            new_name = st.text_input("성명")
+            new_phone = st.text_input("휴대전화번호 (- 제외 또는 포함)")
+            new_consent = st.checkbox("문자 수신 동의 여부", value=True)
+            
+            sms_option = st.selectbox(
+                "문자 발송 옵션 설정", 
+                ["매일 근무 상관없이 받기", "내 근무에만 받기", "받지 않기"],
+                index=0
+            )
+
+            submitted_single = st.form_submit_button("💾 근무자 정보 등록", type="primary", use_container_width=True)
+            if submitted_single:
+                if not new_name.strip() or not new_phone.strip():
+                    st.warning("⚠️ 성명과 휴대전화번호를 모두 입력해주세요.")
+                else:
+                    workers_db.append({
+                        "name": new_name.strip(),
+                        "phone": new_phone.strip(),
+                        "consent_agreed": new_consent,
+                        "sms_option": sms_option
+                    })
+                    save_workers_db(workers_db)
+                    st.success(f"✅ [{new_name.strip()}] 님의 연락처가 등록되었습니다.")
+                    st.rerun()
+
+        st.divider()
+        st.markdown("#### 📄 등록된 근무자 연락처 리스트")
+        if workers_db:
+            def mask_phone(phone_str):
+                p_clean = phone_str.replace("-", "").strip()
+                if len(p_clean) >= 10:
+                    return f"{p_clean[:3]}-****-{p_clean[7:]}"
+                return "***-****-***"
+
+            worker_display_data = []
+            for w in workers_db:
+                masked_num = mask_phone(w.get('phone', ''))
+                consent_txt = "동의" if w.get('consent_agreed', True) else "거부"
+                opt_txt = w.get('sms_option', '매일 근무 상관없이 받기')
+                worker_display_data.append({
+                    "성명": w.get('name'),
+                    "전화번호": masked_num,
+                    "수신동의": consent_txt,
+                    "발송옵션": opt_txt
+                })
+            
+            df_workers_view = pd.DataFrame(worker_display_data)
+            st.dataframe(df_workers_view, use_container_width=True, hide_index=True)
+
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+            with st.form("delete_worker_form"):
+                del_target = st.selectbox("삭제할 근무자 선택", [w['name'] for w in workers_db])
+                if st.form_submit_button("선택한 근무자 삭제", use_container_width=True):
+                    updated_db = [w for w in workers_db if w['name'] != del_target]
+                    save_workers_db(updated_db)
+                    st.success(f"✅ [{del_target}] 님의 정보가 삭제되었습니다.")
+                    st.rerun()
+        else:
+            st.info("등록된 근무자 연락처가 없습니다.")
+
+# ---------------------------------------------------------
+# [탭 5] 원본 데이터 뷰
+# ---------------------------------------------------------
 with tab5:
     st.subheader("시트 데이터 원본")
     st.dataframe(df, use_container_width=True)

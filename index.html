@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>가로형 달력 컨테이너</title>
+    <title>7열 5행 그리드 달력 컨테이너</title>
     <style>
         /* 전체 페이지 배경 및 중앙 정렬 */
         body {
@@ -21,46 +21,73 @@
             width: 640px;
             height: 1400px;
             background-color: #ffffff;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 24px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.1);
             overflow-y: auto; /* 세로 스크롤 허용 */
             box-sizing: border-box;
-            padding: 24px;
+            padding: 30px;
             position: relative;
         }
 
         /* 상단 헤더 영역 */
         .header {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: bold;
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        /* 가로형 달력 스크롤 영역 */
-        .horizontal-calendar {
+            color: #212529;
+            margin-bottom: 24px;
             display: flex;
-            gap: 10px;
-            overflow-x: auto;
-            padding-bottom: 10px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-btns button {
+            background: none;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .header-btns button:hover {
+            background-color: #f1f3f5;
+        }
+
+        /* 7열 달력 그리드 영역 */
+        .calendar-grid-wrapper {
+            background-color: #f8f9fa;
+            border-radius: 16px;
+            padding: 16px;
             margin-bottom: 30px;
-            scroll-behavior: smooth;
+            border: 1px solid #e9ecef;
         }
 
-        .horizontal-calendar::-webkit-scrollbar {
-            height: 6px;
+        /* 요일 헤더 (일~토) */
+        .weekdays-row {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            font-weight: bold;
+            font-size: 15px;
+            color: #868e96;
+            margin-bottom: 12px;
         }
 
-        .horizontal-calendar::-webkit-scrollbar-thumb {
-            background-color: #ddd;
-            border-radius: 3px;
+        .weekdays-row div:first-child { color: #fa5252; } /* 일요일 빨간색 */
+        .weekdays-row div:last-child { color: #228be6; }  /* 토요일 파란색 */
+
+        /* 5행 날짜 그리드 */
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(5, minmax(75px, 1fr));
+            gap: 8px;
         }
 
         /* 개별 날짜 버튼 스타일 */
-        .date-btn {
-            flex: 0 0 70px;
-            height: 90px;
-            background-color: #f8f9fa;
+        .date-cell {
+            background-color: #ffffff;
             border: 1px solid #e9ecef;
             border-radius: 12px;
             display: flex;
@@ -69,34 +96,51 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
+            position: relative;
         }
 
-        .date-btn .day {
-            font-size: 14px;
-            color: #868e96;
-            margin-bottom: 6px;
+        .date-cell:hover {
+            border-color: #228be6;
+            transform: translateY(-2px);
         }
 
-        .date-btn .date {
-            font-size: 18px;
-            font-weight: bold;
+        .date-cell .date-num {
+            font-size: 16px;
+            font-weight: 600;
             color: #495057;
         }
 
-        /* 선택된 날짜 버튼 활성화 상태 */
-        .date-btn.active {
-            background-color: #228be6;
-            border-color: #228be6;
+        /* 다른 달의 날짜 스타일링 */
+        .date-cell.other-month {
+            background-color: #f1f3f5;
+            opacity: 0.5;
         }
 
-        .date-btn.active .day,
-        .date-btn.active .date {
+        /* 주말 색상 포인트 */
+        .date-cell:nth-child(7n) .date-num { color: #228be6; } /* 토요일 */
+        .date-cell:nth-child(7n+1) .date-num { color: #fa5252; } /* 일요일 */
+
+        /* 선택된 날짜 버튼 활성화 상태 */
+        .date-cell.active {
+            background-color: #228be6;
+            border-color: #228be6;
+            box-shadow: 0 4px 10px rgba(34, 139, 230, 0.3);
+        }
+
+        .date-cell.active .date-num {
             color: #ffffff;
         }
 
-        /* 본문 콘텐츠 영역 (스크롤 테스트용) */
+        /* 본문 콘텐츠 및 일정 영역 */
         .content-section {
             margin-top: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #343a40;
+            margin-bottom: 15px;
         }
 
         .schedule-card {
@@ -105,6 +149,7 @@
             padding: 20px;
             margin-bottom: 15px;
             border-left: 5px solid #228be6;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         }
 
         .schedule-card h3 {
@@ -123,52 +168,93 @@
 <body>
 
     <div class="calendar-container">
-        <div class="header" id="current-month">2026년 9월</div>
-
-        <!-- 가로형 달력 버튼 리스트 -->
-        <div class="horizontal-calendar" id="calendar-strip">
-            <!-- 자바스크립트로 날짜 버튼이 동적 생성됩니다 -->
+        <!-- 상단 월 표시 헤더 -->
+        <div class="header">
+            <span id="current-month-year">2026년 9월</span>
+            <div class="header-btns">
+                <button onclick="alert('이전 달 기능')">이전</button>
+                <button onclick="alert('다음 달 기능')">다음</button>
+            </div>
         </div>
 
-        <!-- 선택된 날짜에 따른 콘텐츠 영역 -->
-        <div class="content-section" id="content-area">
+        <!-- 7열 5행 달력 영역 -->
+        <div class="calendar-grid-wrapper">
+            <!-- 요일 행 -->
+            <div class="weekdays-row">
+                <div>일</div>
+                <div>월</div>
+                <div>화</div>
+                <div>수</div>
+                <div>목</div>
+                <div>금</div>
+                <div>토</div>
+            </div>
+            <!-- 날짜 그리드 (5행 구조) -->
+            <div class="days-grid" id="days-grid">
+                <!-- 자바스크립트로 5행(35칸) 날짜 그리드가 동적 생성됩니다 -->
+            </div>
+        </div>
+
+        <!-- 선택된 날짜에 따른 콘텐츠/일정 영역 -->
+        <div class="content-section">
+            <div class="section-title" id="selected-date-title">2026년 9월 16일 일정</div>
             <div class="schedule-card">
-                <h3>일정 안내</h3>
-                <p>선택한 날짜의 상세 일정이 이 곳에 표시됩니다.</p>
+                <h3>주간 프로젝트 회의</h3>
+                <p>오전 10:00 - 화상 회의실 A</p>
+            </div>
+            <div class="schedule-card" style="border-left-color: #fa5252;">
+                <h3>디자인 시안 검토</h3>
+                <p>오후 02:00 - 메인 스튜디오</p>
+            </div>
+            <!-- 스크롤 테스트용 추가 여백 컨텐츠 -->
+            <div class="schedule-card" style="border-left-color: #40c057;">
+                <h3>개인 일정 및 메모</h3>
+                <p>오후 05:30 - 운동 및 컨디션 점검</p>
             </div>
         </div>
     </div>
 
     <script>
-        // 가로형 달력 날짜 동적 생성 예시 (현재 달 기준)
-        const calendarStrip = document.getElementById('calendar-strip');
-        const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
+        const daysGrid = document.getElementById('days-grid');
+        const selectedDateTitle = document.getElementById('selected-date-title');
 
-        // 오늘 날짜 기준 전후로 날짜 생성 (예: 총 30일치)
-        const today = new Date();
-        for (let i = -5; i <= 25; i++) {
-            const d = new Date();
-            d.setDate(today.getDate() + i);
-
-            const btn = document.createElement('div');
-            btn.className = `date-btn ${i === 0 ? 'active' : ''}`;
+        // 예시용으로 5행(총 35일 칸)을 구성하여 렌더링
+        // 2026년 9월 기준 달력 레이아웃 구현
+        function renderCalendar() {
+            daysGrid.innerHTML = '';
             
-            const dayName = daysOfWeek[d.getDay()];
-            const dateNum = d.getDate();
+            // 9월 1일이 화요일이므로, 전 달 마지막 날짜들 일부 포함하여 총 35칸(5행) 채우기
+            // 예시 데이터 배열 생성 (35개 셀)
+            for (let i = 1; i <= 35; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'date-cell';
+                
+                // 임의로 1일부터 30일까지는 이번 달, 나머지는 공백 처리 또는 예시
+                let dateNum = i - 1; // 1일 시작 위치 조정 예시 (화요일 시작 가정)
+                if (dateNum > 0 && dateNum <= 30) {
+                    cell.innerHTML = `<span class="date-num">${dateNum}</span>`;
+                    if (dateNum === 16) {
+                        cell.classList.add('active'); // 오늘 날짜 기본 선택 예시
+                    }
+                } else {
+                    // 이전달/다음달 여백 날짜 처리
+                    cell.classList.add('other-month');
+                    const dummyDate = dateNum <= 0 ? 30 + dateNum : dateNum - 30;
+                    cell.innerHTML = `<span class="date-num">${dummyDate}</span>`;
+                }
 
-            btn.innerHTML = `
-                <span class="day">${dayName}</span>
-                <span class="date">${dateNum}</span>
-            `;
+                // 날짜 클릭 이벤트
+                cell.addEventListener('click', () => {
+                    document.querySelectorAll('.date-cell').forEach(c => c.classList.remove('active'));
+                    cell.classList.add('active');
+                    selectedDateTitle.textContent = `2026년 9월 ${dateNum > 0 && dateNum <= 30 ? dateNum : '선택한'}일 일정`;
+                });
 
-            // 클릭 이벤트 처리
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-
-            calendarStrip.appendChild(btn);
+                daysGrid.appendChild(cell);
+            }
         }
+
+        renderCalendar();
     </script>
 </body>
 </html>

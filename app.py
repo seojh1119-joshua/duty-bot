@@ -114,7 +114,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (모바일 터치 가상키보드 및 스와이프 기능 최적화)
+# 시스템 CSS 및 자바스크립트 적용 (가상키보드, 스와이프, 뒤로가기 팝업 종료 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -286,10 +286,10 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 
-<!-- 모바일 가상키보드 및 스와이프 기능 최적화 스크립트 -->
+<!-- 모바일 최적화 및 가상키보드, 스와이프, 뒤로가기 처리 스크립트 -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {{
-    // 모바일 터치 환경에서 셀렉트박스 클릭 시 가상키보드 및 드롭다운이 즉시 열리도록 최적화
+    // 1. 드롭메뉴 한번 클릭은 선택/오픈, 두 번 클릭(또는 터치/포커스)시 가상키보드가 나오도록 최적화
     document.addEventListener("click", function(e) {{
         const selectBox = e.target.closest('[data-baseweb="select"]');
         if (selectBox) {{
@@ -301,17 +301,23 @@ document.addEventListener("DOMContentLoaded", function() {{
         }}
     }}, true);
 
-    document.addEventListener("touchstart", function(e) {{
+    let lastTapTime = 0;
+    document.addEventListener("touchend", function(e) {{
         const selectBox = e.target.closest('[data-baseweb="select"]');
         if (selectBox) {{
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTapTime;
             const inputField = selectBox.querySelector("input");
-            if (inputField) {{
+            if (tapLength < 300 && tapLength > 0 && inputField) {{
+                // 더블탭 감지 시 가상키보드 강제 활성화 (포커스 후 입력창 호출)
                 inputField.focus();
+                inputField.click();
             }}
+            lastTapTime = currentTime;
         }}
     }}, {{passive: true}});
 
-    // 모바일 스와이프 전후 달 이동 감지
+    // 2. 모바일 스와이프 전후 달 이동 감지
     let touchstartX = 0;
     let touchendX = 0;
 
@@ -361,6 +367,16 @@ document.addEventListener("DOMContentLoaded", function() {{
             }}
         }}
     }}
+
+    // 3. 모바일 환경에서 뒤로가기 누를 때 팝업 종료 또는 달력 화면으로 돌아가도록 처리
+    window.addEventListener('popstate', function(event) {{
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('open_today') || url.searchParams.has('month')) {{
+            url.searchParams.delete('open_today');
+            window.history.replaceState({}, '', url.toString());
+            window.location.reload();
+        }}
+    }});
 }});
 </script>
 """
@@ -558,7 +574,7 @@ def confirm_exit_dialog():
             st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
             st.rerun()
 
-@st.dialog("📅 오늘 근무 및 메모 수정")
+@st.dialog("📅 오늘 근무 및 일자별 수정")
 def today_edit_dialog():
     today_date = datetime.date.today()
     today_str = today_date.strftime("%Y-%m-%d")
@@ -596,7 +612,7 @@ def today_edit_dialog():
     curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
 
     with st.form("today_edit_form"):
-        st.markdown(f"#### 📅 {today_str} 근무자 및 메모 수정")
+        st.markdown(f"#### 📅 {today_str} 일자별 수정 및 근무 관리")
         p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="td_p1")
         p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="td_p1_c") if p1_s == "(직접 입력)" else ""
         sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="td_sub1")
@@ -808,13 +824,13 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 근무 안내 박스 클릭 시 수정 다이얼로그가 열리도록 상호작용 카드 구현 (별도 버튼 제거)
+        # 오늘 근무 안내 박스 클릭 시 '일자별 수정(today_edit_dialog)' 다이얼로그가 열리도록 연동
         st.markdown(
             f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 오늘 근무 및 메모 수정">
+            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
-                <div class="today-hint">👆 박스를 누르면 수정됩니다</div>
+                <div class="today-hint">👆 박스를 누르면 일자별 수정이 나옵니다</div>
             </div>
             """,
             unsafe_allow_html=True

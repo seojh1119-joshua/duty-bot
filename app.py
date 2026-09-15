@@ -88,7 +88,7 @@ def save_local_config(key, value):
 local_cfg = load_local_config()
 
 for k, v in [
-    ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
+    ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
@@ -97,17 +97,6 @@ for k, v in [
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
-
-# 쿼리 파라미터로 오늘 근무 카드 클릭 시 다이얼로그 호출 처리 (안정성 강화)
-if st.query_params.get("open_today") == "1":
-    st.session_state.update({
-        "show_today_dialog": True,
-        "show_settings_dialog": False,
-        "show_exit_dialog": False
-    })
-    if "open_today" in st.query_params:
-        del st.query_params["open_today"]
-    st.rerun()
 
 if st.session_state.is_app_closed:
     st.title("👋 앱이 종료되었습니다.")
@@ -186,12 +175,6 @@ responsive_css = f"""
         width: 100% !important;
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-        cursor: pointer !important;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }}
-    .today-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
     }}
     .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
@@ -367,9 +350,8 @@ document.addEventListener("DOMContentLoaded", function() {{
 
     window.addEventListener('popstate', function(event) {{
         const url = new URL(window.location.href);
-        if (url.searchParams.has('open_today') || url.searchParams.has('month')) {{
-            url.searchParams.delete('open_today');
-            window.history.replaceState({{}}, '', url.toString());
+        if (url.searchParams.has('month')) {{
+            window.history.replaceState({}, '', url.toString());
             window.location.reload();
         }}
     }});
@@ -570,80 +552,6 @@ def confirm_exit_dialog():
             st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
             st.rerun()
 
-@st.dialog("📅 오늘 근무 및 일자별 수정")
-def today_edit_dialog():
-    today_date = datetime.date.today()
-    today_str = today_date.strftime("%Y-%m-%d")
-    df_cur = st.session_state.df
-    row_match = df_cur[df_cur["날짜"].dt.date == today_date]
-    
-    if row_match.empty:
-        st.warning(f"오늘({today_str})에 해당하는 근무 정보가 없습니다.")
-        if st.button("닫기", use_container_width=True):
-            st.session_state.show_today_dialog = False
-            st.rerun()
-        return
-        
-    r_idx = row_match.index[0]
-    curr_r = df_cur.loc[r_idx]
-    
-    all_workers = set()
-    for col in ["근무자1", "근무자2", "대직1", "대직2"]:
-        if col in df_cur.columns:
-            for v in df_cur[col].dropna().unique():
-                v_str = str(v).strip()
-                if v_str and v_str not in ["미지정", "nan", "None"]:
-                    all_workers.add(v_str)
-
-    worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
-    
-    def get_idx(val):
-        if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: return 0
-        val_str = str(val).strip()
-        return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
-
-    curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
-    curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
-    curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
-    curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
-
-    with st.form("today_edit_form"):
-        st.markdown(f"#### 📅 {today_str} 일자별 수정 및 근무 관리")
-        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="td_p1")
-        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="td_p1_c") if p1_s == "(직접 입력)" else ""
-        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="td_sub1")
-        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="td_sub1_c") if sub1_s == "(직접 입력)" else ""
-
-        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key="td_p2")
-        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="td_p2_c") if p2_s == "(직접 입력)" else ""
-        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key="td_sub2")
-        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="td_sub2_c") if sub2_s == "(직접 입력)" else ""
-        
-        memo_in = st.text_area("메모", value=st.session_state.memos.get(today_str, ""), key="td_memo")
-        
-        submitted_td = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
-
-    if submitted_td:
-        f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
-        f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
-        f_sub1 = sub1_c if sub1_s == "(직접 입력)" else ("" if sub1_s == "(선택 안함)" else sub1_s)
-        f_sub2 = sub2_c if sub2_s == "(직접 입력)" else ("" if sub2_s == "(선택 안함)" else sub2_s)
-        
-        df_cur.loc[r_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [
-            f_p1 if f_p1 else "미지정", f_p2 if f_p2 else "미지정", f_sub1 if f_sub1 else None, f_sub2 if f_sub2 else None
-        ]
-        df_cur.loc[r_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
-        df_cur.loc[r_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
-        
-        if memo_in.strip(): st.session_state.memos[today_str] = memo_in.strip()
-        else: st.session_state.memos.pop(today_str, None)
-        
-        st.session_state.df = df_cur
-        save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
-        st.session_state.show_today_dialog = False
-        st.success(f"✅ 오늘({today_str}) 근무 정보가 성공적으로 수정되었습니다!")
-        st.rerun()
-
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
     tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "SMS 연동 설정"])
@@ -775,8 +683,7 @@ with st.sidebar:
     if st.button("🔴 앱 종료", use_container_width=True):
         st.session_state.update({
             "show_exit_dialog": True,
-            "show_settings_dialog": False,
-            "show_today_dialog": False
+            "show_settings_dialog": False
         })
         st.rerun()
 
@@ -784,8 +691,6 @@ if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
     settings_dialog()
-elif st.session_state.show_today_dialog:
-    today_edit_dialog()
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -798,8 +703,7 @@ st.title("광주교도소 의료과 숙직근무")
 if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):
     st.session_state.update({
         "show_settings_dialog": True,
-        "show_exit_dialog": False,
-        "show_today_dialog": False
+        "show_exit_dialog": False
     })
     st.rerun()
 
@@ -821,10 +725,10 @@ with tab1:
         
         st.markdown(
             f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
+            <div class="today-card">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
-                <div class="today-hint">👆 박스를 누르면 일자별 수정이 나옵니다</div>
+                <div class="today-hint">오늘의 근무 현황 안내입니다</div>
             </div>
             """,
             unsafe_allow_html=True

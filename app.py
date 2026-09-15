@@ -207,7 +207,6 @@ responsive_css = f"""
         margin: 0 !important;
         box-sizing: border-box !important;
     }}
-    /* 드롭메뉴박스 터치 시 가상키보드 방지 속성 */
     input, select, textarea {{
         caret-color: transparent !important;
     }}
@@ -264,7 +263,6 @@ calendar_enhancer_js = f"""
         const doc = window.parent.document;
         if (!doc) return;
         
-        // 오늘 날짜 버튼 스타일 하이라이트
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -276,7 +274,6 @@ calendar_enhancer_js = f"""
             }}
         }});
 
-        // 셀렉트박스(드롭메뉴) 터치 시 가상키보드 방지용 readonly 속성 부여
         const selects = doc.querySelectorAll('input[aria-autocomplete="list"], div[data-baseweb="select"] input');
         selects.forEach(sel => {{
             if (!sel.hasAttribute('readonly')) {{
@@ -387,7 +384,14 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["실제근무1"] = df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자1"]).fillna("미지정")
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     
-    base_cols = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
+    # M열 (Index 12) 값 가져오기 (공휴일/구분 정보)
+    if len(df.columns) > 12:
+        m_col_name = df.columns[12]
+        df["M열구분"] = df[m_col_name].astype(str).str.strip().replace(["nan", "None"], "")
+    else:
+        df["M열구분"] = ""
+
+    base_cols = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2", "M열구분"]
     other_cols = [c for c in df.columns if c not in base_cols and c != "년월"]
     ordered_cols = base_cols + other_cols + ["년월"]
     
@@ -664,7 +668,8 @@ with tab1:
             if sub1_val and sub1_val not in ["nan", "None", ""]: p1_name = f"{p1_name}(대)"
             if sub2_val and sub2_val not in ["nan", "None", ""]: p2_name = f"{p2_name}(대)"
                 
-            duty_map[row["날짜"].day] = {"idx": i, "p1": p1_name, "p2": p2_name}
+            m_val = str(row.get("M열구분", "")).strip()
+            duty_map[row["날짜"].day] = {"idx": i, "p1": p1_name, "p2": p2_name, "m_val": m_val}
 
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
@@ -673,12 +678,11 @@ with tab1:
                 d_str = c_date.strftime("%Y-%m-%d")
                 weekday_idx = c_date.weekday()
                 weekday_str = weekdays_kr[weekday_idx]
-                info = duty_map.get(d, {"p1": "-", "p2": "-"})
+                info = duty_map.get(d, {"p1": "-", "p2": "-", "m_val": ""})
                 
                 is_today = (c_date == today)
                 if is_today: t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
-                elif weekday_idx == 6 or c_date in kr_holidays: t_str = f"🔴 {d:02d}일({weekday_str})"
-                elif weekday_idx == 5: t_str = f"🔵 {d:02d}일({weekday_str})"
+                elif info["m_val"]: t_str = f"🔴 [{info['m_val']}] {d:02d}일({weekday_str})"
                 else: t_str = f"🗓️ {d:02d}일({weekday_str})"
                     
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
@@ -702,15 +706,18 @@ with tab1:
                     else:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
-                        info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
+                        info = duty_map.get(day_cnt, {"p1": "-", "p2": "-", "m_val": ""})
                         memo_val = st.session_state.memos.get(d_str, "").strip()
+                        m_val = info.get("m_val", "")
                         
-                        # 요청하신 출력 형식 반영 ([공휴일/구분] 날짜 \n 실제근무1 \n 실제근무2 \n 메모)
+                        # M열 참고하여 [공휴일] 등 태그 표시
                         is_today = (c_date == today)
-                        if is_today: day_prefix = "🌟[오늘]"
-                        elif c == 0 or c_date in kr_holidays: day_prefix = "🔴[공휴일]"
-                        elif c == 6: day_prefix = "🔵[토요]"
-                        else: day_prefix = ""
+                        if is_today: 
+                            day_prefix = "🌟[오늘]"
+                        elif m_val: 
+                            day_prefix = f"[{m_val}]"
+                        else: 
+                            day_prefix = ""
                             
                         t_header = f"{day_prefix} {day_cnt}일" if day_prefix else f"{day_cnt}일"
                         btn_txt = f"{t_header}\n{info['p1']}\n{info['p2']}"
@@ -727,7 +734,7 @@ with tab2:
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
     
-    preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
+    preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2", "M열구분"]
     display_cols = [c for c in preferred_order if c in df.columns]
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
 
@@ -778,7 +785,7 @@ with tab3:
     sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월"), None)
+    cat_col = "M열구분" if "M열구분" in f_df.columns else next((c for c in f_df.columns if "구분" in c and c != "년월"), None)
 
     expanded_rows = []
     for _, r in f_df.iterrows():
@@ -799,14 +806,7 @@ with tab3:
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color(
-                '근무구분:N', 
-                scale=alt.Scale(
-                    domain=['평일', '금요일', '토요일', '일요일', '주간', '야간', '일반근무'], 
-                    range=['#FACC15', '#10B981', '#3B82F6', '#EF4444', '#FACC15', '#3B82F6', '#FACC15']
-                ),
-                legend=alt.Legend(title=None)
-            ),
+            color=alt.Color('근무구분:N', legend=alt.Legend(title=None)),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
         ).properties(height=380).configure_legend(orient="bottom")
         st.altair_chart(chart, use_container_width=True)
@@ -884,7 +884,7 @@ with tab4:
                     else:
                         st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
                 else:
-                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **안내**: 카카오 서버 측에서 클라우드 IP 보안 정책으로 인해 차단이 지속될 경우, 카카오 Developers 콘솔에서 새 앱을 생성하여 IP 등록을 완전히 빈 상태로 두고 토큰을 재발급받아 입력하시면 해결됩니다.")
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **안내**: 카카오 서버 측 클라우드 IP 보안 정책 관련 오류 지속 시, 카카오 Developers 콘솔에서 새 앱 생성 후 IP 등록을 공백으로 두고 토큰을 재발급받아 입력하세요.")
             except Exception as ex:
                 st.error(f"전송 중 네트워크 오류 발생: {ex}")
 

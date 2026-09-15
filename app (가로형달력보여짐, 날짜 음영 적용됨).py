@@ -111,7 +111,7 @@ btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 table_sticky_bg = "#1E293B" if is_dark else "#F1F5F9"
 
-# 테마별 오늘 날짜 하이라이트 스타일 정의 (두번째 파일 반영)
+# 테마별 오늘 날짜 하이라이트 스타일 정의
 today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
 today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
 today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
@@ -183,7 +183,6 @@ responsive_css = f"""
         border-color: {btn_hover_border} !important;
         background-color: {btn_hover_bg} !important;
     }}
-    /* 7개 컬럼 강제 가로 한 화면 정렬 (가로형 Grid 최적화) */
     [data-testid="stHorizontalBlock"] {{
         display: flex !important;
         flex-direction: row !important;
@@ -483,7 +482,7 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
-        st.info("카카오developers에서 발급받은 **사용자 액세스 토큰(User Access Token)**을 입력하면, 본인 카카오톡(나에게 보내기)으로 근무 알림이 전송됩니다.")
+        st.info("카카오 Developers(휴대폰 로그인/토큰 발급)에서 새로 발급받은 **사용자 액세스 토큰(User Access Token)**을 입력해주세요.")
         k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="Bearer 토큰 값 입력")
 
         if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
@@ -872,8 +871,10 @@ with tab4:
                         st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
                     else:
                         st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
+                elif resp.status_code == 401:
+                    st.error("❌ **[토큰 만료 또는 오류 (401)]** 액세스 토큰이 존재하지 않거나 만료되었습니다. [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 새로운 액세스 토큰을 다시 발급받아 입력해주세요.")
                 else:
-                    st.error(f> f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
             except Exception as ex:
                 st.error(f"전송 중 네트워크 오류 발생: {ex}")
 

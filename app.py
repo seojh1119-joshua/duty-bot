@@ -245,6 +245,7 @@ def update_excel_download_bytes(df):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
+        
         # 메모 열이 없으면 생성하여 매핑
         if "메모" in save_df.columns:
              save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc[save_df['날짜'] == d, '메모'].values[0]) else ""))
@@ -264,10 +265,7 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
+        
         # 메모 업데이트
         if "메모" in save_df.columns:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc[save_df['날짜'] == d, '메모'].values[0]) else ""))
-        else:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
-
-        if os.path.exists(file
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc[save_df['날짜'] == d, '메모'].values[0

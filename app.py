@@ -1,11 +1,12 @@
 import os
+import io  # <- 파이썬 기본 라이브러리로 따로 불러와야 합니다.
 import json
 import calendar
 import datetime
 import requests
 import pandas as pd
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, send_file, io
+from flask import Flask, render_template, request, jsonify, send_file # <- io 제거
 
 try:
     import holidays

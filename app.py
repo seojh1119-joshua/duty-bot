@@ -35,7 +35,6 @@ os.makedirs("data", exist_ok=True)
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 CONFIG_PATH = os.path.join("DATA", "local_config.json")
 WORKERS_DB_FILE = Path("data/workers_db.json")
-TOKEN_FILE = Path("data/kakao_tokens.json")
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -51,7 +50,7 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_access_token": "",
+        "kakao_access_token": "kvQkQ3ShEmJXeg6aezXIZTSSS_GHGNpzAAAAAQoNGVMAAAGgowlvYXLErHmNOyL0",
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
         "batch_days_c": 30,
@@ -84,7 +83,7 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_access_token", local_cfg.get("kakao_access_token", "")),
+    ("kakao_access_token", local_cfg.get("kakao_access_token", "kvQkQ3ShEmJXeg6aezXIZTSSS_GHGNpzAAAAAQoNGVMAAAGgowlvYXLErHmNOyL0")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -96,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 동적 CSS (테마 및 UI / 표 열 고정 및 간격 밀착 최적화)
+# 모바일 세로 화면(9:16 등) 및 반응형 최적화 CSS
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -110,6 +109,10 @@ btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 table_sticky_bg = "#1E293B" if is_dark else "#F1F5F9"
+
+today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
+today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
+today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
@@ -163,20 +166,44 @@ responsive_css = f"""
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
         font-weight: bold;
     }}
+    /* 모바일 세로 9:16 비율 등 폭이 좁은 화면에서 달력 버튼이 비대해지는 오류 방지 및 고정 축소 */
     .stButton > button {{
         width: 100% !important;
-        min-height: 38px !important;
-        padding: 2px 1px !important;
+        min-height: 32px !important;
+        max-height: 52px !important;
+        padding: 1px 1px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
-        font-size: clamp(6.5px, 1.8vw, 10px) !important;
+        font-size: clamp(9px, 2.2vw, 12px) !important;
+        line-height: 1.1 !important;
         font-weight: 500 !important;
+        white-space: pre-wrap !important;
+        overflow: hidden !important;
     }}
     .stButton > button:hover {{
         border-color: {btn_hover_border} !important;
         background-color: {btn_hover_bg} !important;
+    }}
+    [data-testid="stHorizontalBlock"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        gap: 1px !important;
+        margin: 0 !important;
+    }}
+    [data-testid="column"] {{
+        width: 14.285% !important;
+        max-width: 14.285% !important;
+        min-width: 0 !important;
+        flex: 1 1 14.285% !important;
+        padding: 0px 0px !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
     }}
     .table-container {{
         width: 100%;
@@ -202,7 +229,6 @@ responsive_css = f"""
         top: 0;
         z-index: 3;
     }}
-    /* 번호 및 근무자 열 고정 및 공백 밀착 설정 */
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
         position: sticky;
         left: 0;
@@ -223,20 +249,34 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
+# 오늘 날짜 테마별 음영 처리 JS
+# ---------------------------------------------------------
+calendar_enhancer_js = f"""
+<script>
+(function() {{
+    function enhanceCalendarUI() {{
+        const doc = window.parent.document;
+        if (!doc) return;
+        const buttons = Array.from(doc.querySelectorAll('button'));
+        buttons.forEach(btn => {{
+            const txt = btn.innerText || '';
+            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
+                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
+                btn.style.setProperty('color', '{today_highlight_text}', 'important');
+                btn.style.setProperty('border', '{today_highlight_border}', 'important');
+                btn.style.setProperty('font-weight', '800', 'important');
+            }}
+        }});
+    }}
+    setInterval(enhanceCalendarUI, 200);
+}})();
+</script>
+"""
+components.html(calendar_enhancer_js, height=0, width=0)
+
+# ---------------------------------------------------------
 # 데이터베이스 및 엑셀 유틸 함수
 # ---------------------------------------------------------
-def load_workers_db() -> list:
-    if WORKERS_DB_FILE.exists():
-        try:
-            return json.loads(WORKERS_DB_FILE.read_text(encoding="utf-8"))
-        except:
-            return []
-    return []
-
-def save_workers_db(workers: list):
-    WORKERS_DB_FILE.parent.mkdir(parents=True, exist_ok=True)
-    WORKERS_DB_FILE.write_text(json.dumps(workers, ensure_ascii=False, indent=2))
-
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
@@ -289,6 +329,8 @@ def save_app_state(df, sheet_name, memos):
         save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()), sheet_name)
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
+
+PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
@@ -368,10 +410,11 @@ def settings_dialog():
     tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "카카오톡 개인계정 연동"])
     
     with tab_s1:
+        st.markdown("#### 📱 해당 기기 전용 화면 설정")
         new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
         new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
 
-        if st.button("화면 설정 적용", use_container_width=True, type="primary"):
+        if st.button("화면 설정 적용 (이 기기만)", use_container_width=True, type="primary"):
             st.session_state.update({"auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False})
             save_local_config("auto_view_type", new_view)
             save_local_config("app_theme", new_th)
@@ -433,7 +476,7 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
-        st.info("카카오developers에서 발급받은 **사용자 액세스 토큰(User Access Token)**을 입력하면, 본인 카카오톡(나에게 보내기)으로 근무 알림이 전송됩니다.")
+        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**이 등록되어 있습니다.")
         k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="Bearer 토큰 값 입력")
 
         if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
@@ -515,9 +558,6 @@ def edit_worker_dialog(date_str, duty_info):
         st.session_state.update({"editing_date": None, "editing_duty_info": None})
         st.rerun()
 
-# ---------------------------------------------------------
-# 사이드바
-# ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
     if "file_name" in st.session_state: st.info(f"📄 `{st.session_state.file_name}`")
@@ -559,20 +599,17 @@ elif st.session_state.editing_date and st.session_state.editing_duty_info:
 df = st.session_state.df
 today = datetime.date.today()
 
-# ---------------------------------------------------------
-# 메인 화면
-# ---------------------------------------------------------
-st.title("광주교도소 의료과 숙직근무")
-
-if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):
-    st.session_state.show_settings_dialog = True
-    st.rerun()
+col_title, col_settings = st.columns([0.82, 0.18])
+with col_title:
+    st.title("광주교도소 의료과 숙직근무")
+with col_settings:
+    st.write("")
+    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+        st.session_state.show_settings_dialog = True
+        st.rerun()
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡 통보", "🔍 원본"])
 
-# ---------------------------------------------------------
-# [탭 1] 달력 뷰
-# ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
     if not today_df.empty:
@@ -637,7 +674,7 @@ with tab1:
             cols_h = st.columns(7)
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 11px; padding: 2px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -667,9 +704,6 @@ with tab1:
                             st.rerun()
                         day_cnt += 1
 
-# ---------------------------------------------------------
-# [탭 2] 수정 뷰 (날짜열 고정 적용)
-# ---------------------------------------------------------
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
@@ -679,7 +713,6 @@ with tab2:
     display_cols = [c for c in preferred_order if c in df.columns]
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
 
-    # 날짜 컬럼 수정 불가(고정) 처리 설정
     column_configs = {}
     if "날짜" in display_cols:
         column_configs["날짜"] = st.column_config.DateColumn("날짜", format="YYYY-MM-DD", disabled=True)
@@ -692,7 +725,7 @@ with tab2:
             for idx in edited_df.index:
                 if idx in m_df.index:
                     for col in edited_df.columns:
-                        if col != "날짜": # 날짜는 보호
+                        if col != "날짜":
                             m_df.loc[idx, col] = edited_df.loc[idx, col]
         else:
             sub_indices = m_df[m_df["년월"] == sel_ed_m].index
@@ -720,9 +753,6 @@ with tab2:
         st.success("✅ 변경사항이 저장되었습니다.")
         st.rerun()
 
-# ---------------------------------------------------------
-# [탭 3] 통계 뷰 (범례 색상 적용 및 번호/근무자 밀착)
-# ---------------------------------------------------------
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
@@ -730,7 +760,6 @@ with tab3:
     sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    # 엑셀 파일 내 근무구분 컬럼 탐색 ('근무구분', '구분' 등 포함된 컬럼)
     cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월"), None)
 
     expanded_rows = []
@@ -749,7 +778,6 @@ with tab3:
         exp_df = pd.DataFrame(expanded_rows)
         agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(근무횟수=("횟수", "sum"), 근무시간=("근무시간", "sum")).reset_index()
         
-        # 통계 그래프 범례 색상 적용: 평일(노랑), 금요일(초록), 토요일(파랑), 일요일(빨강)
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
@@ -783,7 +811,6 @@ with tab3:
         summary_table = pd.DataFrame(summary_dict, index=workers_list)
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
         
-        # 번호 및 근무자 열 삽입 (공백 없이 밀착되도록 CSS 처리됨)
         summary_table.insert(0, "번호", range(1, len(summary_table) + 1))
         summary_table.insert(1, "근무자", summary_table.index)
 
@@ -793,13 +820,8 @@ with tab3:
         html_table += "</tbody></table></div>"
         st.markdown(html_table, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# [탭 4] 카카오톡 개인 계정 통보 탭
-# ---------------------------------------------------------
 with tab4:
     st.subheader("💬 개인 카카오톡 계정(나에게 보내기) 자동 통보 시스템")
-    workers_db = load_workers_db()
-
     target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="kakao_target_send_date")
     target_str = target_send_date.strftime("%Y-%m-%d")
 
@@ -844,13 +866,10 @@ with tab4:
                     else:
                         st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
                 else:
-                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **안내**: 카카오 서버 측에서 클라우드 IP 보안 정책으로 인해 차단이 지속될 경우, 카카오 Developers 콘솔에서 새 앱을 생성하여 IP 등록을 완전히 빈 상태로 두고 토큰을 재발급받아 입력하시면 해결됩니다.")
             except Exception as ex:
                 st.error(f"전송 중 네트워크 오류 발생: {ex}")
 
-# ---------------------------------------------------------
-# [탭 5] 원본 데이터 뷰
-# ---------------------------------------------------------
 with tab5:
     st.subheader("시트 데이터 원본")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, use_container_width=True)ㅍ

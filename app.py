@@ -101,7 +101,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (9:16 비율 및 얇고 포인트 있는 테두리)
+# 시스템 CSS 및 자바스크립트 적용 (640px 너비, 굵은 제목 바, 세로 스크롤, 드롭다운 키보드 제어)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -138,18 +138,20 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.5rem 10px 1rem 10px !important;
-        max-width: 450px !important; /* 9:16 모바일 비율 최적화 */
+        padding: 0.5rem 12px 1rem 12px !important;
+        max-width: 640px !important; /* 요청하신 640px 가로폭 설정 */
         margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: 21px !important;
-        margin: 8px 0px 12px 0px !important;
+        font-size: 22px !important;
+        margin: 8px 0px 14px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
         text-align: center;
+        border-bottom: 4px solid {primary_blue} !important; /* 요청하신 굵은 제목 바 */
+        padding-bottom: 10px !important;
     }}
 
     .setting-box {{
@@ -181,6 +183,15 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 16px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
+    /* 달력 영역 세로 스크롤 컨테이너 (가로 사이즈 맞춤 및 세로 스크롤 전용) */
+    .calendar-scroll-container {{
+        width: 100% !important;
+        max-height: 520px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding-right: 4px;
+    }}
+
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
         background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
     }}
@@ -203,7 +214,7 @@ responsive_css = f"""
     }}
 
     [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 380px !important;
+        background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 420px !important;
         border-radius: 18px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
     }}
@@ -218,7 +229,7 @@ responsive_css = f"""
     }}
 
     .table-container {{
-        width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
+        width: 100%; max-height: 480px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
     .sticky-table {{
         width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; white-space: nowrap;
@@ -234,6 +245,28 @@ responsive_css = f"""
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
+
+<!-- 요청하신 드롭다운 1회 클릭 시 가상키보드 방지 및 더블 클릭 시 활성화 스크립트 -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const handleSelectInputs = () => {
+        document.querySelectorAll('[data-baseweb="select"] input, select').forEach(el => {
+            if (!el.dataset.keyboardControlled) {
+                el.dataset.keyboardControlled = 'true';
+                el.setAttribute('readonly', 'true');
+                el.addEventListener('dblclick', function(e) {
+                    el.removeAttribute('readonly');
+                    el.focus();
+                });
+                el.addEventListener('blur', function(e) {
+                    el.setAttribute('readonly', 'true');
+                });
+            }
+        });
+    };
+    setInterval(handleSelectInputs, 400);
+});
+</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -249,7 +282,7 @@ def get_solapi_auth_headers(api_key, api_secret):
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 파일 유틸 및 저장 함수
+# 파일 유틸 및 저장 함수 (엑셀 13열 공휴일 정보 연동)
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -333,7 +366,7 @@ def load_excel_smart(file_input, selected_sheet=None):
                 row_date_val = df_raw.iloc[r_idx, date_col_raw_idx]
                 parsed_d = pd.to_datetime(row_date_val, errors="coerce")
                 if pd.notnull(parsed_d):
-                    hol_val = df_raw.iloc[r_idx, 12]
+                    hol_val = df_raw.iloc[r_idx, 12] # 13열 (인덱스 12) 참고
                     if pd.notnull(hol_val) and str(hol_val).strip() not in ["nan", "None", ""]:
                         holiday_map[parsed_d.strftime("%Y-%m-%d")] = str(hol_val).strip()
     except Exception:
@@ -623,6 +656,8 @@ with tab1:
                 
                 st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:12px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
+            # 가로형 Grid 달력 (세로 스크롤 컨테이너 적용)
+            st.markdown('<div class="calendar-scroll-container">', unsafe_allow_html=True)
             cols_h = st.columns(7)
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
@@ -641,6 +676,7 @@ with tab1:
                         info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
                         
                         holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
+                        # 13열 공휴일 정보가 공백인 경우 []도 표시되지 않도록 처리
                         hol_str = f"[{holiday_name}]" if holiday_name else ""
                         
                         memo_val = st.session_state.memos.get(d_str, "")
@@ -667,6 +703,7 @@ with tab1:
                         """
                         g_cols[c].markdown(cell_html, unsafe_allow_html=True)
                         day_cnt += 1
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭

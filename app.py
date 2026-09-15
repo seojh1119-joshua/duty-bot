@@ -85,7 +85,7 @@ def save_local_config(key, value):
 local_cfg = load_local_config()
 
 for k, v in [
-    ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
+    ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
@@ -101,7 +101,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (7열 균등 배치 그리드 통합)
+# 시스템 CSS 및 자바스크립트 적용 (세로 확장이 가능한 캘린더 그리드)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -168,7 +168,7 @@ responsive_css = f"""
         color: #FFFFFF !important;
         padding: 14px 16px !important;
         border-radius: 14px !important;
-        margin-bottom: 12px !important;
+        margin-bottom: 8px !important;
         width: 100% !important;
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
@@ -183,7 +183,7 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    /* 7열 균등 배치 가로형 캘린더 컨테이너 구조 */
+    /* 7열 균등 배치 가로형 캘린더 컨테이너 구조 (세로 확장형) */
     .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; border-radius: 12px; overflow: hidden; }}
     .cal-week-row {{ display: flex; width: 100%; border-bottom: 1px solid {border_color}; }}
     .cal-week-row:last-child {{ border-bottom: none; }}
@@ -196,9 +196,10 @@ responsive_css = f"""
     }}
 
     .cal-day-cell {{
-        min-height: 115px; padding: 6px 3px; border-right: 1px solid {border_color};
+        min-height: 120px; height: auto !important; padding: 6px 3px; border-right: 1px solid {border_color};
         display: flex; flex-direction: column; position: relative;
         background-color: {box_bg};
+        word-break: break-all;
     }}
     .cal-day-cell:last-child {{ border-right: none; }}
     
@@ -460,6 +461,80 @@ def confirm_exit_dialog():
             st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
             st.rerun()
 
+@st.dialog("📅 오늘 근무 및 메모 수정")
+def today_edit_dialog():
+    today_date = datetime.date.today()
+    today_str = today_date.strftime("%Y-%m-%d")
+    df_cur = st.session_state.df
+    row_match = df_cur[df_cur["날짜"].dt.date == today_date]
+    
+    if row_match.empty:
+        st.warning(f"오늘({today_str})에 해당하는 근무 정보가 없습니다.")
+        if st.button("닫기", use_container_width=True):
+            st.session_state.show_today_dialog = False
+            st.rerun()
+        return
+        
+    r_idx = row_match.index[0]
+    curr_r = df_cur.loc[r_idx]
+    
+    all_workers = set()
+    for col in ["근무자1", "근무자2", "대직1", "대직2"]:
+        if col in df_cur.columns:
+            for v in df_cur[col].dropna().unique():
+                v_str = str(v).strip()
+                if v_str and v_str not in ["미지정", "nan", "None"]:
+                    all_workers.add(v_str)
+
+    worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
+    
+    def get_idx(val):
+        if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: return 0
+        val_str = str(val).strip()
+        return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
+
+    curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
+    curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
+    curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
+    curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
+
+    with st.form("today_edit_form"):
+        st.markdown(f"#### 📅 {today_str} 근무자 및 메모 수정")
+        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="td_p1")
+        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="td_p1_c") if p1_s == "(직접 입력)" else ""
+        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="td_sub1")
+        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="td_sub1_c") if sub1_s == "(직접 입력)" else ""
+
+        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key="td_p2")
+        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="td_p2_c") if p2_s == "(직접 입력)" else ""
+        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key="td_sub2")
+        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="td_sub2_c") if sub2_s == "(직접 입력)" else ""
+        
+        memo_in = st.text_area("메모", value=st.session_state.memos.get(today_str, ""), key="td_memo")
+        
+        submitted_td = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
+
+    if submitted_td:
+        f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
+        f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
+        f_sub1 = sub1_c if sub1_s == "(직접 입력)" else ("" if sub1_s == "(선택 안함)" else sub1_s)
+        f_sub2 = sub2_c if sub2_s == "(직접 입력)" else ("" if sub2_s == "(선택 안함)" else sub2_s)
+        
+        df_cur.loc[r_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [
+            f_p1 if f_p1 else "미지정", f_p2 if f_p2 else "미지정", f_sub1 if f_sub1 else None, f_sub2 if f_sub2 else None
+        ]
+        df_cur.loc[r_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
+        df_cur.loc[r_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
+        
+        if memo_in.strip(): st.session_state.memos[today_str] = memo_in.strip()
+        else: st.session_state.memos.pop(today_str, None)
+        
+        st.session_state.df = df_cur
+        save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
+        st.session_state.show_today_dialog = False
+        st.success(f"✅ 오늘({today_str}) 근무 정보가 성공적으로 수정되었습니다!")
+        st.rerun()
+
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
     tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "SMS 연동 설정"])
@@ -596,6 +671,8 @@ if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
     settings_dialog()
+elif st.session_state.show_today_dialog:
+    today_edit_dialog()
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -612,7 +689,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (7열 균등배치, 이름 앞 숫자/콜론 제거, M열 공휴일 표시, 메모 반영)
+# [탭 1] 달력 뷰 (터치 스와이프 전후달 이동, 스와이프 버튼 제거, 셀 세로 확장)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -624,33 +701,27 @@ with tab1:
         p1 = f"{tr['실제근무1']}(대)" if sub1_t and sub1_t not in ["nan", "None", ""] else tr["실제근무1"]
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
+        
         st.markdown(f'<div class="today-card"><div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div><div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div></div>', unsafe_allow_html=True)
+        if st.button("👆 오늘 근무 안내 및 메모 수정하기", use_container_width=True, type="primary"):
+            st.session_state.show_today_dialog = True
+            st.rerun()
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
-    if "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
+    query_month = st.query_params.get("month")
+    if query_month and query_month in avail_months:
+        st.session_state.selected_month = query_month
+    elif "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
         st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
-    # 좌우 드래그/클릭 이동을 위한 이전달 / 다음달 네비게이션 버튼 배치
-    col_prev, col_sel, col_next = st.columns([1, 3, 1])
-    with col_prev:
-        if st.button("◀ 이전달", use_container_width=True):
-            curr_idx = avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0
-            if curr_idx > 0:
-                st.session_state.selected_month = avail_months[curr_idx - 1]
-                st.rerun()
-    with col_sel:
-        sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
-        if sel_month != st.session_state.selected_month:
-            st.session_state.selected_month = sel_month
-            st.rerun()
-    with col_next:
-        if st.button("다음달 ▶", use_container_width=True):
-            curr_idx = avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0
-            if curr_idx < len(avail_months) - 1:
-                st.session_state.selected_month = avail_months[curr_idx + 1]
-                st.rerun()
+    # 스와이프 버튼 제거 및 월 선택 셀렉트박스 단독 배치
+    sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
+    if sel_month != st.session_state.selected_month:
+        st.session_state.selected_month = sel_month
+        st.query_params["month"] = sel_month
+        st.rerun()
 
     sel_month = st.session_state.selected_month
 
@@ -687,7 +758,7 @@ with tab1:
                 
                 st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
-            # 7열 균등 배치 가로형 캘린더 그리드 구조
+            # 7열 균등 배치 가로형 캘린더 그리드 구조 (세로 확장 및 말줄임표 제거)
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
@@ -719,23 +790,64 @@ with tab1:
                         html_content += f'<div class="cal-day-cell {day_class}">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
-                        # M열 공휴일 이름 표시 (일자 아래)
+                        # M열 공휴일 이름 표시 (줄바꿈 허용으로 세로 확장)
                         if holiday_name:
-                            html_content += f'<div style="font-size:9px; font-weight:700; color:#EF4444; text-align:center; line-height:1.1; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">[{holiday_name}]</div>'
+                            html_content += f'<div style="font-size:9px; font-weight:700; color:#EF4444; text-align:center; line-height:1.1; margin-bottom:2px; white-space:normal; word-break:break-all;">[{holiday_name}]</div>'
                         
-                        # 이름 앞 숫자 및 콜론(:) 제거된 순수 근무자명 표시
+                        # 근무자명 표시 (줄바꿈 허용으로 세로 확장)
                         if w1 or w2:
-                            html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:1px; line-height:1.3;"><b>{w1}</b><br><b>{w2}</b></div>'
+                            html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:1px; line-height:1.3; white-space:normal; word-break:break-all;"><b>{w1}</b><br><b>{w2}</b></div>'
                         
-                        # 메모 표시
+                        # 메모 표시 (줄바꿈 허용으로 세로 확장)
                         if memo and str(memo).strip():
-                            html_content += f'<div style="font-size:10px; font-weight:700; color:#D97706; text-align:center; margin-top:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📌 {memo}</div>'
+                            html_content += f'<div style="font-size:10px; font-weight:700; color:#D97706; text-align:center; margin-top:4px; white-space:normal; word-break:break-all;">📌 {memo}</div>'
                         
                         html_content += '</div>'
                 html_content += '</div>'
             html_content += '</div>'
             
             st.markdown(html_content, unsafe_allow_html=True)
+
+        # 모바일 드래그/스와이프 전후 달 이동 스크립트 컴포넌트
+        avail_months_json = json.dumps(avail_months)
+        current_month_json = json.dumps(sel_month)
+        
+        swipe_component_html = f"""
+        <script>
+            const months = {avail_months_json};
+            const currentMonth = {current_month_json};
+            let touchstartX = 0;
+            let touchendX = 0;
+
+            document.addEventListener('touchstart', e => {{
+                touchstartX = e.changedTouches[0].screenX;
+            }}, {{passive: true}});
+
+            document.addEventListener('touchend', e => {{
+                touchendX = e.changedTouches[0].screenX;
+                handleGesture();
+            }}, {{passive: true}});
+
+            function handleGesture() {{
+                let threshold = 60;
+                if (touchendX < touchstartX - threshold) {{
+                    let idx = months.indexOf(currentMonth);
+                    if (idx < months.length - 1) {{
+                        let nextMonth = months[idx + 1];
+                        window.parent.location.search = '?month=' + nextMonth;
+                    }}
+                }}
+                if (touchendX > touchstartX + threshold) {{
+                    let idx = months.indexOf(currentMonth);
+                    if (idx > 0) {{
+                        let prevMonth = months[idx - 1];
+                        window.parent.location.search = '?month=' + prevMonth;
+                    }}
+                }}
+            }}
+        </script>
+        """
+        components.v1.html(swipe_component_html, height=0)
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭

@@ -287,12 +287,10 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 # ---------------------------------------------------------
 back_button_js = f"""
 <script>
-    // 앱 최초 진입 또는 홈 기준으로 히스토리 상태 설정
     if (!window.history.state || window.history.state.page !== 'calendar_home') {{
         window.history.pushState({{ page: 'calendar_home' }}, '', '');
     }}
 
-    // 모바일 뒤로가기 버튼(popstate) 발생 시 달력 화면으로 복귀하도록 자동 새로고침 처리
     window.addEventListener('popstate', function(event) {{
         window.location.reload();
     }});
@@ -798,13 +796,6 @@ with tab1:
                         is_sun = (w_idx == 6)
                         is_holiday = (c_date in kr_holidays)
 
-                        if is_sun or is_holiday:
-                            day_color = "#EF4444"
-                        elif is_sat:
-                            day_color = "#3B82F6"
-                        else:
-                            day_color = main_text_color
-
                         if is_today:
                             prefix = "🌟[오늘] "
                         elif m_val:
@@ -813,12 +804,22 @@ with tab1:
                             prefix = ""
                             
                         t_header = f"{prefix}{day_cnt}일"
-                        
-                        btn_txt = f"<span style='color:{day_color}; font-weight:bold;'>{t_header}</span>\n1️⃣ {info['p1']}\n2️⃣ {info['p2']}"
+
+                        # HTML 태그 대신 Streamlit 마크다운 컬러 및 볼드 문법 사용
+                        if is_sun or is_holiday:
+                            header_md = f":red[**{t_header}**]"
+                        elif is_sat:
+                            header_md = f":blue[**{t_header}**]"
+                        else:
+                            header_md = f"**{t_header}**"
+
+                        btn_txt = f"{header_md}\n1️⃣ {info['p1']}\n2️⃣ {info['p2']}"
                         if memo_val:
                             btn_txt += f"\n📌 {memo_val}"
 
-                        if g_cols[c].button(btn_txt, key=f"grid_btn_{d_str}"):
+                        # 고유한 key 파라미터 부여하여 버튼 충돌 방지
+                        button_key = f"grid_btn_{d_str}"
+                        if g_cols[c].button(btn_txt, key=button_key, use_container_width=True):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
                         day_cnt += 1

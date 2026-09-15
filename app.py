@@ -719,7 +719,7 @@ with tab1:
                         
                         is_today = (c_date == today)
                         
-                        # 요청하신 형식: "[공휴일] 날짜 \n 실제근무1 \n 실제근무2 \n 메모" (공백일 때는 대괄호 미출력)
+                        # M열 값이 있을 때만 빨간색 폰트 느낌의 태그 적용, 없으면 미출력
                         if is_today:
                             prefix = "🌟[오늘] "
                         elif m_val:
@@ -794,7 +794,8 @@ with tab3:
     sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    cat_col = "M열구분" if "M열구분" in f_df.columns else next((c for c in f_df.columns if "구분" in c and c != "년월"), None)
+    # 통계는 기존의 원래 근무 구분 컬럼 사용 (M열구분 제외)
+    cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월" and c != "M열구분"), None)
 
     expanded_rows = []
     for _, r in f_df.iterrows():

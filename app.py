@@ -166,11 +166,10 @@ responsive_css = f"""
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
         font-weight: bold;
     }}
-    /* 달력 버튼 간격 제로(밀착) 및 9:16 모바일 최적화 */
     .stButton > button {{
         width: 100% !important;
         min-height: 44px !important;
-        max-height: 72px !important;
+        max-height: 75px !important;
         padding: 1px 0px !important;
         margin: 0px !important;
         border: 1px solid {border_color} !important;
@@ -387,7 +386,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     # M열 (Index 12) 값 가져오기 (공휴일/구분 정보)
     if len(df.columns) > 12:
         m_col_name = df.columns[12]
-        df["M열구분"] = df[m_col_name].astype(str).str.strip().replace(["nan", "None"], "")
+        df["M열구분"] = df[m_col_name].astype(str).str.strip().replace(["nan", "None", "nat", "NaT"], "")
     else:
         df["M열구분"] = ""
 
@@ -669,6 +668,8 @@ with tab1:
             if sub2_val and sub2_val not in ["nan", "None", ""]: p2_name = f"{p2_name}(대)"
                 
             m_val = str(row.get("M열구분", "")).strip()
+            if m_val in ["nan", "None", "NaT", "nat"]:
+                m_val = ""
             duty_map[row["날짜"].day] = {"idx": i, "p1": p1_name, "p2": p2_name, "m_val": m_val}
 
         if st.session_state.auto_view_type == "📄 세로형 리스트":
@@ -681,13 +682,19 @@ with tab1:
                 info = duty_map.get(d, {"p1": "-", "p2": "-", "m_val": ""})
                 
                 is_today = (c_date == today)
-                if is_today: t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
-                elif info["m_val"]: t_str = f"🔴 [{info['m_val']}] {d:02d}일({weekday_str})"
-                else: t_str = f"🗓️ {d:02d}일({weekday_str})"
+                m_val = info["m_val"]
+                
+                if is_today: 
+                    t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
+                elif m_val: 
+                    t_str = f"<span style='color: #EF4444;'>[{m_val}]</span> {d:02d}일({weekday_str})"
+                else: 
+                    t_str = f"🗓️ {d:02d}일({weekday_str})"
                     
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_{d_str}"):
+                btn_display_label = f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}"
+                if st.button(btn_display_label, key=f"v_{d_str}"):
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
@@ -710,16 +717,18 @@ with tab1:
                         memo_val = st.session_state.memos.get(d_str, "").strip()
                         m_val = info.get("m_val", "")
                         
-                        # M열 참고하여 [공휴일] 등 태그 표시
                         is_today = (c_date == today)
-                        if is_today: 
-                            day_prefix = "🌟[오늘]"
-                        elif m_val: 
-                            day_prefix = f"[{m_val}]"
-                        else: 
-                            day_prefix = ""
+                        
+                        # 요청하신 형식: "[공휴일] 날짜 \n 실제근무1 \n 실제근무2 \n 메모" (공백일 때는 대괄호 미출력)
+                        if is_today:
+                            prefix = "🌟[오늘] "
+                        elif m_val:
+                            prefix = f"🔴[{m_val}] "
+                        else:
+                            prefix = ""
                             
-                        t_header = f"{day_prefix} {day_cnt}일" if day_prefix else f"{day_cnt}일"
+                        t_header = f"{prefix}{day_cnt}일"
+                        
                         btn_txt = f"{t_header}\n{info['p1']}\n{info['p2']}"
                         if memo_val:
                             btn_txt += f"\n📌 {memo_val}"

@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 모바일 세로 화면(9:16 등) 및 반응형 최적화 CSS
+# 모바일 세로 화면(9:16 등) 및 버튼 간격 제로(밀착) 최적화 CSS
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -126,7 +126,7 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.1rem 2px 0.2rem 2px !important;
+        padding: 0.1rem 1px 0.2rem 1px !important;
         max-width: 100vw !important;
         width: 100% !important;
         box-sizing: border-box !important;
@@ -143,7 +143,7 @@ responsive_css = f"""
         border: 1px solid {border_color};
         border-radius: 6px;
         padding: 3px 8px;
-        margin: 1px 0 4px 0;
+        margin: 1px 0 2px 0;
         text-align: center;
     }}
     .month-header-card h2 {{
@@ -158,7 +158,7 @@ responsive_css = f"""
         padding: 4px 8px;
         border-radius: 6px;
         border: 1px solid {border_color};
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         width: 100%;
         box-sizing: border-box;
     }}
@@ -166,18 +166,19 @@ responsive_css = f"""
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
         font-weight: bold;
     }}
-    /* 모바일 세로 9:16 비율 등 폭이 좁은 화면에서 달력 버튼이 비대해지는 오류 방지 및 고정 축소 */
+    /* 달력 버튼 간격 제로(밀착) 및 9:16 모바일 최적화 */
     .stButton > button {{
         width: 100% !important;
-        min-height: 32px !important;
-        max-height: 52px !important;
-        padding: 1px 1px !important;
+        min-height: 44px !important;
+        max-height: 72px !important;
+        padding: 1px 0px !important;
+        margin: 0px !important;
         border: 1px solid {border_color} !important;
-        border-radius: 4px !important;
+        border-radius: 2px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
-        font-size: clamp(9px, 2.2vw, 12px) !important;
-        line-height: 1.1 !important;
+        font-size: clamp(8px, 1.9vw, 11px) !important;
+        line-height: 1.15 !important;
         font-weight: 500 !important;
         white-space: pre-wrap !important;
         overflow: hidden !important;
@@ -193,8 +194,9 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 1px !important;
+        gap: 0px !important;
         margin: 0 !important;
+        padding: 0 !important;
     }}
     [data-testid="column"] {{
         width: 14.285% !important;
@@ -204,6 +206,10 @@ responsive_css = f"""
         padding: 0px 0px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
+    }}
+    /* 드롭메뉴박스 터치 시 가상키보드 방지 속성 */
+    input, select, textarea {{
+        caret-color: transparent !important;
     }}
     .table-container {{
         width: 100%;
@@ -249,14 +255,16 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 오늘 날짜 테마별 음영 처리 JS
+# 모바일 가상키보드 방지 및 오늘 날짜 테마 음영 처리 JS
 # ---------------------------------------------------------
 calendar_enhancer_js = f"""
 <script>
 (function() {{
-    function enhanceCalendarUI() {{
+    function enhanceUI() {{
         const doc = window.parent.document;
         if (!doc) return;
+        
+        // 오늘 날짜 버튼 스타일 하이라이트
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -267,8 +275,16 @@ calendar_enhancer_js = f"""
                 btn.style.setProperty('font-weight', '800', 'important');
             }}
         }});
+
+        // 셀렉트박스(드롭메뉴) 터치 시 가상키보드 방지용 readonly 속성 부여
+        const selects = doc.querySelectorAll('input[aria-autocomplete="list"], div[data-baseweb="select"] input');
+        selects.forEach(sel => {{
+            if (!sel.hasAttribute('readonly')) {{
+                sel.setAttribute('readonly', 'readonly');
+            }}
+        }});
     }}
-    setInterval(enhanceCalendarUI, 200);
+    setInterval(enhanceUI, 200);
 }})();
 </script>
 """
@@ -687,17 +703,19 @@ with tab1:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
                         info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
-                        memo_s = "📌" if st.session_state.memos.get(d_str) else ""
+                        memo_val = st.session_state.memos.get(d_str, "").strip()
                         
+                        # 요청하신 출력 형식 반영 ([공휴일/구분] 날짜 \n 실제근무1 \n 실제근무2 \n 메모)
                         is_today = (c_date == today)
-                        if is_today: day_prefix = "🌟"
-                        elif c == 0 or c_date in kr_holidays: day_prefix = "🔴"
-                        elif c == 6: day_prefix = "🔵"
+                        if is_today: day_prefix = "🌟[오늘]"
+                        elif c == 0 or c_date in kr_holidays: day_prefix = "🔴[공휴일]"
+                        elif c == 6: day_prefix = "🔵[토요]"
                         else: day_prefix = ""
                             
-                        t_str = f"{day_prefix}{day_cnt}" if day_prefix else str(day_cnt)
-                        btn_txt = f"{t_str}\n{info['p1']}\n{info['p2']}"
-                        if memo_s: btn_txt += f" {memo_s}"
+                        t_header = f"{day_prefix} {day_cnt}일" if day_prefix else f"{day_cnt}일"
+                        btn_txt = f"{t_header}\n{info['p1']}\n{info['p2']}"
+                        if memo_val:
+                            btn_txt += f"\n📌 {memo_val}"
 
                         if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})

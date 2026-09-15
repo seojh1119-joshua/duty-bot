@@ -369,7 +369,7 @@ document.addEventListener("DOMContentLoaded", function() {{
         const url = new URL(window.location.href);
         if (url.searchParams.has('open_today') || url.searchParams.has('month')) {{
             url.searchParams.delete('open_today');
-            window.history.replaceState({}, '', url.toString());
+            window.history.replaceState({{}}, '', url.toString());
             window.location.reload();
         }}
     }});
@@ -833,7 +833,6 @@ with tab1:
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
-    # [수정] 달 변경 드롭다운 및 쿼리 파라미터 / 세션 상태 동기화 로직 오류 방지 개선
     query_month = st.query_params.get("month")
     
     target_month = cur_ym if cur_ym in avail_months else avail_months[0]
@@ -1036,7 +1035,7 @@ with tab2:
         st.info("등록된 날짜 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 3] 전체 수정 뷰 (동적 행 추가/삭제 안정화 반영)
+# [탭 3] 전체 수정 뷰
 # ---------------------------------------------------------
 with tab3:
     st.subheader("전체 근무표 에디터 수정")

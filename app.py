@@ -96,7 +96,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 테마 및 모바일 반응형 CSS (세로 고정 가로형 비율 지원)
+# 테마 및 모바일 반응형 CSS (달력 버튼 밀림 현상 방지 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -172,23 +172,28 @@ responsive_css = f"""
         padding: 4px;
         background-color: {theme_bg};
     }}
+    /* 달력 내부 버튼 레이아웃 텍스트 깨짐 및 밀림 현상 방지 최적화 */
     .stButton > button {{
         width: 100% !important;
         height: auto !important;
-        min-height: 52px !important;
-        padding: 4px 2px !important;
+        min-height: 56px !important;
+        padding: 3px 2px !important;
         margin: 0px !important;
         border: 1px solid {border_color} !important;
         border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
-        font-size: clamp(8px, 2vw, 11px) !important;
-        line-height: 1.35 !important;
+        font-size: clamp(7.5px, 1.8vw, 10.5px) !important;
+        line-height: 1.25 !important;
         font-weight: 500 !important;
         white-space: pre-wrap !important;
-        word-break: break-word !important;
-        overflow: visible !important;
+        word-break: break-all !important;
         overflow-wrap: break-word !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        text-align: center !important;
     }}
     .stButton > button:hover {{
         border-color: {btn_hover_border} !important;
@@ -202,13 +207,13 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 3px !important;
+        gap: 2px !important;
         margin: 0 !important;
         padding: 0 !important;
     }}
     [data-testid="column"] {{
         min-width: 0 !important;
-        padding: 0px 1px !important;
+        padding: 0px 0.5px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
         display: flex !important;
@@ -282,14 +287,13 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 # ---------------------------------------------------------
 back_button_js = f"""
 <script>
-    // 앱 진입 시 히스토리 상태 설정 (달력 홈 기준)
+    // 앱 최초 진입 또는 홈 기준으로 히스토리 상태 설정
     if (!window.history.state || window.history.state.page !== 'calendar_home') {{
         window.history.pushState({{ page: 'calendar_home' }}, '', '');
     }}
 
-    // 뒤로가기(popstate) 발생 시 달력 화면으로 복귀하도록 처리
+    // 모바일 뒤로가기 버튼(popstate) 발생 시 달력 화면으로 복귀하도록 자동 새로고침 처리
     window.addEventListener('popstate', function(event) {{
-        // Streamlit의 특정 element나 부모창에 커스텀벤트를 날리거나 새로고침 유도
         window.location.reload();
     }});
 </script>
@@ -351,6 +355,20 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
     except Exception as e:
         st.sidebar.warning(f"⚠️ 엑셀 저장 실패: {e}")
         return False
+
+def save_app_state(df_target, sheet_name, memos_dict):
+    try:
+        os.makedirs("DATA", exist_ok=True)
+        state_data = {
+            "memos": memos_dict,
+            "selected_sheet": sheet_name,
+            "last_saved": str(datetime.datetime.now())
+        }
+        with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(state_data, f, ensure_ascii=False, indent=2)
+        save_to_excel_file(df_target, st.session_state.file_path, sheet_name)
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 앱 상태 저장 실패: {e}")
 
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())

@@ -101,7 +101,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (640px 너비, 굵은 제목 바, 세로 스크롤, 드롭다운 키보드 제어)
+# 시스템 CSS 및 자바스크립트 적용 (640px 너비, 확대된 폰트, 세로 스크롤)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -139,18 +139,19 @@ responsive_css = f"""
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
         padding: 0.5rem 12px 1rem 12px !important;
-        max-width: 640px !important; /* 요청하신 640px 가로폭 설정 */
+        max-width: 640px !important;
         margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
 
+    /* 제목 크기 2pt 정도 확대 (22px -> 24px) 및 굵은 하단 바 */
     h1 {{
-        font-size: 22px !important;
+        font-size: 24px !important;
         margin: 8px 0px 14px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
         text-align: center;
-        border-bottom: 4px solid {primary_blue} !important; /* 요청하신 굵은 제목 바 */
+        border-bottom: 5px solid {primary_blue} !important;
         padding-bottom: 10px !important;
     }}
 
@@ -173,20 +174,20 @@ responsive_css = f"""
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
     }}
-    .today-card .today-title {{ font-size: 11px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
-    .today-card .today-content {{ font-size: 15px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
-    .today-card span {{ color: #FEF08A !important; font-size: 16px !important; font-weight: 900 !important; text-decoration: underline; }}
+    .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
+    .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
+    .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
 
     .month-header-card {{
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
         box-shadow: 0 2px 6px rgba(59, 130, 246, 0.08);
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: 16px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
+    /* 월별 헤더 폰트 확대 (16px -> 18px) */
+    .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    /* 달력 영역 세로 스크롤 컨테이너 (가로 사이즈 맞춤 및 세로 스크롤 전용) */
     .calendar-scroll-container {{
         width: 100% !important;
-        max-height: 520px !important;
+        max-height: 540px !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
         padding-right: 4px;
@@ -200,7 +201,7 @@ responsive_css = f"""
     .stButton > button {{
         width: 100% !important; min-height: 38px !important;
         padding: 6px 10px !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 12px !important; font-weight: 800 !important; 
+        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
         box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         transition: all 0.2s ease;
     }}
@@ -225,14 +226,14 @@ responsive_css = f"""
         width: 100% !important; display: flex !important; gap: 3px !important; background-color: {box_bg}; padding: 3px !important; border-radius: 12px; border: 1px solid {border_color};
     }}
     [data-baseweb="tab"] {{
-        flex: 1 1 auto !important; padding: 6px 4px !important; font-size: 11px !important; font-weight: 800 !important; text-align: center !important; border-radius: 8px !important; justify-content: center !important;
+        flex: 1 1 auto !important; padding: 6px 4px !important; font-size: 12px !important; font-weight: 800 !important; text-align: center !important; border-radius: 8px !important; justify-content: center !important;
     }}
 
     .table-container {{
         width: 100%; max-height: 480px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
     .sticky-table {{
-        width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; white-space: nowrap;
+        width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap;
     }}
     .sticky-table th, .sticky-table td {{
         padding: 8px 10px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
@@ -246,20 +247,20 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 
-<!-- 요청하신 드롭다운 1회 클릭 시 가상키보드 방지 및 더블 클릭 시 활성화 스크립트 -->
+<!-- 드롭다운: 기본 클릭 시 가상키보드 미노출(inputmode=none), 더블클릭 시 키보드 활성화 -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {{
     const handleSelectInputs = () => {{
         document.querySelectorAll('[data-baseweb="select"] input, select').forEach(el => {{
-            if (!el.dataset.keyboardControlled) {{
-                el.dataset.keyboardControlled = 'true';
-                el.setAttribute('readonly', 'true');
+            if (!el.dataset.kbControlled) {{
+                el.dataset.kbControlled = 'true';
+                el.setAttribute('inputmode', 'none');
                 el.addEventListener('dblclick', function(e) {{
-                    el.removeAttribute('readonly');
+                    el.removeAttribute('inputmode');
                     el.focus();
                 }});
                 el.addEventListener('blur', function(e) {{
-                    el.setAttribute('readonly', 'true');
+                    el.setAttribute('inputmode', 'none');
                 }});
             }}
         }});
@@ -271,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {{
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Solapi (CoolSMS) 인증 헤더 생성 유틸 함수
+# Solapi 인증 헤더 생성 유틸 함수
 # ---------------------------------------------------------
 def get_solapi_auth_headers(api_key, api_secret):
     date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -282,7 +283,7 @@ def get_solapi_auth_headers(api_key, api_secret):
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 파일 유틸 및 저장 함수 (엑셀 13열 공휴일 정보 연동)
+# 파일 유틸 및 13열 공휴일 연동 스마트 로더 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -353,22 +354,25 @@ def load_excel_smart(file_input, selected_sheet=None):
             header_idx = idx
             break
 
+    # 13열(인덱스 12) 기반 공휴일 추출 로직 (매우 정교화)
     holiday_map = {}
     try:
-        if df_raw.shape[1] > 12:
-            date_col_raw_idx = 0
-            for c_idx in range(df_raw.shape[1]):
-                col_vals = df_raw.iloc[:, c_idx].astype(str).values
-                if any(any(k in str(v) for k in ["날짜", "일자", "date"]) for v in col_vals[:header_idx+2]):
-                    date_col_raw_idx = c_idx
-                    break
-            for r_idx in range(header_idx + 1, len(df_raw)):
-                row_date_val = df_raw.iloc[r_idx, date_col_raw_idx]
-                parsed_d = pd.to_datetime(row_date_val, errors="coerce")
-                if pd.notnull(parsed_d):
-                    hol_val = df_raw.iloc[r_idx, 12] # 13열 (인덱스 12) 참고
-                    if pd.notnull(hol_val) and str(hol_val).strip() not in ["nan", "None", ""]:
-                        holiday_map[parsed_d.strftime("%Y-%m-%d")] = str(hol_val).strip()
+        if df_raw.shape[1] >= 13:
+            for r_idx in range(len(df_raw)):
+                row_vals = df_raw.iloc[r_idx].values
+                parsed_d = None
+                for val in row_vals:
+                    if pd.notnull(val):
+                        pd_t = pd.to_datetime(val, errors="coerce")
+                        if pd.notnull(pd_t) and 2000 <= pd_t.year <= 2030:
+                            parsed_d = pd_t
+                            break
+                if parsed_d:
+                    hol_val = df_raw.iloc[r_idx, 12] # 13번째 열 (인덱스 12)
+                    if pd.notnull(hol_val):
+                        h_str = str(hol_val).strip()
+                        if h_str and h_str.lower() not in ["nan", "none", "nat", ""]:
+                            holiday_map[parsed_d.strftime("%Y-%m-%d")] = h_str
     except Exception:
         pass
 
@@ -654,14 +658,14 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:12px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             # 가로형 Grid 달력 (세로 스크롤 컨테이너 적용)
             st.markdown('<div class="calendar-scroll-container">', unsafe_allow_html=True)
             cols_h = st.columns(7)
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 11px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -669,7 +673,7 @@ with tab1:
                 g_cols = st.columns(7)
                 for c in range(7):
                     if (r * 7 + c) < offset or day_cnt > num_days:
-                        g_cols[c].markdown("<div style='min-height: 80px;'></div>", unsafe_allow_html=True)
+                        g_cols[c].markdown("<div style='min-height: 85px;'></div>", unsafe_allow_html=True)
                     else:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
@@ -692,12 +696,12 @@ with tab1:
                             border_style = f"border: 1px solid {border_color};"
 
                         cell_html = f"""
-                        <div style="background-color: {box_bg}; {border_style} border-radius: 8px; padding: 3px 2px; text-align: center; min-height: 82px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; box-sizing: border-box;">
-                            <div style="color: #EF4444; font-weight: 700; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 12px;">{hol_str}</div>
-                            <div style="color: {main_text_color}; font-weight: 900; font-size: 11px;">{day_cnt}</div>
-                            <div style="color: {main_text_color}; font-weight: 600; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p1']}</div>
-                            <div style="color: {main_text_color}; font-weight: 600; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p2']}</div>
-                            <div style="color: #D97706; font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 11px;">{memo_str}</div>
+                        <div style="background-color: {box_bg}; {border_style} border-radius: 8px; padding: 3px 2px; text-align: center; min-height: 88px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; box-sizing: border-box;">
+                            <div style="color: #EF4444; font-weight: 700; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 14px;">{hol_str}</div>
+                            <div style="color: {main_text_color}; font-weight: 900; font-size: 13px;">{day_cnt}</div>
+                            <div style="color: {main_text_color}; font-weight: 600; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p1']}</div>
+                            <div style="color: {main_text_color}; font-weight: 600; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p2']}</div>
+                            <div style="color: #D97706; font-weight: 600; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 13px;">{memo_str}</div>
                         </div>
                         """
                         g_cols[c].markdown(cell_html, unsafe_allow_html=True)
@@ -941,18 +945,18 @@ with tab4:
             f"""
             <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 12px; margin-top: 10px; text-align: center;">
                 <div>
-                    <div style="font-size: 10px; font-weight: 700; color: #888; margin-bottom: 2px;">👥 총 근무자 명수</div>
-                    <div style="font-size: 15px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 2px;">👥 총 근무자 명수</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>
                 </div>
                 <div style="border-right: 1px solid {border_color};"></div>
                 <div>
-                    <div style="font-size: 10px; font-weight: 700; color: #888; margin-bottom: 2px;">📅 총 근무일수</div>
-                    <div style="font-size: 15px; font-weight: 900; color: {main_text_color};">{total_duty_days} 일</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 2px;">📅 총 근무일수</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_days} 일</div>
                 </div>
                 <div style="border-right: 1px solid {border_color};"></div>
                 <div>
-                    <div style="font-size: 10px; font-weight: 700; color: #888; margin-bottom: 2px;">⏱️ 총 근무시간</div>
-                    <div style="font-size: 15px; font-weight: 900; color: {main_text_color};">{total_duty_hours} 시간</div>
+                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 2px;">⏱️ 총 근무시간</div>
+                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_hours} 시간</div>
                 </div>
             </div>
             """,

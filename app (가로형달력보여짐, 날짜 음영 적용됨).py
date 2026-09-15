@@ -835,7 +835,7 @@ with tab4:
     if not matched_row.empty:
         r_info = matched_row.iloc[0]
         m_p1 = r_info.get("실제근무1", "미지정")
-        m_p2 = r_info.get("실제클무2", r_info.get("실제근무2", "미지정"))
+        m_p2 = r_info.get("실제근무2", "미지정")
         st.info(f"📌 **{target_str}** 당일 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
 
     default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
@@ -871,7 +871,7 @@ with tab4:
                     else:
                         st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
                 else:
-                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **안내**: 'ip mismatched' 오류가 계속된다면 카카오 서버에 설정이 반영되는 중이거나 IP 보안 설정이 활성화된 상태입니다. 카카오 Developers 콘솔에서 앱을 새로 생성하여 IP 입력을 완전히 배제한 상태로 토큰을 재발급받아 보세요.")
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **핵심 원인 안내**: 카카오 서버단에서 여전히 클라우드 IP(`34.19.100.134`)를 차단하고 있습니다. 카카오 Developers 콘솔 설정 반영에는 시간이 걸리므로, 가장 빠른 해결은 **[카카오 Developers]에서 앱을 새로 하나 생성하신 후 '호출 허용 IP 주소'를 절대 건드리지 않은 상태(공백)**에서 토큰을 재발급받아 입력하시는 것입니다.")
             except Exception as ex:
                 st.error(f"전송 중 네트워크 오류 발생: {ex}")
 

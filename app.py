@@ -51,7 +51,7 @@ st.set_page_config(
 
 def load_local_config():
     default_config = {
-        "auto_view_type": "🗓️ 이미지형 달력", # 이미지형으로 기본값 설정
+        "auto_view_type": "🗓️ 이미지형 달력",
         "app_theme": "☀️ 화이트 테마", 
         "sms_api_key": "",
         "sms_api_secret": "",
@@ -101,21 +101,16 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용 (이미지형 달력 스타일 포함)
+# 시스템 CSS 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#FFFFFF" if not is_dark else "#121212" # 배경 흰색 고정
+theme_bg = "#FFFFFF" if not is_dark else "#121212"
 main_text_color = "#1A1A1A" if not is_dark else "#E0E0E0"
 border_color = "#E0E0E0" if not is_dark else "#333333"
 btn_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
 btn_text = "#2D3748" if not is_dark else "#E0E0E0"
-btn_hover_bg = "#EDF2F7" if not is_dark else "#2C2C2C"
-btn_hover_border = "#CBD5E0" if not is_dark else "#3B82F6"
 sidebar_bg = "#FFFFFF" if not is_dark else "#181818"
-dialog_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
-input_bg = "#FFFFFF" if not is_dark else "#272727"
-input_text = "#1E1E1E" if not is_dark else "#F5F5F5"
 box_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
 primary_blue = "#3B82F6"
 table_header_bg = "#EDF2F7" if not is_dark else "#2C2C2C"
@@ -146,27 +141,6 @@ responsive_css = f"""
         border-bottom: 3px solid {primary_blue} !important; padding-bottom: 10px !important;
     }}
 
-    .setting-box {{
-        background-color: {box_bg} !important; border: 1px solid {primary_blue} !important;
-        border-radius: 12px !important; padding: 10px 14px !important; margin: 8px 0px 12px 0px !important;
-    }}
-
-    .today-card {{
-        background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
-        color: #FFFFFF !important; padding: 16px 20px !important;
-        border-radius: 16px !important; margin-bottom: 20px !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-    }}
-    .today-card .today-title {{ font-size: 14px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #E0E7FF !important; }}
-    .today-card .today-content {{ font-size: 18px !important; font-weight: 800 !important; line-height: 1.4 !important; }}
-    .today-card span {{ color: #FEF08A !important; font-weight: 900 !important; }}
-
-    .month-header {{
-        font-size: 20px !important; font-weight: 800 !important; color: {main_text_color} !important;
-        text-align: center; margin: 10px 0 20px 0 !important;
-    }}
-
-    /* 이미지형 달력 스타일 */
     .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; }}
     .cal-week-row {{ display: flex; border-bottom: 1px solid {border_color}; }}
     .cal-week-row:last-child {{ border-bottom: none; }}
@@ -186,53 +160,23 @@ responsive_css = f"""
         font-size: 13px; font-weight: 900; text-align: right; display: block; margin-bottom: 2px;
     }}
     
-    /* 주말 색상 */
     .text-sun {{ color: #EF4444 !important; }}
     .text-sat {{ color: #3B82F6 !important; }}
-    .cal-header-cell.text-sun {{ background-color: #FEF2F2 !important; }}
-    .cal-header-cell.text-sat {{ background-color: #EFF6FF !important; }}
-
-    /* 오늘 날짜 강조 */
-    .cal-day-cell.is-today {{ background-color: #EFF6FF !important; border: 2px solid {primary_blue}; }}
-    .cal-day-cell.is-today .cal-day-number {{ color: {primary_blue}; }}
-
-    /* 근무자 및 메모 텍스트 */
-    .cal-info-wrapper {{
-        flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
-        padding: 2px 0;
-    }}
+    
     .cal-duty-text {{
         font-size: 11px !important; font-weight: 700 !important; line-height: 1.3 !important;
         text-align: center; color: {main_text_color} !important; margin: 1px 0;
     }}
-    .cal-sub-text {{ color: #555 !important; font-weight: 600; }}
     .cal-memo-text {{
         font-size: 10px !important; font-weight: 700 !important; color: #D97706 !important;
         text-align: center; margin-top: 3px; line-height: 1.2;
-    }}
-
-    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; }}
-    .stButton > button {{
-        border: 1px solid {border_color} !important; border-radius: 10px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-weight: 800 !important;
     }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Solapi 인증 헤더 생성 유틸 함수
-# ---------------------------------------------------------
-def get_solapi_auth_headers(api_key, api_secret):
-    date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
-    salt = uuid.uuid4().hex
-    data = date + salt
-    signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
-    auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
-    return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
-
-# ---------------------------------------------------------
-# 파일 유틸 및 로더 함수
+# 파일 유틸 및 로더 함수 (안전하게 수정됨)
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -244,13 +188,17 @@ def update_excel_download_bytes(df):
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-        memos = st.session_state.get("memos", {})
         
-        # 메모 열이 없으면 생성하여 매핑
-        if "메모" in save_df.columns:
-             save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc[save_df['날짜'] == d, '메모'].values[0]) else ""))
-        else:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        memos = st.session_state.get("memos", {})
+        memo_list = []
+        for _, row in save_df.iterrows():
+            d_str = pd.to_datetime(row["날짜"]).strftime('%Y-%m-%d')
+            if d_str in memos:
+                memo_list.append(memos[d_str])
+            else:
+                val = row.get("메모", "")
+                memo_list.append("" if pd.isna(val) else val)
+        save_df["메모"] = memo_list
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -264,8 +212,21 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-        memos = st.session_state.get("memos", {})
         
-        # 메모 업데이트
-        if "메모" in save_df.columns:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc
+        memos = st.session_state.get("memos", {})
+        memo_list = []
+        for _, row in save_df.iterrows():
+            d_str = pd.to_datetime(row["날짜"]).strftime('%Y-%m-%d')
+            if d_str in memos:
+                memo_list.append(memos[d_str])
+            else:
+                val = row.get("메모", "")
+                memo_list.append("" if pd.isna(val) else val)
+        save_df["메모"] = memo_list
+
+        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
+        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+            save_df.to_excel(writer, index=False, sheet_name=sheet_name)
+        update_excel_download_bytes(save_df)
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 파일 저장 실패: {e}")

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>7열 5행 그리드 달력 컨테이너</title>
+    <title>2026년 9월 숙직 근무표 인덱스</title>
     <style>
         /* 전체 페이지 배경 및 중앙 정렬 */
         body {
@@ -13,7 +13,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: 'Apple SD Gothic Neo', sans-serif;
+            font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
         }
 
         /* 640x1400 크기 고정 및 스크롤 가능한 컨테이너 */
@@ -48,6 +48,7 @@
             cursor: pointer;
             font-size: 14px;
             color: #495057;
+            transition: all 0.2s;
         }
 
         .header-btns button:hover {
@@ -81,7 +82,8 @@
         .days-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
-            grid-template-rows: repeat(5, minmax(75px, 1fr));
+            /* 근무자 이름이 들어가도록 행 높이 조정 (100px로 확대) */
+            grid-template-rows: repeat(5, minmax(100px, 1fr));
             gap: 8px;
         }
 
@@ -93,10 +95,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            /* justify-content: flex-start; 로 변경하여 상단부터 배치 */
+            justify-content: flex-start;
+            padding-top: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
+            overflow: hidden; /* 내용 넘침 방지 */
         }
 
         .date-cell:hover {
@@ -108,153 +113,9 @@
             font-size: 16px;
             font-weight: 600;
             color: #495057;
+            margin-bottom: 4px;
         }
 
         /* 다른 달의 날짜 스타일링 */
         .date-cell.other-month {
-            background-color: #f1f3f5;
-            opacity: 0.5;
-        }
-
-        /* 주말 색상 포인트 */
-        .date-cell:nth-child(7n) .date-num { color: #228be6; } /* 토요일 */
-        .date-cell:nth-child(7n+1) .date-num { color: #fa5252; } /* 일요일 */
-
-        /* 선택된 날짜 버튼 활성화 상태 */
-        .date-cell.active {
-            background-color: #228be6;
-            border-color: #228be6;
-            box-shadow: 0 4px 10px rgba(34, 139, 230, 0.3);
-        }
-
-        .date-cell.active .date-num {
-            color: #ffffff;
-        }
-
-        /* 본문 콘텐츠 및 일정 영역 */
-        .content-section {
-            margin-top: 20px;
-        }
-
-        .section-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #343a40;
-            margin-bottom: 15px;
-        }
-
-        .schedule-card {
-            background-color: #f8f9fa;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 15px;
-            border-left: 5px solid #228be6;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-        }
-
-        .schedule-card h3 {
-            margin: 0 0 8px 0;
-            font-size: 18px;
-            color: #333;
-        }
-
-        .schedule-card p {
-            margin: 0;
-            font-size: 14px;
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-
-    <div class="calendar-container">
-        <!-- 상단 월 표시 헤더 -->
-        <div class="header">
-            <span id="current-month-year">2026년 9월</span>
-            <div class="header-btns">
-                <button onclick="alert('이전 달 기능')">이전</button>
-                <button onclick="alert('다음 달 기능')">다음</button>
-            </div>
-        </div>
-
-        <!-- 7열 5행 달력 영역 -->
-        <div class="calendar-grid-wrapper">
-            <!-- 요일 행 -->
-            <div class="weekdays-row">
-                <div>일</div>
-                <div>월</div>
-                <div>화</div>
-                <div>수</div>
-                <div>목</div>
-                <div>금</div>
-                <div>토</div>
-            </div>
-            <!-- 날짜 그리드 (5행 구조) -->
-            <div class="days-grid" id="days-grid">
-                <!-- 자바스크립트로 5행(35칸) 날짜 그리드가 동적 생성됩니다 -->
-            </div>
-        </div>
-
-        <!-- 선택된 날짜에 따른 콘텐츠/일정 영역 -->
-        <div class="content-section">
-            <div class="section-title" id="selected-date-title">2026년 9월 16일 일정</div>
-            <div class="schedule-card">
-                <h3>주간 프로젝트 회의</h3>
-                <p>오전 10:00 - 화상 회의실 A</p>
-            </div>
-            <div class="schedule-card" style="border-left-color: #fa5252;">
-                <h3>디자인 시안 검토</h3>
-                <p>오후 02:00 - 메인 스튜디오</p>
-            </div>
-            <!-- 스크롤 테스트용 추가 여백 컨텐츠 -->
-            <div class="schedule-card" style="border-left-color: #40c057;">
-                <h3>개인 일정 및 메모</h3>
-                <p>오후 05:30 - 운동 및 컨디션 점검</p>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const daysGrid = document.getElementById('days-grid');
-        const selectedDateTitle = document.getElementById('selected-date-title');
-
-        // 예시용으로 5행(총 35일 칸)을 구성하여 렌더링
-        // 2026년 9월 기준 달력 레이아웃 구현
-        function renderCalendar() {
-            daysGrid.innerHTML = '';
-            
-            // 9월 1일이 화요일이므로, 전 달 마지막 날짜들 일부 포함하여 총 35칸(5행) 채우기
-            // 예시 데이터 배열 생성 (35개 셀)
-            for (let i = 1; i <= 35; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'date-cell';
-                
-                // 임의로 1일부터 30일까지는 이번 달, 나머지는 공백 처리 또는 예시
-                let dateNum = i - 1; // 1일 시작 위치 조정 예시 (화요일 시작 가정)
-                if (dateNum > 0 && dateNum <= 30) {
-                    cell.innerHTML = `<span class="date-num">${dateNum}</span>`;
-                    if (dateNum === 16) {
-                        cell.classList.add('active'); // 오늘 날짜 기본 선택 예시
-                    }
-                } else {
-                    // 이전달/다음달 여백 날짜 처리
-                    cell.classList.add('other-month');
-                    const dummyDate = dateNum <= 0 ? 30 + dateNum : dateNum - 30;
-                    cell.innerHTML = `<span class="date-num">${dummyDate}</span>`;
-                }
-
-                // 날짜 클릭 이벤트
-                cell.addEventListener('click', () => {
-                    document.querySelectorAll('.date-cell').forEach(c => c.classList.remove('active'));
-                    cell.classList.add('active');
-                    selectedDateTitle.textContent = `2026년 9월 ${dateNum > 0 && dateNum <= 30 ? dateNum : '선택한'}일 일정`;
-                });
-
-                daysGrid.appendChild(cell);
-            }
-        }
-
-        renderCalendar();
-    </script>
-</body>
-</html>
+            background-color: #f1f3f

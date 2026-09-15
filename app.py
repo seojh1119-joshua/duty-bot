@@ -781,7 +781,13 @@ with st.sidebar:
         st.session_state.upload_success_msg = ""
 
     if "file_bytes" in st.session_state:
-        st.download_button("📥 엑셀 다운로드", data=st.session_state.file_bytes, file_name="숙직근무표_수정본.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        st.download_button(
+            "📥 엑셀 다운로드", 
+            data=st.session_state.file_bytes, 
+            file_name="숙직근무표_수정본.xlsx", 
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+            use_container_width=True
+        )
     st.divider()
     if st.button("🔴 앱 종료", use_container_width=True):
         st.session_state.show_exit_dialog = True
@@ -1085,7 +1091,7 @@ with tab4:
     if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
         access_token = st.session_state.get("kakao_access_token", "").strip()
 
-        # [수정 포인트] 토큰 내 비ASCII 문자(한글, 제어문자 등)를 제거하여 latin-1 인코딩 에러 원천 방지
+        # 토큰 내 비ASCII 문자(한글, 제어문자 등)를 제거하여 latin-1 인코딩 에러 원천 방지
         clean_token = "".join(c for c in access_token if ord(c) < 128).strip()
 
         if not clean_token:

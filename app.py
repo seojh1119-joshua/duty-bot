@@ -11,8 +11,6 @@ import uuid
 import requests
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
-import altair as alt
 from pathlib import Path
 
 # 대한민국 공휴일 라이브러리 예외 처리
@@ -35,9 +33,8 @@ cleanup_memory_and_logs()
 os.makedirs("DATA", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
-PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 CONFIG_PATH = os.path.join("DATA", "local_config.json")
-WORKERS_DB_FILE = Path("data/workers_db.json")
+PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -56,41 +53,23 @@ def load_local_config():
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
-        "batch_start_date": str(datetime.date.today()),
-        "batch_infinite": False,
-        "batch_days_c": 30,
-        "batch_i1": 3,
-        "batch_w1_names": ["", "", ""],
-        "batch_i2": 3,
-        "batch_w2_names": ["", "", ""]
     }
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 saved = json.load(f)
                 default_config.update(saved)
-        except Exception as e:
-            st.sidebar.warning(f"⚠️ 설정 로드 실패: {e}")
+        except Exception:
+            pass
     return default_config
-
-def save_local_config(key, value):
-    config = load_local_config()
-    config[key] = value
-    try:
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        st.sidebar.warning(f"⚠️ 설정 저장 실패: {e}")
 
 local_cfg = load_local_config()
 
 for k, v in [
-    ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
-    ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("sms_api_key", local_cfg.get("sms_api_key", "")),
-    ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
-    ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
-    ("uploader_key", 0), ("upload_success_msg", "")
+    ("is_app_closed", False),
+    ("auto_view_type", local_cfg["auto_view_type"]),
+    ("app_theme", local_cfg["app_theme"]),
+    ("memos", {}),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -101,16 +80,50 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용
+# 데이터 로드 함수
+# ---------------------------------------------------------
+@st.cache_data(ttl=60)
+def load_data():
+    candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
+    valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
+    file_path = valid_files[0] if valid_files else os.path.join("data", "숙직근무표.xlsx")
+    
+    if os.path.exists(file_path):
+        try:
+            df = pd.read_excel(file_path)
+            return df, file_path
+        except Exception:
+            pass
+    
+    # 기본 더미 데이터 생성 (파일이 없을 경우)
+    dates = [pd.Timestamp.today().normalize() + pd.Timedelta(days=i) for i in range(30)]
+    df = pd.DataFrame({
+        "날짜": dates,
+        "숙직자1": ["당직자A"] * 30,
+        "숙직자2": ["당직자B"] * 30,
+        "메모": [""] * 30
+    })
+    return df, file_path
+
+df, current_file_path = load_data()
+
+# 저장된 메모 불러오기
+if os.path.exists(PERSISTENCE_STATE_PATH):
+    try:
+        with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
+            saved_memos = json.load(f)
+            if isinstance(saved_memos, dict):
+                st.session_state.memos.update(saved_memos)
+    except Exception:
+        pass
+
+# ---------------------------------------------------------
+# 시스템 CSS 스타일 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
-
 theme_bg = "#FFFFFF" if not is_dark else "#121212"
 main_text_color = "#1A1A1A" if not is_dark else "#E0E0E0"
 border_color = "#E0E0E0" if not is_dark else "#333333"
-btn_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
-btn_text = "#2D3748" if not is_dark else "#E0E0E0"
-sidebar_bg = "#FFFFFF" if not is_dark else "#181818"
 box_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
 primary_blue = "#3B82F6"
 table_header_bg = "#EDF2F7" if not is_dark else "#2C2C2C"
@@ -119,9 +132,6 @@ responsive_css = f"""
 <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-    [data-testid="stSidebarNav"] {{ z-index: 100000 !important; }}
-    [data-testid="collapsedControl"] {{ z-index: 99999 !important; top: 5px !important; }}
-    
     html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
@@ -131,7 +141,7 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         padding: 1rem 1rem 2rem 1rem !important;
-        max-width: 700px !important;
+        max-width: 800px !important;
         margin: 0 auto !important;
     }}
 
@@ -162,71 +172,127 @@ responsive_css = f"""
     
     .text-sun {{ color: #EF4444 !important; }}
     .text-sat {{ color: #3B82F6 !important; }}
-    
-    .cal-duty-text {{
-        font-size: 11px !important; font-weight: 700 !important; line-height: 1.3 !important;
-        text-align: center; color: {main_text_color} !important; margin: 1px 0;
-    }}
-    .cal-memo-text {{
-        font-size: 10px !important; font-weight: 700 !important; color: #D97706 !important;
-        text-align: center; margin-top: 3px; line-height: 1.2;
-    }}
+    .cal-header-cell.text-sun {{ background-color: #FEF2F2 !important; }}
+    .cal-header-cell.text-sat {{ background-color: #EFF6FF !important; }}
+
+    .cal-day-cell.is-today {{ background-color: #EFF6FF !important; border: 2px solid {primary_blue}; }}
+    .cal-day-cell.is-today .cal-day-number {{ color: {primary_blue}; }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 파일 유틸 및 로더 함수 (안전하게 수정됨)
+# 메인 UI 구성
 # ---------------------------------------------------------
-def get_initial_excel_file():
-    candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
-    valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
-    return valid_files[0] if valid_files else os.path.join("data", "숙직근무표.xlsx")
+st.title("📋 광주교도소 의료과 숙직근무")
 
-def update_excel_download_bytes(df):
-    try:
-        save_df = df.copy()
-        if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+# 사이드바 메뉴
+st.sidebar.header("⚙️ 메뉴 및 설정")
+view_type = st.sidebar.radio(
+    "보기 방식 선택", 
+    ["🗓️ 이미지형 달력", "📋 표 형식", "✏️ 근무표 편집 및 메모"],
+    index=0
+)
+
+# 1. 이미지형 달력 보기
+if view_type == "🗓️ 이미지형 달력":
+    col_y, col_m = st.sidebar.columns(2)
+    today = datetime.date.today()
+    year = col_y.selectbox("연도", range(2025, 2030), index=(today.year - 2025))
+    month = col_m.selectbox("월", range(1, 13), index=(today.month - 1))
+    
+    st.markdown(f"<div style='text-align:center; font-size:20px; font-weight:800; margin:10px 0 20px 0;'>{year}년 {month}월 숙직 근무표</div>", unsafe_allow_html=True)
+    
+    cal = calendar.monthcalendar(year, month)
+    
+    # 날짜별 데이터 딕셔너리 매핑
+    df_lookup = {}
+    if "날짜" in df.columns:
+        for _, r in df.iterrows():
+            try:
+                d_key = pd.to_datetime(r["날짜"]).strftime("%Y-%m-%d")
+                df_lookup[d_key] = {
+                    "w1": r.get("숙직자1", ""),
+                    "w2": r.get("숙직자2", ""),
+                    "memo": st.session_state.memos.get(d_key, r.get("메모", ""))
+                }
+            except Exception:
+                pass
+
+    html_content = '<div class="cal-container">'
+    weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
+    
+    html_content += '<div class="cal-week-row">'
+    for day_name, css_class in weekdays:
+        html_content += f'<div class="cal-header-cell {css_class}" style="flex:1;">{day_name}</div>'
+    html_content += '</div>'
+    
+    for week in cal:
+        html_content += '<div class="cal-week-row">'
+        for i, day in enumerate(week):
+            if day == 0:
+                html_content += '<div class="cal-day-cell" style="background-color: transparent;"></div>'
+            else:
+                d_str = f"{year}-{month:02d}-{day:02d}"
+                d_obj = datetime.date(year, month, day)
+                is_today = (d_obj == today)
+                
+                day_class = "is-today" if is_today else ""
+                text_color_class = "text-sun" if i == 0 else ("text-sat" if i == 6 else "")
+                
+                duty_info = df_lookup.get(d_str, {"w1": "", "w2": "", "memo": ""})
+                w1 = duty_info["w1"]
+                w2 = duty_info["w2"]
+                memo = duty_info["memo"]
+                
+                html_content += f'<div class="cal-day-cell {day_class}">'
+                html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
+                if w1 or w2:
+                    html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:4px; line-height:1.3;"><b>{w1}</b><br>{w2}</div>'
+                if memo and str(memo).strip():
+                    html_content += f'<div style="font-size:10px; font-weight:700; color:#D97706; text-align:center; margin-top:3px;">📌 {memo}</div>'
+                html_content += '</div>'
+        html_content += '</div>'
+    html_content += '</div>'
+    
+    st.markdown(html_content, unsafe_allow_html=True)
+
+# 2. 표 형식 보기
+elif view_type == "📋 표 형식":
+    st.subheader("📋 전체 숙직표 목록")
+    if "날짜" in df.columns:
+        display_df = df.copy()
+        display_df["날짜"] = pd.to_datetime(display_df["날짜"]).dt.strftime("%Y-%m-%d")
         
-        memos = st.session_state.get("memos", {})
+        # 메모 실시간 반영
         memo_list = []
-        for _, row in save_df.iterrows():
-            d_str = pd.to_datetime(row["날짜"]).strftime('%Y-%m-%d')
-            if d_str in memos:
-                memo_list.append(memos[d_str])
+        for _, row in display_df.iterrows():
+            d_str = row["날짜"]
+            if d_str in st.session_state.memos:
+                memo_list.append(st.session_state.memos[d_str])
             else:
                 val = row.get("메모", "")
                 memo_list.append("" if pd.isna(val) else val)
-        save_df["메모"] = memo_list
-        
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            save_df.to_excel(writer, index=False, sheet_name="숙직근무자")
-        st.session_state.file_bytes = output.getvalue()
-    except Exception as e:
-        st.sidebar.warning(f"⚠️ 다운로드 데이터 생성 실패: {e}")
+        display_df["메모"] = memo_list
 
-def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
-    try:
-        save_df = df.copy()
-        if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-        
-        memos = st.session_state.get("memos", {})
-        memo_list = []
-        for _, row in save_df.iterrows():
-            d_str = pd.to_datetime(row["날짜"]).strftime('%Y-%m-%d')
-            if d_str in memos:
-                memo_list.append(memos[d_str])
-            else:
-                val = row.get("메모", "")
-                memo_list.append("" if pd.isna(val) else val)
-        save_df["메모"] = memo_list
+        st.dataframe(display_df, use_container_width=True)
+    else:
+        st.info("표시할 데이터가 없습니다.")
 
-        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
-        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-            save_df.to_excel(writer, index=False, sheet_name=sheet_name)
-        update_excel_download_bytes(save_df)
-    except Exception as e:
-        st.sidebar.warning(f"⚠️ 파일 저장 실패: {e}")
+# 3. 근무표 편집 및 메모 관리
+else:
+    st.subheader("✏️ 날짜별 메모 및 관리")
+    st.info("특정 날짜를 선택하여 메모를 추가하거나 수정할 수 있습니다.")
+    
+    selected_date = st.date_input("수정할 날짜 선택", datetime.date.today())
+    d_str = selected_date.strftime("%Y-%m-%d")
+    
+    current_memo = st.session_state.memos.get(d_str, "")
+    new_memo = st.text_input("해당일 메모 입력", value=current_memo)
+    
+    if st.button("메모 저장하기", type="primary"):
+        st.session_state.memos[d_str] = new_memo
+        with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(st.session_state.memos, f, ensure_ascii=False, indent=2)
+        st.success(f"[{d_str}] 메모가 성공적으로 저장되었습니다!")
+        st.rerun()

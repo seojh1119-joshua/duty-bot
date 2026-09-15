@@ -495,7 +495,7 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
-        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**이 등록되어 있습니다.")
+        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**을 입력하여 연동하세요.")
         k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="Bearer 토큰 값 입력")
 
         if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
@@ -687,7 +687,7 @@ with tab1:
                 if is_today: 
                     t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
                 elif m_val: 
-                    t_str = f"<span style='color: #EF4444;'>[{m_val}]</span> {d:02d}일({weekday_str})"
+                    t_str = f"[{m_val}] {d:02d}일({weekday_str})"
                 else: 
                     t_str = f"🗓️ {d:02d}일({weekday_str})"
                     
@@ -719,11 +719,10 @@ with tab1:
                         
                         is_today = (c_date == today)
                         
-                        # M열 값이 있을 때만 빨간색 폰트 느낌의 태그 적용, 없으면 미출력
                         if is_today:
                             prefix = "🌟[오늘] "
                         elif m_val:
-                            prefix = f"🔴[{m_val}] "
+                            prefix = f"[{m_val}] "
                         else:
                             prefix = ""
                             
@@ -794,7 +793,6 @@ with tab3:
     sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
-    # 통계는 기존의 원래 근무 구분 컬럼 사용 (M열구분 제외)
     cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월" and c != "M열구분"), None)
 
     expanded_rows = []
@@ -868,7 +866,7 @@ with tab4:
         access_token = st.session_state.get("kakao_access_token", "").strip()
 
         if not access_token:
-            st.warning("⚠️ [화면 및 설정 관리] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
+            st.warning("⚠️ [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
         else:
             url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
             headers = {

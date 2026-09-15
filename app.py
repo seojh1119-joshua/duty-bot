@@ -139,7 +139,7 @@ responsive_css = f"""
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
         padding: 0.5rem 12px 1rem 12px !important;
-        max-width: 640px !important;
+        max-width: 680px !important;
         margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
@@ -184,12 +184,13 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
+    /* 달력 박스 깨짐 방지를 위한 가로/세로 스크롤 컨테이너 최적화 */
     .calendar-scroll-container {{
         width: 100% !important;
-        max-height: 560px !important;
+        max-height: 580px !important;
         overflow-y: auto !important;
-        overflow-x: hidden !important;
-        padding-right: 2px;
+        overflow-x: auto !important;
+        padding: 4px 0;
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
@@ -667,11 +668,11 @@ with tab1:
                 
                 st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
-            # 가로형 Grid 달력 (셀 크기 가로 91.3px, 세로 180px 강제 적용)
+            # 가로형 Grid 달력 (셀 크기 가로 91.3px, 세로 180px 강제 적용 및 스크롤 영역 적용)
             st.markdown('<div class="calendar-scroll-container">', unsafe_allow_html=True)
             
             grid_html = """
-            <div style="display: grid; grid-template-columns: repeat(7, 91.3px); gap: 2px; justify-content: center; width: 100%; margin: 0 auto;">
+            <div style="display: grid; grid-template-columns: repeat(7, 91.3px); gap: 2px; justify-content: center; width: 651px; margin: 0 auto;">
             """
             
             # 요일 헤더

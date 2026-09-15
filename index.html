@@ -2,296 +2,173 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>광주교도소 의료과 숙직근무</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가로형 달력 컨테이너</title>
     <style>
-        :root {
-            --bg-color: #F8FAFC;
-            --text-color: #0F172A;
-            --card-bg: #FFFFFF;
-            --border-color: #CBD5E1;
-            --primary-color: #2563EB;
-            --primary-light: #E0F2FE;
-            --nav-bg: #FFFFFF;
-        }
-        [data-theme="dark"] {
-            --bg-color: #0F172A;
-            --text-color: #F8FAFC;
-            --card-bg: #1E293B;
-            --border-color: #334155;
-            --primary-color: #60A5FA;
-            --primary-light: #1E3A8A;
-            --nav-bg: #0B0F19;
-        }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        /* 전체 페이지 배경 및 중앙 정렬 */
         body {
-            margin: 0; padding: 0; padding-bottom: 70px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Apple SD Gothic Neo', sans-serif;
         }
-        header {
-            position: sticky; top: 0; z-index: 100;
-            background-color: var(--card-bg); border-bottom: 1px solid var(--border-color);
-            padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;
-        }
-        header h1 { margin: 0; font-size: 16px; font-weight: 700; color: var(--primary-color); }
-        .btn-icon { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-color); }
-        .container { padding: 12px; }
-        
-        /* Today Banner */
-        .today-card {
-            background: linear-gradient(135deg, var(--primary-light) 0%, var(--card-bg) 100%);
-            border: 1px solid var(--border-color); border-radius: 10px;
-            padding: 12px; margin-bottom: 12px; font-size: 13px;
-        }
-        .today-card strong { color: var(--primary-color); }
 
-        /* Calendar Grid */
-        .month-select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); margin-bottom: 12px; font-weight: bold; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .calendar-header { text-align: center; font-size: 11px; font-weight: bold; padding: 4px 0; }
-        .sun { color: #EF4444; } .sat { color: #3B82F6; }
-        .day-cell {
-            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px;
-            min-height: 64px; padding: 4px 2px; text-align: center; font-size: 10px;
-            display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;
+        /* 640x1400 크기 고정 및 스크롤 가능한 컨테이너 */
+        .calendar-container {
+            width: 640px;
+            height: 1400px;
+            background-color: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow-y: auto; /* 세로 스크롤 허용 */
+            box-sizing: border-box;
+            padding: 24px;
+            position: relative;
         }
-        .day-cell.today { border: 2px solid var(--primary-color); }
-        .day-num { font-weight: bold; margin-bottom: 2px; }
-        .worker-txt { font-size: 9px; line-height: 1.2; word-break: break-all; }
-        .memo-dot { color: #F59E0B; font-weight: bold; }
 
-        /* Navigation Bar */
-        .bottom-nav {
-            position: fixed; bottom: 0; left: 0; right: 0; height: 60px;
-            background: var(--nav-bg); border-top: 1px solid var(--border-color);
-            display: flex; justify-content: space-around; align-items: center; z-index: 200;
+        /* 상단 헤더 영역 */
+        .header {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
         }
-        .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--text-color); opacity: 0.6; cursor: pointer; }
-        .nav-item.active { opacity: 1; color: var(--primary-color); font-weight: bold; }
-        .nav-item span { font-size: 18px; margin-bottom: 2px; }
 
-        /* Modal / Sheet */
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; align-items: flex-end; }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: var(--card-bg); width: 100%; max-height: 85vh; border-radius: 16px 16px 0 0;
-            padding: 20px; overflow-y: auto; box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+        /* 가로형 달력 스크롤 영역 */
+        .horizontal-calendar {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            scroll-behavior: smooth;
         }
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 12px; margin-bottom: 4px; font-weight: bold; }
-        .form-control { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-color); color: var(--text-color); }
-        .btn-primary { width: 100%; padding: 12px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-weight: bold; margin-top: 8px; }
 
-        /* Stats & Tab Views */
-        .tab-view { display: none; }
-        .tab-view.active { display: block; }
-        .stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center; margin-bottom: 8px; }
-        .stat-val { font-size: 20px; font-weight: bold; color: var(--primary-color); }
+        .horizontal-calendar::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .horizontal-calendar::-webkit-scrollbar-thumb {
+            background-color: #ddd;
+            border-radius: 3px;
+        }
+
+        /* 개별 날짜 버튼 스타일 */
+        .date-btn {
+            flex: 0 0 70px;
+            height: 90px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .date-btn .day {
+            font-size: 14px;
+            color: #868e96;
+            margin-bottom: 6px;
+        }
+
+        .date-btn .date {
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        /* 선택된 날짜 버튼 활성화 상태 */
+        .date-btn.active {
+            background-color: #228be6;
+            border-color: #228be6;
+        }
+
+        .date-btn.active .day,
+        .date-btn.active .date {
+            color: #ffffff;
+        }
+
+        /* 본문 콘텐츠 영역 (스크롤 테스트용) */
+        .content-section {
+            margin-top: 20px;
+        }
+
+        .schedule-card {
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #228be6;
+        }
+
+        .schedule-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .schedule-card p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>광주교도소 의료과 숙직</h1>
-        <button class="btn-icon" onclick="openSettings()">⚙️</button>
-    </header>
+    <div class="calendar-container">
+        <div class="header" id="current-month">2026년 9월</div>
 
-    <div class="container">
-        <!-- 1. 달력 탭 -->
-        <div id="tab-calendar" class="tab-view active">
-            <div class="today-card" id="todayBanner">오늘 근무 불러오는 중...</div>
-            <select class="month-select" id="monthSelect" onchange="loadCalendar()"></select>
-            <div class="calendar-grid" id="calendarHeader">
-                <div class="calendar-header sun">일</div>
-                <div class="calendar-header">월</div>
-                <div class="calendar-header">화</div>
-                <div class="calendar-header">수</div>
-                <div class="calendar-header">목</div>
-                <div class="calendar-header">금</div>
-                <div class="calendar-header sat">토</div>
-            </div>
-            <div class="calendar-grid" id="calendarBody"></div>
+        <!-- 가로형 달력 버튼 리스트 -->
+        <div class="horizontal-calendar" id="calendar-strip">
+            <!-- 자바스크립트로 날짜 버튼이 동적 생성됩니다 -->
         </div>
 
-        <!-- 2. 통계 탭 -->
-        <div id="tab-stats" class="tab-view">
-            <select class="month-select" id="statMonthSelect" onchange="loadStats()"></select>
-            <div style="display: flex; gap: 8px;">
-                <div class="stat-card" style="flex:1;"><div>총 인원</div><div class="stat-val" id="statWorkers">0명</div></div>
-                <div class="stat-card" style="flex:1;"><div>총 일수</div><div class="stat-val" id="statDays">0일</div></div>
-                <div class="stat-card" style="flex:1;"><div>총 시간</div><div class="stat-val" id="statHours">0h</div></div>
+        <!-- 선택된 날짜에 따른 콘텐츠 영역 -->
+        <div class="content-section" id="content-area">
+            <div class="schedule-card">
+                <h3>일정 안내</h3>
+                <p>선택한 날짜의 상세 일정이 이 곳에 표시됩니다.</p>
             </div>
-            <canvas id="statsChart" style="max-height: 250px; margin-top:16px;"></canvas>
-        </div>
-
-        <!-- 3. 카카오 알림 탭 -->
-        <div id="tab-kakao" class="tab-view">
-            <h3>💬 카카오톡 근무 알림 전송</h3>
-            <div class="form-group">
-                <label>대상 날짜</label>
-                <input type="date" id="kakaoDate" class="form-control" onchange="updateKakaoText()">
-            </div>
-            <div class="form-group">
-                <label>메시지 본문 (최대 200자)</label>
-                <textarea id="kakaoMsg" class="form-control" rows="4"></textarea>
-            </div>
-            <button class="btn-primary" onclick="sendKakao()">나에게 메시지 전송</button>
         </div>
     </div>
-
-    <!-- 수정 모달 바텀시트 -->
-    <div class="modal" id="editModal">
-        <div class="modal-content">
-            <h3 id="modalTitle" style="margin-top:0;">근무 수정</h3>
-            <input type="hidden" id="editDate">
-            <div class="form-group"><label>근무자 1</label><input type="text" id="editP1" class="form-control"></div>
-            <div class="form-group"><label>대직자 1</label><input type="text" id="editSub1" class="form-control"></div>
-            <div class="form-group"><label>근무자 2</label><input type="text" id="editP2" class="form-control"></div>
-            <div class="form-group"><label>대직자 2</label><input type="text" id="editSub2" class="form-control"></div>
-            <div class="form-group"><label>메모</label><textarea id="editMemo" class="form-control" rows="2"></textarea></div>
-            <button class="btn-primary" onclick="saveDutyEdit()">저장하기</button>
-            <button class="btn-primary" style="background:#64748B; margin-top:4px;" onclick="closeModal()">취소</button>
-        </div>
-    </div>
-
-    <!-- 하단 네비게이션 -->
-    <nav class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('calendar', this)"><span>📅</span>달력</div>
-        <div class="nav-item" onclick="switchTab('stats', this)"><span>📊</span>통계</div>
-        <div class="nav-item" onclick="switchTab('kakao', this)"><span>💬</span>알림</div>
-        <div class="nav-item" onclick="downloadExcel()"><span>📥</span>엑셀</div>
-    </nav>
 
     <script>
-        let appData = { config: {}, memos: {}, months: [], today: '' };
-        let chartInstance = null;
+        // 가로형 달력 날짜 동적 생성 예시 (현재 달 기준)
+        const calendarStrip = document.getElementById('calendar-strip');
+        const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
 
-        async function init() {
-            const res = await fetch('/api/init');
-            appData = await res.json();
+        // 오늘 날짜 기준 전후로 날짜 생성 (예: 총 30일치)
+        const today = new Date();
+        for (let i = -5; i <= 25; i++) {
+            const d = new Date();
+            d.setDate(today.getDate() + i);
+
+            const btn = document.createElement('div');
+            btn.className = `date-btn ${i === 0 ? 'active' : ''}`;
             
-            document.body.setAttribute('data-theme', appData.config.app_theme === '🌙 블랙 테마' ? 'dark' : 'light');
-            
-            const mSelect = document.getElementById('monthSelect');
-            const sSelect = document.getElementById('statMonthSelect');
-            
-            appData.months.forEach(m => {
-                mSelect.innerHTML += `<option value="${m}">${m}</option>`;
-                sSelect.innerHTML += `<option value="${m}">${m}</option>`;
+            const dayName = daysOfWeek[d.getDay()];
+            const dateNum = d.getDate();
+
+            btn.innerHTML = `
+                <span class="day">${dayName}</span>
+                <span class="date">${dateNum}</span>
+            `;
+
+            // 클릭 이벤트 처리
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
             });
-            mSelect.value = appData.today.substring(0, 7);
-            document.getElementById('kakaoDate').value = appData.today;
 
-            loadCalendar();
+            calendarStrip.appendChild(btn);
         }
-
-        async function loadCalendar() {
-            const ym = document.getElementById('monthSelect').value;
-            const res = await fetch(`/api/duty/${ym}`);
-            const { data } = await res.json();
-            
-            const body = document.getElementById('calendarBody');
-            body.innerHTML = '';
-
-            // 빈 셀 처리 (시작 요일 맞춤)
-            const firstDate = new Date(data[0].date);
-            for(let i=0; i<firstDate.getDay(); i++) {
-                body.innerHTML += `<div></div>`;
-            }
-
-            data.forEach(d => {
-                const isToday = d.date === appData.today;
-                if(isToday) {
-                    document.getElementById('todayBanner').innerHTML = `
-                        <strong>오늘 근무 (${d.date})</strong><br>
-                        1근무: ${d.real1} | 2근무: ${d.real2} ${d.memo ? ' | 📌 '+d.memo : ''}
-                    `;
-                }
-
-                let numCls = d.is_sun || d.is_holiday ? 'sun' : (d.is_sat ? 'sat' : '');
-                body.innerHTML += `
-                    <div class="day-cell ${isToday ? 'today' : ''}" onclick="openEditModal('${d.date}', '${d.p1}', '${d.p2}', '${d.sub1}', '${d.sub2}', '${d.memo}')">
-                        <div class="day-num ${numCls}">${d.day}${d.memo ? ' <span class="memo-dot">•</span>' : ''}</div>
-                        <div class="worker-txt">1:${d.real1}<br>2:${d.real2}</div>
-                    </div>
-                `;
-            });
-        }
-
-        function openEditModal(date, p1, p2, sub1, sub2, memo) {
-            document.getElementById('editDate').value = date;
-            document.getElementById('modalTitle').innerText = `${date} 근무 수정`;
-            document.getElementById('editP1').value = p1;
-            document.getElementById('editP2').value = p2;
-            document.getElementById('editSub1').value = sub1 === 'None' ? '' : sub1;
-            document.getElementById('editSub2').value = sub2 === 'None' ? '' : sub2;
-            document.getElementById('editMemo').value = memo;
-            document.getElementById('editModal').classList.add('active');
-        }
-
-        function closeModal() { document.getElementById('editModal').classList.remove('active'); }
-
-        async function saveDutyEdit() {
-            const payload = {
-                date: document.getElementById('editDate').value,
-                p1: document.getElementById('editP1').value,
-                p2: document.getElementById('editP2').value,
-                sub1: document.getElementById('editSub1').value,
-                sub2: document.getElementById('editSub2').value,
-                memo: document.getElementById('editMemo').value,
-            };
-            await fetch('/api/duty/edit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            closeModal();
-            loadCalendar();
-        }
-
-        function switchTab(tabName, el) {
-            document.querySelectorAll('.tab-view').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-            el.classList.add('active');
-            if(tabName === 'stats') loadStats();
-        }
-
-        async function loadStats() {
-            const ym = document.getElementById('statMonthSelect').value;
-            const res = await fetch(`/api/stats/${ym}`);
-            const data = await res.json();
-            
-            document.getElementById('statWorkers').innerText = `${data.total_workers}명`;
-            document.getElementById('statDays').innerText = `${data.total_days}일`;
-            document.getElementById('statHours').innerText = `${data.total_hours}h`;
-
-            const ctx = document.getElementById('statsChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
-            
-            chartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.workers.map(w => w.worker),
-                    datasets: [{ label: '근무 시간(h)', data: data.workers.map(w => w.hours), backgroundColor: '#2563EB' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-
-        async function sendKakao() {
-            const token = appData.config.kakao_access_token;
-            const message = document.getElementById('kakaoMsg').value;
-            const res = await fetch('/api/kakao/send', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ token, message })
-            });
-            if(res.ok) alert('성공적으로 메시지를 보냈습니다.');
-            else alert('전송 실패. 카카오 토큰을 확인하세요.');
-        }
-
-        function downloadExcel() { window.location.href = '/api/excel/download'; }
-
-        window.onload = init;
     </script>
 </body>
 </html>

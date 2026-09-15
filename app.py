@@ -847,7 +847,7 @@ with tab1:
             }}
         </script>
         """
-        components.v1.html(swipe_component_html, height=0)
+        components.html(swipe_component_html, height=0)
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭

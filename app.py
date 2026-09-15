@@ -84,7 +84,8 @@ for k, v in [
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
     ("kakao_access_token", local_cfg.get("kakao_access_token", "")),
-    ("uploader_key", 0), ("upload_success_msg", "")
+    ("uploader_key", 0), ("upload_success_msg", ""),
+    ("active_tab_idx", 0)
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -162,7 +163,6 @@ responsive_css = f"""
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
         font-weight: bold;
     }}
-    /* 세로 모드에서도 가로형 캘린더 비율을 수직 스크롤 가능하게 배치하는 스타일 */
     .landscape-calendar-container {{
         width: 100%;
         overflow-y: auto;
@@ -278,6 +278,25 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
+# 모바일 뒤로가기 버튼(History API) 제어 컴포넌트 삽입
+# ---------------------------------------------------------
+back_button_js = f"""
+<script>
+    // 앱 진입 시 히스토리 상태 설정 (달력 홈 기준)
+    if (!window.history.state || window.history.state.page !== 'calendar_home') {{
+        window.history.pushState({{ page: 'calendar_home' }}, '', '');
+    }}
+
+    // 뒤로가기(popstate) 발생 시 달력 화면으로 복귀하도록 처리
+    window.addEventListener('popstate', function(event) {{
+        // Streamlit의 특정 element나 부모창에 커스텀벤트를 날리거나 새로고침 유도
+        window.location.reload();
+    }});
+</script>
+"""
+components.html(back_button_js, height=0, width=0)
+
+# ---------------------------------------------------------
 # 데이터베이스 및 엑셀 영구 저장 유틸 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
@@ -332,20 +351,6 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
     except Exception as e:
         st.sidebar.warning(f"⚠️ 엑셀 저장 실패: {e}")
         return False
-
-def save_app_state(df, sheet_name, memos):
-    try:
-        save_df = df.copy()
-        if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-        state_data = {"selected_sheet": sheet_name, "memos": memos, "df_dict": save_df.to_dict(orient="records")}
-        with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
-            json.dump(state_data, f, ensure_ascii=False, indent=2)
-        
-        target_path = st.session_state.get("file_path", get_initial_excel_file())
-        save_to_excel_file(df, target_path, sheet_name)
-    except Exception as e:
-        st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
@@ -679,6 +684,7 @@ with col_settings:
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 카카오톡 통보", "🔍 원본"])
 
 with tab1:
+    st.session_state.active_tab_idx = 0
     today_df = df[df["날짜"].dt.date == today]
     if not today_df.empty:
         tr = today_df.iloc[0]
@@ -747,7 +753,6 @@ with tab1:
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
-            # 세로 모드에서도 가로형 비율을 유지하며 스크롤 가능하도록 감싸는 컨테이너 적용
             st.markdown('<div class="landscape-calendar-container">', unsafe_allow_html=True)
             
             cols_h = st.columns(7)
@@ -770,12 +775,11 @@ with tab1:
                         m_val = info.get("m_val", "")
                         
                         is_today = (c_date == today)
-                        w_idx = c_date.weekday() # 0:월 ~ 5:토, 6:일
+                        w_idx = c_date.weekday()
                         is_sat = (w_idx == 5)
                         is_sun = (w_idx == 6)
                         is_holiday = (c_date in kr_holidays)
 
-                        # 색상 지정 (토: 파란색, 일/공휴일: 빨간색)
                         if is_sun or is_holiday:
                             day_color = "#EF4444"
                         elif is_sat:
@@ -792,7 +796,6 @@ with tab1:
                             
                         t_header = f"{prefix}{day_cnt}일"
                         
-                        # 텍스트 수직 스택 구조로 정렬 (줄바꿈 문자를 활용하여 잘림 방지 및 세로 정렬)
                         btn_txt = f"<span style='color:{day_color}; font-weight:bold;'>{t_header}</span>\n1️⃣ {info['p1']}\n2️⃣ {info['p2']}"
                         if memo_val:
                             btn_txt += f"\n📌 {memo_val}"
@@ -804,6 +807,7 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
 with tab2:
+    st.session_state.active_tab_idx = 1
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0, key="editor_month_select")
@@ -853,6 +857,7 @@ with tab2:
         st.rerun()
 
 with tab3:
+    st.session_state.active_tab_idx = 2
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
@@ -950,6 +955,7 @@ with tab3:
         st.markdown(html_table, unsafe_allow_html=True)
 
 with tab4:
+    st.session_state.active_tab_idx = 3
     st.subheader("💬 개인 카카오톡 계정(나에게 보내기) 자동 통보 시스템")
     target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="kakao_target_send_date")
     target_str = target_send_date.strftime("%Y-%m-%d")
@@ -1022,5 +1028,6 @@ with tab4:
                 st.error(f"❌ 전송 중 네트워크 오류가 발생했습니다: {ex}")
 
 with tab5:
+    st.session_state.active_tab_idx = 4
     st.subheader("시트 데이터 원본")
     st.dataframe(df, use_container_width=True)

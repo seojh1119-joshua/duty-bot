@@ -871,7 +871,7 @@ with tab4:
                     else:
                         st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
                 elif resp.status_code == 401:
-                    st.error("❌ **[IP 불일치 또는 토큰 오류 (401)]** 카카오 Developers에 현재 서버 IP(`34.19.100.134`)가 등록되어 있는지 확인해주세요.")
+                    st.error(f"❌ **[인증 오류 (401)]** 상세 응답: {resp.text}\n\n💡 **해결 방법**: IP 설정을 비웠음에도 이 오류가 난다면, 사용 중인 **액세스 토큰이 만료되었거나** 카카오 Developers 앱 설정에서 **'카카오 로그인' 활성화 및 '나에게 보내기(talk_message)' 동의 항목**이 켜져 있지 않은 상태입니다. 토큰을 다시 발급받아 입력해 보세요.")
                 else:
                     st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
             except Exception as ex:

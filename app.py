@@ -612,7 +612,7 @@ def today_edit_dialog():
     curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
 
     with st.form("today_edit_form"):
-        st.markdown("#### 📅 {today_str} 일자별 수정 및 근무 관리")
+        st.markdown(f"#### 📅 {today_str} 일자별 수정 및 근무 관리")
         p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="td_p1")
         p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="td_p1_c") if p1_s == "(직접 입력)" else ""
         sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="td_sub1")
@@ -826,7 +826,7 @@ with tab1:
         
         # 오늘 근무 안내 박스 클릭 시 '일자별 수정(today_edit_dialog)' 다이얼로그가 열리도록 연동
         st.markdown(
-            """
+            f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
@@ -855,7 +855,7 @@ with tab1:
 
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
-        st.markdown('<div class="month-header-card"><h2>📅 {y}년 {m}월 근무표</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="month-header-card"><h2>📅 {y}년 {m}월 근무표</h2></div>', unsafe_allow_html=True)
         
         cal = calendar.monthcalendar(y, m)
         m_df = df[df["년월"] == sel_month]
@@ -887,7 +887,7 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown("<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
@@ -939,7 +939,7 @@ with tab1:
 
         # 전역 스와이프 인식을 위한 월 데이터 태그 주입
         avail_months_json = json.dumps(avail_months)
-        st.markdown("""
+        st.markdown(f"""
         <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
         <div id="current-month-data" style="display:none;">{sel_month}</div>
         """, unsafe_allow_html=True)
@@ -983,7 +983,7 @@ with tab2:
             date_str_key = sel_edit_date.strftime("%Y-%m-%d")
 
             with st.form(f"tab2_edit_form_{date_str_key}"):
-                st.markdown("#### 📅 {date_str_key} 근무 관리")
+                st.markdown(f"#### 📅 {date_str_key} 근무 관리")
                 p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="t2_p1")
                 p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="t2_p1_c") if p1_s == "(직접 입력)" else ""
                 sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="t2_sub1")
@@ -1178,7 +1178,7 @@ with tab4:
         total_duty_hours = int(summary_table["총 근무시간"].sum())
 
         st.markdown(
-            """
+            f"""
             <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 12px; margin-top: 10px; text-align: center;">
                 <div>
                     <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 2px;">👥 총 근무자 명수</div>

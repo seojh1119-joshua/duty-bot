@@ -101,7 +101,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (640px 너비, 확대된 폰트, 세로 스크롤)
+# 시스템 CSS 및 자바스크립트 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -144,9 +144,9 @@ responsive_css = f"""
         box-sizing: border-box !important;
     }}
 
-    /* 제목 크기 2pt 정도 확대 (22px -> 24px) 및 굵은 하단 바 */
+    /* 제목 크기 추가 확대 (26px) 및 굵은 하단 바 */
     h1 {{
-        font-size: 24px !important;
+        font-size: 26px !important;
         margin: 8px 0px 14px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
@@ -182,15 +182,14 @@ responsive_css = f"""
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
         box-shadow: 0 2px 6px rgba(59, 130, 246, 0.08);
     }}
-    /* 월별 헤더 폰트 확대 (16px -> 18px) */
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
     .calendar-scroll-container {{
         width: 100% !important;
-        max-height: 540px !important;
+        max-height: 560px !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
-        padding-right: 4px;
+        padding-right: 2px;
     }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
@@ -206,13 +205,6 @@ responsive_css = f"""
         transition: all 0.2s ease;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
-
-    [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important;
-    }}
-    [data-testid="column"] {{
-        width: 14.285% !important; max-width: 14.285% !important; min-width: 14.285% !important; flex: 0 0 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
-    }}
 
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 420px !important;
@@ -283,7 +275,7 @@ def get_solapi_auth_headers(api_key, api_secret):
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 파일 유틸 및 13열 공휴일 연동 스마트 로더 함수
+# 파일 유틸 및 M열(13열) 공휴일 + 메모 연동 스마트 로더 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -296,7 +288,10 @@ def update_excel_download_bytes(df):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
-        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
+        if "메모" in save_df.columns:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns else ""))
+        else:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -311,7 +306,8 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
-        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
+        if "메모" in save_df.columns:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
         
         if os.path.exists(file_path):
             with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
@@ -354,8 +350,9 @@ def load_excel_smart(file_input, selected_sheet=None):
             header_idx = idx
             break
 
-    # 13열(인덱스 12) 기반 공휴일 추출 로직 (매우 정교화)
+    # M열(13번째 열, 인덱스 12) 공휴일 추출 로직 및 메모 추출
     holiday_map = {}
+    memo_dict = {}
     try:
         if df_raw.shape[1] >= 13:
             for r_idx in range(len(df_raw)):
@@ -368,7 +365,7 @@ def load_excel_smart(file_input, selected_sheet=None):
                             parsed_d = pd_t
                             break
                 if parsed_d:
-                    hol_val = df_raw.iloc[r_idx, 12] # 13번째 열 (인덱스 12)
+                    hol_val = df_raw.iloc[r_idx, 12] # M열 (인덱스 12)
                     if pd.notnull(hol_val):
                         h_str = str(hol_val).strip()
                         if h_str and h_str.lower() not in ["nan", "none", "nat", ""]:
@@ -384,6 +381,15 @@ def load_excel_smart(file_input, selected_sheet=None):
     df.rename(columns={date_col: "날짜"}, inplace=True)
     df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     df = df.dropna(subset=["날짜"]).copy()
+
+    # 엑셀 파일 내 '메모' 열이 존재하는 경우 자동 로드
+    memo_col = next((c for c in df.columns if "메모" in c.lower()), None)
+    if memo_col:
+        for _, r in df.iterrows():
+            d_str = r["날짜"].strftime("%Y-%m-%d")
+            m_val = r[memo_col]
+            if pd.notnull(m_val) and str(m_val).strip() and str(m_val).strip().lower() not in ["nan", "none"]:
+                memo_dict[d_str] = str(m_val).strip()
 
     p1_col = next((c for c in df.columns if any(k in c for k in ["근무자1", "1근무", "숙직1", "성명"]) and "대직" not in c), None)
     p2_col = next((c for c in df.columns if any(k in c for k in ["근무자2", "2근무", "숙직2"]) and "대직" not in c), None)
@@ -403,7 +409,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     other_cols = [c for c in df.columns if c not in base_cols and c != "년월"]
     ordered_cols = base_cols + other_cols + ["년월"]
     
-    return df[ordered_cols], target_sheet, sheet_names, df_raw, file_bytes, holiday_map
+    return df[ordered_cols], target_sheet, sheet_names, df_raw, file_bytes, holiday_map, memo_dict
 
 initial_file = get_initial_excel_file()
 if "file_path" not in st.session_state: st.session_state.file_path = initial_file
@@ -412,12 +418,14 @@ if "file_bytes" not in st.session_state and os.path.exists(initial_file):
     st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
-    parsed_df, used_sheet, sheet_names, raw_df, _, holiday_map = load_excel_smart(st.session_state.file_bytes)
-    st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}, "holiday_map": holiday_map})
+    parsed_df, used_sheet, sheet_names, raw_df, _, holiday_map, memo_dict = load_excel_smart(st.session_state.file_bytes)
+    st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": memo_dict, "holiday_map": holiday_map})
 else:
     if "holiday_map" not in st.session_state:
-        _, _, _, _, _, holiday_map = load_excel_smart(st.session_state.file_bytes)
+        _, _, _, _, _, holiday_map, memo_dict = load_excel_smart(st.session_state.file_bytes)
         st.session_state.holiday_map = holiday_map
+        if not st.session_state.get("memos"):
+            st.session_state.memos = memo_dict
 
 def load_workers_db():
     if WORKERS_DB_FILE.exists():
@@ -560,10 +568,10 @@ with st.sidebar:
         save_p = os.path.join("data", up_file.name)
         with open(save_p, "wb") as f: f.write(f_bytes)
         
-        parsed_df, used_s, s_names, r_df, _, holiday_map = load_excel_smart(f_bytes, "숙직근무자")
+        parsed_df, used_s, s_names, r_df, _, holiday_map, memo_dict = load_excel_smart(f_bytes, "숙직근무자")
         st.session_state.update({
             "file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name,
-            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df, "holiday_map": holiday_map,
+            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df, "holiday_map": holiday_map, "memos": memo_dict,
             "upload_success_msg": "✅ 파일 업로드 완료!"
         })
         save_app_state(parsed_df, used_s, st.session_state.memos)
@@ -594,11 +602,10 @@ today = datetime.date.today()
 # ---------------------------------------------------------
 st.title("광주교도소 의료과 숙직근무")
 
-st.markdown('<div class="setting-box">', unsafe_allow_html=True)
+# 버튼 위 흰 타원(박스) 배경을 없애고 버튼만 깔끔하게 배치
 if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):
     st.session_state.show_settings_dialog = True
     st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
@@ -660,20 +667,28 @@ with tab1:
                 
                 st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
-            # 가로형 Grid 달력 (세로 스크롤 컨테이너 적용)
+            # 가로형 Grid 달력 (셀 크기 가로 91.3px, 세로 180px 강제 적용)
             st.markdown('<div class="calendar-scroll-container">', unsafe_allow_html=True)
-            cols_h = st.columns(7)
+            
+            grid_html = """
+            <div style="display: grid; grid-template-columns: repeat(7, 91.3px); gap: 2px; justify-content: center; width: 100%; margin: 0 auto;">
+            """
+            
+            # 요일 헤더
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
-            for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
+            for h_n, col_c in h_names:
+                grid_html += f"<div style='width: 91.3px; text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>"
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
-            for r in range((offset + num_days + 6) // 7):
-                g_cols = st.columns(7)
+            total_slots = offset + num_days
+            rows_cnt = (total_slots + 6) // 7
+
+            for r in range(rows_cnt):
                 for c in range(7):
-                    if (r * 7 + c) < offset or day_cnt > num_days:
-                        g_cols[c].markdown("<div style='min-height: 85px;'></div>", unsafe_allow_html=True)
+                    slot_idx = r * 7 + c
+                    if slot_idx < offset or day_cnt > num_days:
+                        grid_html += "<div style='width: 91.3px; height: 180px;'></div>"
                     else:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
@@ -686,6 +701,15 @@ with tab1:
                         memo_str = f"📌 {memo_val}" if memo_val else ""
                         
                         is_today = (c_date == today)
+                        
+                        # 일자 색상 지정: 일요일(c==0) 또는 공휴일은 빨간색, 토요일(c==6)은 파란색
+                        if c == 0 or holiday_name:
+                            date_color = "#EF4444"
+                        elif c == 6:
+                            date_color = "#3B82F6"
+                        else:
+                            date_color = main_text_color
+
                         if is_today:
                             border_style = f"border: 2px solid {primary_blue};"
                         elif c == 0 or holiday_name:
@@ -695,17 +719,19 @@ with tab1:
                         else:
                             border_style = f"border: 1px solid {border_color};"
 
-                        cell_html = f"""
-                        <div style="background-color: {box_bg}; {border_style} border-radius: 8px; padding: 3px 2px; text-align: center; min-height: 88px; display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; box-sizing: border-box;">
-                            <div style="color: #EF4444; font-weight: 700; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 14px;">{hol_str}</div>
-                            <div style="color: {main_text_color}; font-weight: 900; font-size: 13px;">{day_cnt}</div>
-                            <div style="color: {main_text_color}; font-weight: 600; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p1']}</div>
-                            <div style="color: {main_text_color}; font-weight: 600; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p2']}</div>
-                            <div style="color: #D97706; font-weight: 600; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 13px;">{memo_str}</div>
+                        grid_html += f"""
+                        <div style="width: 91.3px; height: 180px; background-color: {box_bg}; {border_style} border-radius: 8px; padding: 6px 4px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+                            <div style="color: #EF4444; font-weight: 700; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 16px;">{hol_str}</div>
+                            <div style="color: {date_color}; font-weight: 900; font-size: 14px;">[{day_cnt}]</div>
+                            <div style="color: {main_text_color}; font-weight: 600; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">1: {info['p1']}</div>
+                            <div style="color: {main_text_color}; font-weight: 600; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">2: {info['p2']}</div>
+                            <div style="color: #D97706; font-weight: 600; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 16px;">{memo_str}</div>
                         </div>
                         """
-                        g_cols[c].markdown(cell_html, unsafe_allow_html=True)
                         day_cnt += 1
+
+            grid_html += "</div>"
+            st.markdown(grid_html, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------

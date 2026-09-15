@@ -217,8 +217,6 @@ responsive_css = f"""
     [data-testid="column"] .stButton > button {{
         height: 100% !important;
     }}
-    /* 요일 헤더 / 달력 그리드처럼 정확히 7개 열인 행에만 동일폭(각 14.285%)·간격 0을 강제 적용
-       (제목줄, 팝업 버튼줄, 통계 요약카드 등 다른 st.columns 배치는 원래 비율을 그대로 유지) */
     [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
         gap: 0px !important;
     }}
@@ -228,7 +226,6 @@ responsive_css = f"""
         flex: 1 1 14.285% !important;
         padding: 0px !important;
     }}
-    /* 600px 이하(모바일 세로 화면)에서도 가로 달력이 항상 7열을 유지하도록 강제 고정 */
     @media (max-width: 600px) {{
         [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
             flex-direction: row !important;
@@ -307,7 +304,6 @@ responsive_css = f"""
     html {{
         touch-action: manipulation;
     }}
-    /* ---------------- 모바일 세로 화면(≤600px) 전용 최적화 ---------------- */
     @media (max-width: 600px) {{
         .main .block-container {{
             padding: 0.1rem 2px 0.6rem 2px !important;
@@ -349,7 +345,6 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 calendar_enhancer_js = f"""
 <script>
 (function() {{
-    // 탭(더블클릭/더블탭) 판정 시간(ms)
     const DBL_TAP_MS = 350;
 
     function ensureViewportMeta(doc) {{
@@ -365,11 +360,6 @@ calendar_enhancer_js = f"""
         }}
     }}
 
-    // ---------------------------------------------------------
-    // 모바일 "뒤로가기" 버튼 처리: 팝업(다이얼로그)이 열려있거나
-    // 달력 탭이 아닌 다른 탭에 있을 때는 뒤로가기를 누르면
-    // 앱이 최소화(종료)되지 않고 팝업 닫기 / 달력 탭으로 복귀하도록 함
-    // ---------------------------------------------------------
     function isDialogOpen(doc) {{
         return !!doc.querySelector('[aria-label="Close"]');
     }}
@@ -440,8 +430,6 @@ calendar_enhancer_js = f"""
             }}
         }});
 
-        // 드롭다운(셀렉트박스) 입력: 기본은 readonly(한번 클릭/탭 = 목록에서 선택만 가능),
-        // 짧은 시간 안에 두번 클릭/탭 하면 readonly를 해제해 가상키보드로 직접 검색 입력이 가능하도록 처리
         const selects = doc.querySelectorAll('input[aria-autocomplete="list"], div[data-baseweb="select"] input');
         selects.forEach(sel => {{
             if (sel.dataset.dtapBound === '1') return;
@@ -456,11 +444,9 @@ calendar_enhancer_js = f"""
                 sel.dataset.lastTap = String(now);
 
                 if (delta > 0 && delta < DBL_TAP_MS) {{
-                    // 두번째 클릭/탭: 가상키보드가 뜨도록 readonly 해제
                     sel.removeAttribute('readonly');
                     sel.focus();
                 }} else {{
-                    // 첫번째 클릭/탭: 선택 전용 모드 유지(가상키보드 방지)
                     if (!sel.hasAttribute('readonly')) {{
                         sel.setAttribute('readonly', 'readonly');
                     }}
@@ -468,8 +454,6 @@ calendar_enhancer_js = f"""
             }};
 
             sel.addEventListener('pointerdown', handleTap, true);
-
-            // 포커스를 벗어나면(드롭다운이 닫히면) 다음 클릭이 다시 "한번=선택"이 되도록 초기화
             sel.addEventListener('blur', () => {{
                 sel.setAttribute('readonly', 'readonly');
                 sel.dataset.lastTap = '0';
@@ -579,7 +563,6 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["실제근무1"] = df["대직1"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자1"]).fillna("미지정")
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     
-    # M열 (Index 12) 값 가져오기 (공휴일/구분 정보)
     if len(df.columns) > 12:
         m_col_name = df.columns[12]
         df["M열구분"] = df[m_col_name].astype(str).str.strip().replace(["nan", "None", "nat", "NaT"], "")
@@ -695,8 +678,8 @@ def settings_dialog():
         k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="토큰 값 입력 (Bearer 접두어 제외)")
 
         if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
-            st.session_state.kakao_access_token = k_token
-            save_local_config("kakao_access_token", k_token)
+            st.session_state.kakao_access_token = k_token.strip()
+            save_local_config("kakao_access_token", k_token.strip())
             st.session_state.show_settings_dialog = False
             st.success("✅ 카카오 액세스 토큰이 저장되었습니다.")
             st.rerun()
@@ -991,9 +974,6 @@ with tab3:
     
     cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월" and c != "M열구분"), None)
 
-    # 근무 구분(평일/금요일/토요일/일요일) 정렬 순서 및 색상 매핑
-    # 순서: 평일 -> 금요일 -> 토요일 -> 일요일 -> 그 외
-    # 색상: 평일=노랑, 금요일=녹색, 토요일=파랑, 일요일=빨강
     def get_cat_rank(cat):
         if "평일" in cat: return 0
         if "금" in cat: return 1
@@ -1002,11 +982,11 @@ with tab3:
         return 4
 
     def get_cat_color(cat):
-        if "평일" in cat: return "#FACC15"  # 노랑
-        if "금" in cat: return "#22C55E"    # 녹색
-        if "토" in cat: return "#3B82F6"    # 파랑
-        if "일" in cat: return "#EF4444"    # 빨강
-        return "#94A3B8"                    # 그 외(회색)
+        if "평일" in cat: return "#FACC15"
+        if "금" in cat: return "#22C55E"
+        if "토" in cat: return "#3B82F6"
+        if "일" in cat: return "#EF4444"
+        return "#94A3B8"
 
     expanded_rows = []
     duty_dates = set()
@@ -1033,7 +1013,6 @@ with tab3:
         categories = sorted(exp_df["근무구분"].unique(), key=lambda c: (get_cat_rank(c), c))
         color_range = [get_cat_color(c) for c in categories]
 
-        # ---------------- 한눈에 보는 요약 지표 ----------------
         total_workers_n = exp_df["근무자"].nunique()
         total_duty_days_n = len(duty_dates)
         total_hours_n = int(exp_df["근무시간"].sum())
@@ -1074,7 +1053,6 @@ with tab3:
         summary_table = pd.DataFrame(summary_dict, index=workers_list)
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
 
-        # 열 순서: 번호, 근무자, 평일, 금요일, 토요일, 일요일, 총근무횟수, 총근무시간
         summary_table.insert(0, "번호", range(1, len(summary_table) + 1))
         summary_table.insert(1, "근무자", summary_table.index)
 
@@ -1100,7 +1078,6 @@ with tab4:
     default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
     custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
 
-    # 카카오 기본 템플릿(text)은 최대 200자까지만 허용되므로, 미리 확인해 오류를 방지
     _msg_len = len(custom_kakao_msg)
     if _msg_len > 200:
         st.warning(f"⚠️ 메시지가 {_msg_len}자입니다. 카카오톡 기본 템플릿은 최대 200자까지만 전송할 수 있어 전송 시 오류가 발생합니다. 내용을 줄여주세요.")
@@ -1108,14 +1085,17 @@ with tab4:
     if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
         access_token = st.session_state.get("kakao_access_token", "").strip()
 
-        if not access_token:
+        # [수정 포인트] 토큰 내 비ASCII 문자(한글, 제어문자 등)를 제거하여 latin-1 인코딩 에러 원천 방지
+        clean_token = "".join(c for c in access_token if ord(c) < 128).strip()
+
+        if not clean_token:
             st.warning("⚠️ [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
         elif _msg_len > 200:
             st.error("❌ 메시지가 200자를 초과하여 전송하지 않았습니다. 내용을 줄인 뒤 다시 시도해주세요.")
         else:
             url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
             headers = {
-                "Authorization": f"Bearer {access_token}",
+                "Authorization": f"Bearer {clean_token}",
                 "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
             }
             payload = {
@@ -1128,7 +1108,7 @@ with tab4:
                     }
                 }, ensure_ascii=False)
             }
-            # 카카오 API가 자주 반환하는 오류 코드에 대한 안내 문구
+            
             kakao_error_guide = {
                 -401: "액세스 토큰이 유효하지 않습니다. [⚙️ 설정] ➔ [카카오톡 개인계정 연동]에서 토큰을 다시 발급받아 입력해주세요.",
                 -402: "액세스 토큰이 만료되었습니다. 카카오 로그인으로 토큰을 재발급받아 다시 입력해주세요.",
@@ -1152,7 +1132,7 @@ with tab4:
                     if guide:
                         msg += f"\n\n💡 **안내**: {guide}"
                     else:
-                        msg += "\n\n💡 **안내**: 문제가 계속되면 카카오 Developers 콘솔에서 새 토큰을 재발급받아 입력해주세요. 클라우드 서버 IP 보안 정책 오류가 지속될 경우, 콘솔에서 IP 등록란을 공백으로 두고 토큰을 재발급받아 보세요."
+                        msg += "\n\n💡 **안내**: 문제가 계속되면 카카오 Developers 콘솔에서 새 토큰을 재발급받아 입력해주세요."
                     st.error(msg)
             except requests.exceptions.Timeout:
                 st.error("❌ 전송 시간이 초과되었습니다. 네트워크 상태를 확인 후 다시 시도해주세요.")

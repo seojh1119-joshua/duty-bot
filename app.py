@@ -833,17 +833,37 @@ with tab1:
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
+    # [수정] 달 변경 드롭다운 및 쿼리 파라미터 / 세션 상태 동기화 로직 오류 방지 개선
     query_month = st.query_params.get("month")
+    
+    target_month = cur_ym if cur_ym in avail_months else avail_months[0]
     if query_month and query_month in avail_months:
-        st.session_state.selected_month = query_month
-    elif "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
-        st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
+        target_month = query_month
+    elif "selected_month" in st.session_state and st.session_state.selected_month in avail_months:
+        target_month = st.session_state.selected_month
 
-    sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
-    if sel_month != st.session_state.selected_month:
-        st.session_state.selected_month = sel_month
-        st.query_params["month"] = sel_month
-        st.rerun()
+    st.session_state.selected_month = target_month
+
+    if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget not in avail_months:
+        st.session_state.month_selectbox_widget = target_month
+    elif query_month and query_month in avail_months and st.session_state.month_selectbox_widget != query_month:
+        st.session_state.month_selectbox_widget = query_month
+
+    def on_month_change():
+        chosen = st.session_state.month_selectbox_widget
+        st.session_state.selected_month = chosen
+        st.query_params["month"] = chosen
+
+    sel_month = st.selectbox(
+        "조회 월 선택", 
+        avail_months, 
+        key="month_selectbox_widget",
+        on_change=on_month_change,
+        label_visibility="collapsed"
+    )
+
+    if st.query_params.get("month") != st.session_state.selected_month:
+        st.query_params["month"] = st.session_state.selected_month
 
     sel_month = st.session_state.selected_month
 

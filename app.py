@@ -245,8 +245,9 @@ def update_excel_download_bytes(df):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
+        # 메모 열이 없으면 생성하여 매핑
         if "메모" in save_df.columns:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns else ""))
+             save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc[save_df['날짜'] == d, '메모'].values[0]) else ""))
         else:
             save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
         
@@ -257,25 +258,17 @@ def update_excel_download_bytes(df):
     except Exception as e:
         st.sidebar.warning(f"⚠️ 다운로드 데이터 생성 실패: {e}")
 
-def load_excel_smart(file_input, selected_sheet=None):
-    file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
-    file_obj = io.BytesIO(file_bytes)
-    excel_file = pd.ExcelFile(file_obj)
-    sheet_names = excel_file.sheet_names
-
-    target_sheet = selected_sheet if selected_sheet and selected_sheet in sheet_names else (next((s for s in sheet_names if "숙직근무자" in s), sheet_names[0]))
-    
-    file_obj.seek(0)
-    df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
-    header_idx = 0
-    for idx in range(min(20, len(df_raw))):
-        if any(k in " ".join([str(v) for v in df_raw.iloc[idx].values]) for k in ["날짜", "일자", "근무일", "성명"]):
-            header_idx = idx
-            break
-
-    holiday_map = {}
-    memo_dict = {}
+def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
     try:
-        if df_raw.shape[1] >= 13:
-            for r_idx in range(header_idx + 1, len(df_raw)):
-                row_vals = df_raw.iloc
+        save_df = df.copy()
+        if "날짜" in save_df.columns:
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+        memos = st.session_state.get("memos", {})
+        # 메모 업데이트
+        if "메모" in save_df.columns:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns and not pd.isna(save_df.loc[save_df['날짜'] == d, '메모'].values[0]) else ""))
+        else:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+
+        if os.path.exists(file_path):
+            with pd.Excel

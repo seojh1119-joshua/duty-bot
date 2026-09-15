@@ -50,7 +50,7 @@ def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid", 
         "app_theme": "☀️ 화이트 테마", 
-        "kakao_access_token": "kvQkQ3ShEmJXeg6aezXIZTSSS_GHGNpzAAAAAQoNGVMAAAGgowlvYXLErHmNOyL0",
+        "kakao_access_token": "",
         "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
         "batch_days_c": 30,
@@ -83,7 +83,7 @@ for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
     ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("kakao_access_token", local_cfg.get("kakao_access_token", "kvQkQ3ShEmJXeg6aezXIZTSSS_GHGNpzAAAAAQoNGVMAAAGgowlvYXLErHmNOyL0")),
+    ("kakao_access_token", local_cfg.get("kakao_access_token", "")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -248,6 +248,58 @@ responsive_css = f"""
         background-color: {table_sticky_bg};
         border-right: 2px solid {border_color};
     }}
+    .stat-metric-card {{
+        background: {card_bg};
+        border: 1px solid {border_color};
+        border-radius: 8px;
+        padding: 8px 4px;
+        text-align: center;
+    }}
+    .stat-metric-card .m-label {{
+        font-size: clamp(10px, 2.6vw, 12px) !important;
+        opacity: 0.75;
+        margin-bottom: 2px;
+    }}
+    .stat-metric-card .m-value {{
+        font-size: clamp(16px, 4.2vw, 22px) !important;
+        font-weight: 800;
+        color: {"#60A5FA" if is_dark else "#2563EB"};
+    }}
+    html {{
+        touch-action: manipulation;
+    }}
+    /* ---------------- 모바일 세로 화면(≤600px) 전용 최적화 ---------------- */
+    @media (max-width: 600px) {{
+        .main .block-container {{
+            padding: 0.1rem 2px 0.6rem 2px !important;
+        }}
+        h1 {{
+            font-size: clamp(16px, 5vw, 20px) !important;
+        }}
+        [data-baseweb="tab-list"] {{
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            flex-wrap: nowrap !important;
+            scrollbar-width: none !important;
+        }}
+        [data-baseweb="tab-list"]::-webkit-scrollbar {{
+            display: none !important;
+        }}
+        [data-baseweb="tab-list"] button {{
+            font-size: clamp(10px, 3vw, 13px) !important;
+            padding: 6px 8px !important;
+            white-space: nowrap !important;
+        }}
+        .sticky-table {{
+            font-size: 11px !important;
+        }}
+        .sticky-table th, .sticky-table td {{
+            padding: 5px 6px !important;
+        }}
+        .today-card, .month-header-card {{
+            padding: 4px 6px !important;
+        }}
+    }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -258,10 +310,28 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 calendar_enhancer_js = f"""
 <script>
 (function() {{
+    // 탭(더블클릭/더블탭) 판정 시간(ms)
+    const DBL_TAP_MS = 350;
+
+    function ensureViewportMeta(doc) {{
+        let meta = doc.querySelector('meta[name="viewport"]');
+        const content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+        if (!meta) {{
+            meta = doc.createElement('meta');
+            meta.name = 'viewport';
+            doc.head.appendChild(meta);
+        }}
+        if (meta.getAttribute('content') !== content) {{
+            meta.setAttribute('content', content);
+        }}
+    }}
+
     function enhanceUI() {{
         const doc = window.parent.document;
         if (!doc) return;
-        
+
+        ensureViewportMeta(doc);
+
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{
             const txt = btn.innerText || '';
@@ -273,11 +343,40 @@ calendar_enhancer_js = f"""
             }}
         }});
 
+        // 드롭다운(셀렉트박스) 입력: 기본은 readonly(한번 클릭/탭 = 목록에서 선택만 가능),
+        // 짧은 시간 안에 두번 클릭/탭 하면 readonly를 해제해 가상키보드로 직접 검색 입력이 가능하도록 처리
         const selects = doc.querySelectorAll('input[aria-autocomplete="list"], div[data-baseweb="select"] input');
         selects.forEach(sel => {{
-            if (!sel.hasAttribute('readonly')) {{
+            if (sel.dataset.dtapBound === '1') return;
+            sel.dataset.dtapBound = '1';
+            sel.setAttribute('readonly', 'readonly');
+            sel.dataset.lastTap = '0';
+
+            const handleTap = (e) => {{
+                const now = Date.now();
+                const last = parseInt(sel.dataset.lastTap || '0', 10);
+                const delta = now - last;
+                sel.dataset.lastTap = String(now);
+
+                if (delta > 0 && delta < DBL_TAP_MS) {{
+                    // 두번째 클릭/탭: 가상키보드가 뜨도록 readonly 해제
+                    sel.removeAttribute('readonly');
+                    sel.focus();
+                }} else {{
+                    // 첫번째 클릭/탭: 선택 전용 모드 유지(가상키보드 방지)
+                    if (!sel.hasAttribute('readonly')) {{
+                        sel.setAttribute('readonly', 'readonly');
+                    }}
+                }}
+            }};
+
+            sel.addEventListener('pointerdown', handleTap, true);
+
+            // 포커스를 벗어나면(드롭다운이 닫히면) 다음 클릭이 다시 "한번=선택"이 되도록 초기화
+            sel.addEventListener('blur', () => {{
                 sel.setAttribute('readonly', 'readonly');
-            }}
+                sel.dataset.lastTap = '0';
+            }});
         }});
     }}
     setInterval(enhanceUI, 200);
@@ -495,8 +594,8 @@ def settings_dialog():
 
     with tab_s3:
         st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
-        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**을 입력하여 연동하세요.")
-        k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="Bearer 토큰 값 입력")
+        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**을 입력하여 연동하세요.\n\n⚠️ 액세스 토큰은 유효기간이 있어 시간이 지나면 만료됩니다. 전송 시 '토큰 만료/유효하지 않음' 오류가 뜨면 카카오 로그인으로 토큰을 다시 발급받아 여기에 입력해주세요.")
+        k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="토큰 값 입력 (Bearer 접두어 제외)")
 
         if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
             st.session_state.kakao_access_token = k_token
@@ -795,48 +894,90 @@ with tab3:
     
     cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월" and c != "M열구분"), None)
 
+    # 근무 구분(평일/금요일/토요일/일요일) 정렬 순서 및 색상 매핑
+    # 순서: 평일 -> 금요일 -> 토요일 -> 일요일 -> 그 외
+    # 색상: 평일=노랑, 금요일=녹색, 토요일=파랑, 일요일=빨강
+    def get_cat_rank(cat):
+        if "평일" in cat: return 0
+        if "금" in cat: return 1
+        if "토" in cat: return 2
+        if "일" in cat: return 3
+        return 4
+
+    def get_cat_color(cat):
+        if "평일" in cat: return "#FACC15"  # 노랑
+        if "금" in cat: return "#22C55E"    # 녹색
+        if "토" in cat: return "#3B82F6"    # 파랑
+        if "일" in cat: return "#EF4444"    # 빨강
+        return "#94A3B8"                    # 그 외(회색)
+
     expanded_rows = []
+    duty_dates = set()
     for _, r in f_df.iterrows():
         cat = str(r[cat_col]).strip() if cat_col and pd.notnull(r[cat_col]) and str(r[cat_col]).strip() not in ["", "nan", "None"] else "평일"
         hours = 7 if "평일" in cat or "주간" in cat else 15
         
         w1 = str(r.get("실제근무1", "")).strip()
         w2 = str(r.get("실제근무2", "")).strip()
+        has_duty = False
         if w1 and w1 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w1, "근무구분": cat, "근무시간": hours, "횟수": 1})
+            has_duty = True
         if w2 and w2 not in ["미지정", "nan", "None", ""]:
             expanded_rows.append({"근무자": w2, "근무구분": cat, "근무시간": hours, "횟수": 1})
+            has_duty = True
+        if has_duty and pd.notnull(r.get("날짜")):
+            duty_dates.add(pd.to_datetime(r["날짜"]).date())
 
     if expanded_rows:
         exp_df = pd.DataFrame(expanded_rows)
         agg_df = exp_df.groupby(["근무자", "근무구분"]).agg(근무횟수=("횟수", "sum"), 근무시간=("근무시간", "sum")).reset_index()
-        
+
+        categories = sorted(exp_df["근무구분"].unique(), key=lambda c: (get_cat_rank(c), c))
+        color_range = [get_cat_color(c) for c in categories]
+
+        # ---------------- 한눈에 보는 요약 지표 ----------------
+        total_workers_n = exp_df["근무자"].nunique()
+        total_duty_days_n = len(duty_dates)
+        total_hours_n = int(exp_df["근무시간"].sum())
+
+        m1, m2, m3 = st.columns(3)
+        for col, label, value in [
+            (m1, "👥 총근무인원수", f"{total_workers_n}명"),
+            (m2, "📅 총근무일수", f"{total_duty_days_n}일"),
+            (m3, "⏱️ 총근무시간", f"{total_hours_n}시간"),
+        ]:
+            col.markdown(
+                f'<div class="stat-metric-card"><div class="m-label">{label}</div><div class="m-value">{value}</div></div>',
+                unsafe_allow_html=True
+            )
+        st.write("")
+
         chart = alt.Chart(agg_df).mark_bar().encode(
             x=alt.X('근무자:N', sort=alt.EncodingSortField(field='근무시간', op='sum', order='descending'), title='근무자'),
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
-            color=alt.Color('근무구분:N', legend=alt.Legend(title=None)),
+            color=alt.Color('근무구분:N', scale=alt.Scale(domain=categories, range=color_range), legend=alt.Legend(title=None)),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
         ).properties(height=380).configure_legend(orient="bottom")
         st.altair_chart(chart, use_container_width=True)
 
         pivot_count = exp_df.pivot_table(index="근무자", columns="근무구분", values="횟수", aggfunc="sum", fill_value=0)
         pivot_hours = exp_df.pivot_table(index="근무자", columns="근무구분", values="근무시간", aggfunc="sum", fill_value=0)
-        
-        categories = sorted(exp_df["근무구분"].unique())
+
         summary_dict = {}
-        
         for cat in categories:
             if cat not in pivot_count.columns: pivot_count[cat] = 0
             if cat not in pivot_hours.columns: pivot_hours[cat] = 0
             summary_dict[f"{cat}(회/시)"] = [f"{int(c)}회 / {int(h)}시간" for c, h in zip(pivot_count[cat], pivot_hours[cat])]
 
-        summary_dict["총 근무횟수"] = pivot_count.sum(axis=1).astype(int).tolist()
-        summary_dict["총 근무시간"] = pivot_hours.sum(axis=1).astype(int).tolist()
-        
+        summary_dict["총 근무횟수"] = pivot_count[categories].sum(axis=1).astype(int).tolist()
+        summary_dict["총 근무시간"] = pivot_hours[categories].sum(axis=1).astype(int).tolist()
+
         workers_list = pivot_count.index.tolist()
         summary_table = pd.DataFrame(summary_dict, index=workers_list)
         summary_table = summary_table.sort_values(by="총 근무시간", ascending=False)
-        
+
+        # 열 순서: 번호, 근무자, 평일, 금요일, 토요일, 일요일, 총근무횟수, 총근무시간
         summary_table.insert(0, "번호", range(1, len(summary_table) + 1))
         summary_table.insert(1, "근무자", summary_table.index)
 
@@ -862,16 +1003,23 @@ with tab4:
     default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
     custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
 
+    # 카카오 기본 템플릿(text)은 최대 200자까지만 허용되므로, 미리 확인해 오류를 방지
+    _msg_len = len(custom_kakao_msg)
+    if _msg_len > 200:
+        st.warning(f"⚠️ 메시지가 {_msg_len}자입니다. 카카오톡 기본 템플릿은 최대 200자까지만 전송할 수 있어 전송 시 오류가 발생합니다. 내용을 줄여주세요.")
+
     if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
         access_token = st.session_state.get("kakao_access_token", "").strip()
 
         if not access_token:
             st.warning("⚠️ [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
+        elif _msg_len > 200:
+            st.error("❌ 메시지가 200자를 초과하여 전송하지 않았습니다. 내용을 줄인 뒤 다시 시도해주세요.")
         else:
             url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
             headers = {
                 "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/x-www-form-urlencoded"
+                "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
             }
             payload = {
                 "template_object": json.dumps({
@@ -881,20 +1029,38 @@ with tab4:
                         "web_url": "https://developers.kakao.com",
                         "mobile_web_url": "https://developers.kakao.com"
                     }
-                })
+                }, ensure_ascii=False)
+            }
+            # 카카오 API가 자주 반환하는 오류 코드에 대한 안내 문구
+            kakao_error_guide = {
+                -401: "액세스 토큰이 유효하지 않습니다. [⚙️ 설정] ➔ [카카오톡 개인계정 연동]에서 토큰을 다시 발급받아 입력해주세요.",
+                -402: "액세스 토큰이 만료되었습니다. 카카오 로그인으로 토큰을 재발급받아 다시 입력해주세요.",
+                -403: "카카오 개발자 콘솔에서 '카카오톡 메시지 전송(talk_message)' 동의 항목이 활성화되어 있는지 확인해주세요.",
+                -9798: "카카오톡이 설치되지 않은 계정이거나 메시지를 받을 수 없는 사용자입니다.",
             }
             try:
                 resp = requests.post(url, headers=headers, data=payload, timeout=10)
-                if resp.status_code in [200, 201]:
+                try:
                     res_json = resp.json()
-                    if res_json.get("result_code") == 0:
-                        st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
-                    else:
-                        st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
+                except ValueError:
+                    res_json = None
+
+                if resp.status_code in [200, 201] and res_json and res_json.get("result_code") == 0:
+                    st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
                 else:
-                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **안내**: 카카오 서버 측 클라우드 IP 보안 정책 관련 오류 지속 시, 카카오 Developers 콘솔에서 새 앱 생성 후 IP 등록을 공백으로 두고 토큰을 재발급받아 입력하세요.")
-            except Exception as ex:
-                st.error(f"전송 중 네트워크 오류 발생: {ex}")
+                    err_code = (res_json or {}).get("code")
+                    guide = kakao_error_guide.get(err_code)
+                    detail = res_json if res_json is not None else resp.text
+                    msg = f"❌ 카카오 전송 실패 (HTTP {resp.status_code}): {detail}"
+                    if guide:
+                        msg += f"\n\n💡 **안내**: {guide}"
+                    else:
+                        msg += "\n\n💡 **안내**: 문제가 계속되면 카카오 Developers 콘솔에서 새 토큰을 재발급받아 입력해주세요. 클라우드 서버 IP 보안 정책 오류가 지속될 경우, 콘솔에서 IP 등록란을 공백으로 두고 토큰을 재발급받아 보세요."
+                    st.error(msg)
+            except requests.exceptions.Timeout:
+                st.error("❌ 전송 시간이 초과되었습니다. 네트워크 상태를 확인 후 다시 시도해주세요.")
+            except requests.exceptions.RequestException as ex:
+                st.error(f"❌ 전송 중 네트워크 오류가 발생했습니다: {ex}")
 
 with tab5:
     st.subheader("시트 데이터 원본")

@@ -168,19 +168,21 @@ responsive_css = f"""
     }}
     .stButton > button {{
         width: 100% !important;
+        height: auto !important;
         min-height: 44px !important;
-        max-height: 75px !important;
-        padding: 1px 0px !important;
+        padding: 4px 2px !important;
         margin: 0px !important;
         border: 1px solid {border_color} !important;
         border-radius: 2px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
         font-size: clamp(8px, 1.9vw, 11px) !important;
-        line-height: 1.15 !important;
+        line-height: 1.35 !important;
         font-weight: 500 !important;
         white-space: pre-wrap !important;
-        overflow: hidden !important;
+        word-break: break-word !important;
+        overflow: visible !important;
+        overflow-wrap: break-word !important;
     }}
     .stButton > button:hover {{
         border-color: {btn_hover_border} !important;
@@ -190,21 +192,58 @@ responsive_css = f"""
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
+        align-items: stretch !important;
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 0px !important;
+        gap: 4px !important;
         margin: 0 !important;
         padding: 0 !important;
     }}
     [data-testid="column"] {{
-        width: 14.285% !important;
-        max-width: 14.285% !important;
         min-width: 0 !important;
-        flex: 1 1 14.285% !important;
-        padding: 0px 0px !important;
+        padding: 0px 2px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }}
+    [data-testid="column"] [data-testid="stVerticalBlock"] {{
+        height: 100% !important;
+    }}
+    [data-testid="column"] .stButton {{
+        height: 100% !important;
+    }}
+    [data-testid="column"] .stButton > button {{
+        height: 100% !important;
+    }}
+    /* 요일 헤더 / 달력 그리드처럼 정확히 7개 열인 행에만 동일폭(각 14.285%)·간격 0을 강제 적용
+       (제목줄, 팝업 버튼줄, 통계 요약카드 등 다른 st.columns 배치는 원래 비율을 그대로 유지) */
+    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
+        gap: 0px !important;
+    }}
+    [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) > [data-testid="column"] {{
+        width: 14.285% !important;
+        max-width: 14.285% !important;
+        flex: 1 1 14.285% !important;
+        padding: 0px !important;
+    }}
+    /* 600px 이하(모바일 세로 화면)에서도 가로 달력이 항상 7열을 유지하도록 강제 고정 */
+    @media (max-width: 600px) {{
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+        }}
+        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) > [data-testid="column"] {{
+            flex: 1 1 calc(100% / 7) !important;
+            width: calc(100% / 7) !important;
+            max-width: calc(100% / 7) !important;
+        }}
+        .stButton > button {{
+            font-size: clamp(7px, 2.6vw, 10px) !important;
+            padding: 3px 1px !important;
+            line-height: 1.3 !important;
+        }}
     }}
     input, select, textarea {{
         caret-color: transparent !important;
@@ -326,11 +365,69 @@ calendar_enhancer_js = f"""
         }}
     }}
 
+    // ---------------------------------------------------------
+    // 모바일 "뒤로가기" 버튼 처리: 팝업(다이얼로그)이 열려있거나
+    // 달력 탭이 아닌 다른 탭에 있을 때는 뒤로가기를 누르면
+    // 앱이 최소화(종료)되지 않고 팝업 닫기 / 달력 탭으로 복귀하도록 함
+    // ---------------------------------------------------------
+    function isDialogOpen(doc) {{
+        return !!doc.querySelector('[aria-label="Close"]');
+    }}
+
+    function getActiveTabLabel(doc) {{
+        const activeTab = doc.querySelector('[data-baseweb="tab"][aria-selected="true"]');
+        return activeTab ? (activeTab.innerText || '').trim() : null;
+    }}
+
+    function isHomeState(doc) {{
+        if (isDialogOpen(doc)) return false;
+        const label = getActiveTabLabel(doc);
+        return label === null || label.includes('달력');
+    }}
+
+    function goToCalendarTab(doc) {{
+        const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
+        const calTab = tabs.find(t => (t.innerText || '').includes('달력'));
+        if (calTab) calTab.click();
+    }}
+
+    function closeOpenDialog(doc) {{
+        const closeBtn = doc.querySelector('[aria-label="Close"]');
+        if (closeBtn) closeBtn.click();
+    }}
+
+    function backGuardTick() {{
+        const doc = window.parent.document;
+        const win = window.parent;
+        if (!doc || !win || !win.history) return;
+
+        if (!isHomeState(doc)) {{
+            const st = win.history.state;
+            if (!st || !st.dutyAppGuard) {{
+                win.history.pushState({{ dutyAppGuard: true }}, '');
+            }}
+        }}
+    }}
+
+    if (!window.parent.__dutyBackGuardBound) {{
+        window.parent.__dutyBackGuardBound = true;
+        window.parent.addEventListener('popstate', function() {{
+            const doc = window.parent.document;
+            if (!doc) return;
+            if (isDialogOpen(doc)) {{
+                closeOpenDialog(doc);
+            }} else if (!isHomeState(doc)) {{
+                goToCalendarTab(doc);
+            }}
+        }});
+    }}
+
     function enhanceUI() {{
         const doc = window.parent.document;
         if (!doc) return;
 
         ensureViewportMeta(doc);
+        backGuardTick();
 
         const buttons = Array.from(doc.querySelectorAll('button'));
         buttons.forEach(btn => {{

@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 테마 및 모바일 반응형 CSS
+# 테마 및 모바일 반응형 CSS (세로 고정 가로형 비율 지원)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -109,10 +109,6 @@ btn_hover_bg = "#334155" if is_dark else "#F1F5F9"
 btn_hover_border = "#60A5FA" if is_dark else "#2563EB"
 sidebar_bg = "#0B0F19" if is_dark else "#F8FAFC"
 table_sticky_bg = "#1E293B" if is_dark else "#F1F5F9"
-
-today_highlight_bg = "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)" if is_dark else "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)"
-today_highlight_text = "#FFFFFF" if is_dark else "#78350F"
-today_highlight_border = "2px solid #F59E0B" if is_dark else "2px solid #D97706"
 
 responsive_css = f"""
 <style>
@@ -166,17 +162,27 @@ responsive_css = f"""
         color: {"#FDE047" if is_dark else "#1D4ED8"} !important;
         font-weight: bold;
     }}
+    /* 세로 모드에서도 가로형 캘린더 비율을 수직 스크롤 가능하게 배치하는 스타일 */
+    .landscape-calendar-container {{
+        width: 100%;
+        overflow-y: auto;
+        max-height: 75vh;
+        border: 1px solid {border_color};
+        border-radius: 8px;
+        padding: 4px;
+        background-color: {theme_bg};
+    }}
     .stButton > button {{
         width: 100% !important;
         height: auto !important;
-        min-height: 44px !important;
+        min-height: 52px !important;
         padding: 4px 2px !important;
         margin: 0px !important;
         border: 1px solid {border_color} !important;
-        border-radius: 2px !important;
+        border-radius: 4px !important;
         background-color: {btn_bg} !important;
         color: {btn_text} !important;
-        font-size: clamp(8px, 1.9vw, 11px) !important;
+        font-size: clamp(8px, 2vw, 11px) !important;
         line-height: 1.35 !important;
         font-weight: 500 !important;
         white-space: pre-wrap !important;
@@ -196,13 +202,13 @@ responsive_css = f"""
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        gap: 4px !important;
+        gap: 3px !important;
         margin: 0 !important;
         padding: 0 !important;
     }}
     [data-testid="column"] {{
         min-width: 0 !important;
-        padding: 0px 2px !important;
+        padding: 0px 1px !important;
         margin: 0 !important;
         box-sizing: border-box !important;
         display: flex !important;
@@ -225,22 +231,6 @@ responsive_css = f"""
         max-width: 14.285% !important;
         flex: 1 1 14.285% !important;
         padding: 0px !important;
-    }}
-    @media (max-width: 600px) {{
-        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) {{
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-        }}
-        [data-testid="stHorizontalBlock"]:has(> [data-testid="column"]:nth-child(7):last-child) > [data-testid="column"] {{
-            flex: 1 1 calc(100% / 7) !important;
-            width: calc(100% / 7) !important;
-            max-width: calc(100% / 7) !important;
-        }}
-        .stButton > button {{
-            font-size: clamp(7px, 2.6vw, 10px) !important;
-            padding: 3px 1px !important;
-            line-height: 1.3 !important;
-        }}
     }}
     .table-container {{
         width: 100%;
@@ -295,7 +285,6 @@ def get_initial_excel_file():
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
     if valid_files:
         return valid_files[0]
-    # 기본 경로 지정 (data 폴더)
     os.makedirs("data", exist_ok=True)
     return os.path.join("data", "숙직근무표.xlsx")
 
@@ -325,7 +314,6 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         memos = st.session_state.get("memos", {})
         save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d)[:10], ""))
         
-        # 디렉토리 보장
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         
         if os.path.exists(file_path):
@@ -354,7 +342,6 @@ def save_app_state(df, sheet_name, memos):
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         
-        # 엑셀 파일 경로 (data 폴더 내 지정된 파일)
         target_path = st.session_state.get("file_path", get_initial_excel_file())
         save_to_excel_file(df, target_path, sheet_name)
     except Exception as e:
@@ -414,7 +401,6 @@ def load_excel_smart(file_input, selected_sheet=None):
 initial_file = get_initial_excel_file()
 if "file_path" not in st.session_state: st.session_state.file_path = initial_file
 
-# JSON 영구저장 데이터나 기존 엑셀 파일 로드
 if "df" not in st.session_state:
     loaded_memos = {}
     if os.path.exists(PERSISTENCE_STATE_PATH):
@@ -435,7 +421,6 @@ if "df" not in st.session_state:
             "raw_df": raw_df, "memos": loaded_memos
         })
     else:
-        # 파일이 없을 경우 빈 구조 생성
         dates = pd.date_range(start=datetime.date.today().replace(day=1), periods=60, freq="D")
         empty_df = pd.DataFrame({
             "날짜": dates, "근무자1": "미지정", "대직1": None, "근무자2": "미지정", "대직2": None,
@@ -451,7 +436,7 @@ if "df" not in st.session_state:
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 모음
+# 다이얼로그 모음 (세로 모드 최적화 레이아웃 적용)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -530,7 +515,6 @@ def settings_dialog():
                 cur_d += datetime.timedelta(days=1)
                 
             st.session_state.df = df_cur
-            # 엑셀 파일 및 상태 영구 저장
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
             st.success("✅ 순환 패턴이 반영 및 엑셀에 저장되었습니다!")
@@ -614,7 +598,6 @@ def edit_worker_dialog(date_str, duty_info):
         else: 
             st.session_state.memos.pop(date_str, None)
         
-        # 달력 버튼 수정 내용 즉시 엑셀 덮어쓰기 저장
         save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
         st.session_state.update({"editing_date": None, "editing_duty_info": None})
         st.success("✅ 근무 수정 내용이 엑셀에 저장되었습니다!")
@@ -625,7 +608,7 @@ def edit_worker_dialog(date_str, duty_info):
         st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바 (파일 업로드 및 다운로드)
+# 사이드바 (파일 업로드 및 홈 내비게이션 포함)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
@@ -663,11 +646,16 @@ with st.sidebar:
             key="sidebar_excel_download_btn"
         )
     st.divider()
+    if st.button("🏠 달력 홈으로 이동", use_container_width=True, key="sidebar_home_btn"):
+        st.session_state.active_tab_idx = 0
+        st.rerun()
     if st.button("🔴 앱 종료", use_container_width=True, key="sidebar_exit_btn"):
         st.session_state.show_exit_dialog = True
         st.rerun()
 
-# 다이얼로그 호출 분기
+# ---------------------------------------------------------
+# 다이얼로그 호출 분기 (충돌 방지 우선순위 적용)
+# ---------------------------------------------------------
 if st.session_state.show_exit_dialog: 
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
@@ -678,7 +666,7 @@ elif st.session_state.editing_date and st.session_state.editing_duty_info:
 df = st.session_state.df
 today = datetime.date.today()
 
-# 메인 화면 상단 헤더 및 설정 버튼 (충돌 방지를 위해 독립적이고 고유한 Key 지정)
+# 메인 화면 상단 헤더 및 설정 버튼
 col_title, col_settings = st.columns([0.82, 0.18])
 with col_title:
     st.title("광주교도소 의료과 숙직근무")
@@ -754,11 +742,14 @@ with tab1:
                     
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                btn_display_label = f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}"
+                btn_display_label = f"{t_str}\n1: {info['p1']}\n2: {info['p2']}{memo_s}"
                 if st.button(btn_display_label, key=f"list_btn_{d_str}"):
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
+            # 세로 모드에서도 가로형 비율을 유지하며 스크롤 가능하도록 감싸는 컨테이너 적용
+            st.markdown('<div class="landscape-calendar-container">', unsafe_allow_html=True)
+            
             cols_h = st.columns(7)
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
@@ -779,7 +770,19 @@ with tab1:
                         m_val = info.get("m_val", "")
                         
                         is_today = (c_date == today)
-                        
+                        w_idx = c_date.weekday() # 0:월 ~ 5:토, 6:일
+                        is_sat = (w_idx == 5)
+                        is_sun = (w_idx == 6)
+                        is_holiday = (c_date in kr_holidays)
+
+                        # 색상 지정 (토: 파란색, 일/공휴일: 빨간색)
+                        if is_sun or is_holiday:
+                            day_color = "#EF4444"
+                        elif is_sat:
+                            day_color = "#3B82F6"
+                        else:
+                            day_color = main_text_color
+
                         if is_today:
                             prefix = "🌟[오늘] "
                         elif m_val:
@@ -789,7 +792,8 @@ with tab1:
                             
                         t_header = f"{prefix}{day_cnt}일"
                         
-                        btn_txt = f"{t_header}\n{info['p1']}\n{info['p2']}"
+                        # 텍스트 수직 스택 구조로 정렬 (줄바꿈 문자를 활용하여 잘림 방지 및 세로 정렬)
+                        btn_txt = f"<span style='color:{day_color}; font-weight:bold;'>{t_header}</span>\n1️⃣ {info['p1']}\n2️⃣ {info['p2']}"
                         if memo_val:
                             btn_txt += f"\n📌 {memo_val}"
 
@@ -797,6 +801,7 @@ with tab1:
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
                         day_cnt += 1
+            st.markdown('</div>', unsafe_allow_html=True)
 
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
@@ -843,7 +848,6 @@ with tab2:
         m_df["실제근무2"] = sub2.replace(["", "nan", "None"], None).combine_first(p2).fillna("미지정")
         
         st.session_state.df = m_df
-        # 에디터 수정 내용 엑셀 덮어쓰기 저장
         save_app_state(m_df, st.session_state.selected_sheet, st.session_state.memos)
         st.success("✅ 에디터 변경사항이 엑셀에 성공적으로 저장되었습니다.")
         st.rerun()

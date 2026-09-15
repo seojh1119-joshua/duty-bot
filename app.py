@@ -51,7 +51,7 @@ st.set_page_config(
 
 def load_local_config():
     default_config = {
-        "auto_view_type": "🗓️ 가로형 Grid", # 기본값 유지하나 코드 내에서 이미지형으로 강제 변환 예정
+        "auto_view_type": "🗓️ 이미지형 달력", # 이미지형으로 기본값 설정
         "app_theme": "☀️ 화이트 테마", 
         "sms_api_key": "",
         "sms_api_secret": "",
@@ -86,8 +86,7 @@ local_cfg = load_local_config()
 
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
-    ("auto_view_type", "🗓️ 이미지형 달력"), # 강제 초기화
-    ("app_theme", local_cfg["app_theme"]),
+    ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
@@ -102,24 +101,24 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용
+# 시스템 CSS 적용 (이미지형 달력 스타일 포함)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
-theme_bg = "#121212" if is_dark else "#FFFFFF" # 배경 흰색 고정
-main_text_color = "#E0E0E0" if is_dark else "#1A1A1A"
-border_color = "#333333" if is_dark else "#E0E0E0"
-btn_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-btn_text = "#E0E0E0" if is_dark else "#2D3748"
-btn_hover_bg = "#2C2C2C" if is_dark else "#EDF2F7"
-btn_hover_border = "#3B82F6" if is_dark else "#CBD5E0"
-sidebar_bg = "#181818" if is_dark else "#FFFFFF"
-dialog_bg = "#1E1E1E" if is_dark else "#FFFFFF"
-input_bg = "#272727" if is_dark else "#FFFFFF"
-input_text = "#F5F5F5" if is_dark else "#1E1E1E"
-box_bg = "#1E1E1E" if is_dark else "#FFFFFF"
+theme_bg = "#FFFFFF" if not is_dark else "#121212" # 배경 흰색 고정
+main_text_color = "#1A1A1A" if not is_dark else "#E0E0E0"
+border_color = "#E0E0E0" if not is_dark else "#333333"
+btn_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
+btn_text = "#2D3748" if not is_dark else "#E0E0E0"
+btn_hover_bg = "#EDF2F7" if not is_dark else "#2C2C2C"
+btn_hover_border = "#CBD5E0" if not is_dark else "#3B82F6"
+sidebar_bg = "#FFFFFF" if not is_dark else "#181818"
+dialog_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
+input_bg = "#FFFFFF" if not is_dark else "#272727"
+input_text = "#1E1E1E" if not is_dark else "#F5F5F5"
+box_bg = "#FFFFFF" if not is_dark else "#1E1E1E"
 primary_blue = "#3B82F6"
-table_header_bg = "#2C2C2C" if is_dark else "#EDF2F7"
+table_header_bg = "#EDF2F7" if not is_dark else "#2C2C2C"
 
 responsive_css = f"""
 <style>
@@ -132,43 +131,30 @@ responsive_css = f"""
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
         font-family: Pretendard, -apple-system, BlinkMacSystemFont, sans-serif !important;
-        max-width: 100vw !important;
-        overflow-x: hidden !important;
     }}
 
     .main .block-container {{
         background-color: {theme_bg} !important;
-        color: {main_text_color} !important;
-        padding: 1rem 1rem 2rem 1rem !important; /* 패딩 조정 */
+        padding: 1rem 1rem 2rem 1rem !important;
         max-width: 700px !important;
         margin: 0 auto !important;
-        box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: 24px !important;
-        margin: 10px 0px 20px 0px !important;
-        font-weight: 800 !important;
-        color: {main_text_color} !important;
-        text-align: center;
-        border-bottom: 3px solid {primary_blue} !important;
-        padding-bottom: 10px !important;
+        font-size: 24px !important; margin: 10px 0px 20px 0px !important; font-weight: 800 !important;
+        color: {main_text_color} !important; text-align: center;
+        border-bottom: 3px solid {primary_blue} !important; padding-bottom: 10px !important;
     }}
 
     .setting-box {{
-        background-color: {box_bg} !important;
-        border: 1px solid {primary_blue} !important;
-        border-radius: 12px !important;
-        padding: 10px 14px !important;
-        margin: 8px 0px 12px 0px !important;
+        background-color: {box_bg} !important; border: 1px solid {primary_blue} !important;
+        border-radius: 12px !important; padding: 10px 14px !important; margin: 8px 0px 12px 0px !important;
     }}
 
     .today-card {{
         background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
-        color: #FFFFFF !important;
-        padding: 16px 20px !important;
-        border-radius: 16px !important;
-        margin-bottom: 20px !important;
+        color: #FFFFFF !important; padding: 16px 20px !important;
+        border-radius: 16px !important; margin-bottom: 20px !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
     }}
     .today-card .today-title {{ font-size: 14px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #E0E7FF !important; }}
@@ -181,96 +167,115 @@ responsive_css = f"""
     }}
 
     /* 이미지형 달력 스타일 */
-    .cal-week-row {{
-        display: flex; border-bottom: 1px solid {border_color};
-    }}
-    .cal-week-row:first-child {{
-        border-top: 2px solid {main_text_color}; /* 최상단 굵은 선 */
-    }}
+    .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; }}
+    .cal-week-row {{ display: flex; border-bottom: 1px solid {border_color}; }}
+    .cal-week-row:last-child {{ border-bottom: none; }}
     .cal-day-cell {{
-        flex: 1; min-height: 80px; padding: 4px; border-right: 1px solid {border_color};
-        display: flex; flex-direction: column; box-sizing: border-box;
-        position: relative;
+        flex: 1; min-height: 100px; padding: 4px; border-right: 1px solid {border_color};
+        display: flex; flex-direction: column; box-sizing: border-box; position: relative;
+        background-color: {box_bg};
     }}
     .cal-day-cell:last-child {{ border-right: none; }}
     
-    /* 주말/공휴일 헤더 셀 배경색 */
     .cal-header-cell {{
-        text-align: center; font-weight: 800; font-size: 13px; padding: 6px 0;
-        border-bottom: 2px solid {main_text_color};
+        text-align: center; font-weight: 800; font-size: 12px; padding: 6px 0;
+        border-bottom: 2px solid {main_text_color}; background-color: {table_header_bg};
     }}
     
     .cal-day-number {{
-        font-size: 14px; font-weight: 900; text-align: right; margin-bottom: 4px;
-        display: block;
+        font-size: 13px; font-weight: 900; text-align: right; display: block; margin-bottom: 2px;
     }}
-    /* 오늘 날짜 표시 */
-    .cal-day-cell.is-today {{
-        background-color: #EFF6FF !important; border: 2px solid {primary_blue};
-        border-radius: 8px; margin: -1px; /* 테두리 침범 방지 */
-    }}
+    
+    /* 주말 색상 */
+    .text-sun {{ color: #EF4444 !important; }}
+    .text-sat {{ color: #3B82F6 !important; }}
+    .cal-header-cell.text-sun {{ background-color: #FEF2F2 !important; }}
+    .cal-header-cell.text-sat {{ background-color: #EFF6FF !important; }}
+
+    /* 오늘 날짜 강조 */
+    .cal-day-cell.is-today {{ background-color: #EFF6FF !important; border: 2px solid {primary_blue}; }}
     .cal-day-cell.is-today .cal-day-number {{ color: {primary_blue}; }}
 
-    /* 근무자 텍스트 */
-    .cal-duty-text {{
-        font-size: 11px !important; font-weight: 600 !important; line-height: 1.3 !important;
-        text-align: center; margin-top: auto; margin-bottom: auto;
-        color: {main_text_color} !important;
+    /* 근무자 및 메모 텍스트 */
+    .cal-info-wrapper {{
+        flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+        padding: 2px 0;
     }}
-    /* 대직 표시 (괄호) */
-    .cal-sub-text {{ color: #666 !important; }}
-    /* 메모 텍스트 (추석연휴 등) */
+    .cal-duty-text {{
+        font-size: 11px !important; font-weight: 700 !important; line-height: 1.3 !important;
+        text-align: center; color: {main_text_color} !important; margin: 1px 0;
+    }}
+    .cal-sub-text {{ color: #555 !important; font-weight: 600; }}
     .cal-memo-text {{
         font-size: 10px !important; font-weight: 700 !important; color: #D97706 !important;
-        text-align: center; margin-top: 2px;
+        text-align: center; margin-top: 3px; line-height: 1.2;
     }}
 
-    /* 색상 정의 */
-    .text-sun {{ color: #EF4444 !important; }} /* 일요일/공휴일 빨강 */
-    .text-sat {{ color: #3B82F6 !important; }} /* 토요일 파랑 */
-    .bg-sun-header {{ background-color: #FEF2F2 !important; }}
-    .bg-sat-header {{ background-color: #EFF6FF !important; }}
-
-    [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
-        background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
-    }}
-    p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
-
+    [data-testid="stSidebar"] {{ background-color: {sidebar_bg} !important; }}
     .stButton > button {{
-        width: 100% !important; min-height: 38px !important;
-        padding: 6px 10px !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
-        transition: all 0.2s ease;
+        border: 1px solid {border_color} !important; border-radius: 10px !important;
+        background-color: {btn_bg} !important; color: {btn_text} !important; font-weight: 800 !important;
     }}
-    .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
+</style>
+"""
+st.markdown(responsive_css, unsafe_allow_html=True)
 
-    [data-testid="stDialog"] > div:first-child {{
-        background-color: {dialog_bg} !important; color: {main_text_color} !important;
-        border-radius: 18px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important;
-    }}
-    input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
-        background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
-    }}
-    [data-baseweb="tab-list"] {{
-        width: 100% !important; display: flex !important; gap: 3px !important;
-        background-color: #F3F4F6 !important; padding: 3px !important; border-radius: 12px !important;
-    }}
-    [data-baseweb="tab"] {{
-        flex: 1 1 auto !important; padding: 6px 4px !important; font-size: 12px !important; font-weight: 800 !important;
-        text-align: center !important; border-radius: 8px !important; color: #4B5563 !important;
-    }}
-    [data-baseweb="tab[aria-selected=\"true\"]"] {{ background-color: #FFFFFF !important; color: {primary_blue} !important; }}
+# ---------------------------------------------------------
+# Solapi 인증 헤더 생성 유틸 함수
+# ---------------------------------------------------------
+def get_solapi_auth_headers(api_key, api_secret):
+    date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    salt = uuid.uuid4().hex
+    data = date + salt
+    signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
+    auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
+    return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
-    .table-container {{
-        width: 100%; max-height: 480px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
-    }}
-    .sticky-table {{
-        width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; white-space: nowrap;
-    }}
-    .sticky-table th, .sticky-table td {{
-        padding: 6px 8px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
-    }}
-    .sticky-table th {{
-        background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
-    }}
-    .sticky-table th:nth
+# ---------------------------------------------------------
+# 파일 유틸 및 로더 함수
+# ---------------------------------------------------------
+def get_initial_excel_file():
+    candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
+    valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
+    return valid_files[0] if valid_files else os.path.join("data", "숙직근무표.xlsx")
+
+def update_excel_download_bytes(df):
+    try:
+        save_df = df.copy()
+        if "날짜" in save_df.columns:
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+        memos = st.session_state.get("memos", {})
+        if "메모" in save_df.columns:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns else ""))
+        else:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            save_df.to_excel(writer, index=False, sheet_name="숙직근무자")
+        st.session_state.file_bytes = output.getvalue()
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ 다운로드 데이터 생성 실패: {e}")
+
+def load_excel_smart(file_input, selected_sheet=None):
+    file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
+    file_obj = io.BytesIO(file_bytes)
+    excel_file = pd.ExcelFile(file_obj)
+    sheet_names = excel_file.sheet_names
+
+    target_sheet = selected_sheet if selected_sheet and selected_sheet in sheet_names else (next((s for s in sheet_names if "숙직근무자" in s), sheet_names[0]))
+    
+    file_obj.seek(0)
+    df_raw = pd.read_excel(file_obj, sheet_name=target_sheet, header=None)
+    header_idx = 0
+    for idx in range(min(20, len(df_raw))):
+        if any(k in " ".join([str(v) for v in df_raw.iloc[idx].values]) for k in ["날짜", "일자", "근무일", "성명"]):
+            header_idx = idx
+            break
+
+    holiday_map = {}
+    memo_dict = {}
+    try:
+        if df_raw.shape[1] >= 13:
+            for r_idx in range(header_idx + 1, len(df_raw)):
+                row_vals = df_raw.iloc

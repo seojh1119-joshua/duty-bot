@@ -95,7 +95,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 모바일 세로 화면(9:16 등) 및 버튼 간격 제로(밀착) 최적화 CSS
+# 테마 및 모바일 반응형 CSS
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -242,9 +242,6 @@ responsive_css = f"""
             line-height: 1.3 !important;
         }}
     }}
-    input, select, textarea {{
-        caret-color: transparent !important;
-    }}
     .table-container {{
         width: 100%;
         max-height: 450px;
@@ -269,21 +266,6 @@ responsive_css = f"""
         top: 0;
         z-index: 3;
     }}
-    .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky;
-        left: 0;
-        z-index: 4;
-        background-color: {table_sticky_bg};
-        width: 45px;
-        min-width: 45px;
-    }}
-    .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
-        position: sticky;
-        left: 45px;
-        z-index: 4;
-        background-color: {table_sticky_bg};
-        border-right: 2px solid {border_color};
-    }}
     .stat-metric-card {{
         background: {card_bg};
         border: 1px solid {border_color};
@@ -301,178 +283,21 @@ responsive_css = f"""
         font-weight: 800;
         color: {"#60A5FA" if is_dark else "#2563EB"};
     }}
-    html {{
-        touch-action: manipulation;
-    }}
-    @media (max-width: 600px) {{
-        .main .block-container {{
-            padding: 0.1rem 2px 0.6rem 2px !important;
-        }}
-        h1 {{
-            font-size: clamp(16px, 5vw, 20px) !important;
-        }}
-        [data-baseweb="tab-list"] {{
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            flex-wrap: nowrap !important;
-            scrollbar-width: none !important;
-        }}
-        [data-baseweb="tab-list"]::-webkit-scrollbar {{
-            display: none !important;
-        }}
-        [data-baseweb="tab-list"] button {{
-            font-size: clamp(10px, 3vw, 13px) !important;
-            padding: 6px 8px !important;
-            white-space: nowrap !important;
-        }}
-        .sticky-table {{
-            font-size: 11px !important;
-        }}
-        .sticky-table th, .sticky-table td {{
-            padding: 5px 6px !important;
-        }}
-        .today-card, .month-header-card {{
-            padding: 4px 6px !important;
-        }}
-    }}
 </style>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 모바일 가상키보드 방지 및 오늘 날짜 테마 음영 처리 JS
-# ---------------------------------------------------------
-calendar_enhancer_js = f"""
-<script>
-(function() {{
-    const DBL_TAP_MS = 350;
-
-    function ensureViewportMeta(doc) {{
-        let meta = doc.querySelector('meta[name="viewport"]');
-        const content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
-        if (!meta) {{
-            meta = doc.createElement('meta');
-            meta.name = 'viewport';
-            doc.head.appendChild(meta);
-        }}
-        if (meta.getAttribute('content') !== content) {{
-            meta.setAttribute('content', content);
-        }}
-    }}
-
-    function isDialogOpen(doc) {{
-        return !!doc.querySelector('[aria-label="Close"]');
-    }}
-
-    function getActiveTabLabel(doc) {{
-        const activeTab = doc.querySelector('[data-baseweb="tab"][aria-selected="true"]');
-        return activeTab ? (activeTab.innerText || '').trim() : null;
-    }}
-
-    function isHomeState(doc) {{
-        if (isDialogOpen(doc)) return false;
-        const label = getActiveTabLabel(doc);
-        return label === null || label.includes('달력');
-    }}
-
-    function goToCalendarTab(doc) {{
-        const tabs = Array.from(doc.querySelectorAll('[data-baseweb="tab"]'));
-        const calTab = tabs.find(t => (t.innerText || '').includes('달력'));
-        if (calTab) calTab.click();
-    }}
-
-    function closeOpenDialog(doc) {{
-        const closeBtn = doc.querySelector('[aria-label="Close"]');
-        if (closeBtn) closeBtn.click();
-    }}
-
-    function backGuardTick() {{
-        const doc = window.parent.document;
-        const win = window.parent;
-        if (!doc || !win || !win.history) return;
-
-        if (!isHomeState(doc)) {{
-            const st = win.history.state;
-            if (!st || !st.dutyAppGuard) {{
-                win.history.pushState({{ dutyAppGuard: true }}, '');
-            }}
-        }}
-    }}
-
-    if (!window.parent.__dutyBackGuardBound) {{
-        window.parent.__dutyBackGuardBound = true;
-        window.parent.addEventListener('popstate', function() {{
-            const doc = window.parent.document;
-            if (!doc) return;
-            if (isDialogOpen(doc)) {{
-                closeOpenDialog(doc);
-            }} else if (!isHomeState(doc)) {{
-                goToCalendarTab(doc);
-            }}
-        }});
-    }}
-
-    function enhanceUI() {{
-        const doc = window.parent.document;
-        if (!doc) return;
-
-        ensureViewportMeta(doc);
-        backGuardTick();
-
-        const buttons = Array.from(doc.querySelectorAll('button'));
-        buttons.forEach(btn => {{
-            const txt = btn.innerText || '';
-            if (txt.includes('🌟') || txt.includes('[오늘]')) {{
-                btn.style.setProperty('background', '{today_highlight_bg}', 'important');
-                btn.style.setProperty('color', '{today_highlight_text}', 'important');
-                btn.style.setProperty('border', '{today_highlight_border}', 'important');
-                btn.style.setProperty('font-weight', '800', 'important');
-            }}
-        }});
-
-        const selects = doc.querySelectorAll('input[aria-autocomplete="list"], div[data-baseweb="select"] input');
-        selects.forEach(sel => {{
-            if (sel.dataset.dtapBound === '1') return;
-            sel.dataset.dtapBound = '1';
-            sel.setAttribute('readonly', 'readonly');
-            sel.dataset.lastTap = '0';
-
-            const handleTap = (e) => {{
-                const now = Date.now();
-                const last = parseInt(sel.dataset.lastTap || '0', 10);
-                const delta = now - last;
-                sel.dataset.lastTap = String(now);
-
-                if (delta > 0 && delta < DBL_TAP_MS) {{
-                    sel.removeAttribute('readonly');
-                    sel.focus();
-                }} else {{
-                    if (!sel.hasAttribute('readonly')) {{
-                        sel.setAttribute('readonly', 'readonly');
-                    }}
-                }}
-            }};
-
-            sel.addEventListener('pointerdown', handleTap, true);
-            sel.addEventListener('blur', () => {{
-                sel.setAttribute('readonly', 'readonly');
-                sel.dataset.lastTap = '0';
-            }});
-        }});
-    }}
-    setInterval(enhanceUI, 200);
-}})();
-</script>
-"""
-components.html(calendar_enhancer_js, height=0, width=0)
-
-# ---------------------------------------------------------
-# 데이터베이스 및 엑셀 유틸 함수
+# 데이터베이스 및 엑셀 영구 저장 유틸 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
-    candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
+    candidates = glob.glob(os.path.join("data", "*.xlsx")) + glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob("*.xlsx")
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
-    return valid_files[0] if valid_files else os.path.join("data", "숙직근무표.xlsx")
+    if valid_files:
+        return valid_files[0]
+    # 기본 경로 지정 (data 폴더)
+    os.makedirs("data", exist_ok=True)
+    return os.path.join("data", "숙직근무표.xlsx")
 
 def update_excel_download_bytes(df):
     try:
@@ -480,7 +305,10 @@ def update_excel_download_bytes(df):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
-        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
+        if "메모" not in save_df.columns:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d)[:10], ""))
+        else:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d)[:10], ""))
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -495,11 +323,18 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
-        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), ""))
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d)[:10], ""))
+        
+        # 디렉토리 보장
+        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         
         if os.path.exists(file_path):
-            with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-                save_df.to_excel(writer, index=False, sheet_name=sheet_name)
+            try:
+                with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                    save_df.to_excel(writer, index=False, sheet_name=sheet_name)
+            except Exception:
+                with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                    save_df.to_excel(writer, index=False, sheet_name=sheet_name)
         else:
             with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
                 save_df.to_excel(writer, index=False, sheet_name=sheet_name)
@@ -518,11 +353,12 @@ def save_app_state(df, sheet_name, memos):
         state_data = {"selected_sheet": sheet_name, "memos": memos, "df_dict": save_df.to_dict(orient="records")}
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
-        save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()), sheet_name)
+        
+        # 엑셀 파일 경로 (data 폴더 내 지정된 파일)
+        target_path = st.session_state.get("file_path", get_initial_excel_file())
+        save_to_excel_file(df, target_path, sheet_name)
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
-
-PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
@@ -577,13 +413,40 @@ def load_excel_smart(file_input, selected_sheet=None):
 
 initial_file = get_initial_excel_file()
 if "file_path" not in st.session_state: st.session_state.file_path = initial_file
-if "file_bytes" not in st.session_state and os.path.exists(initial_file):
-    with open(initial_file, "rb") as f: st.session_state.file_bytes = f.read()
-    st.session_state.file_name = os.path.basename(initial_file)
 
+# JSON 영구저장 데이터나 기존 엑셀 파일 로드
 if "df" not in st.session_state:
-    parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
-    st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
+    loaded_memos = {}
+    if os.path.exists(PERSISTENCE_STATE_PATH):
+        try:
+            with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
+                saved_state = json.load(f)
+                loaded_memos = saved_state.get("memos", {})
+        except:
+            pass
+
+    if os.path.exists(initial_file):
+        with open(initial_file, "rb") as f: 
+            b_data = f.read()
+        parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(b_data)
+        st.session_state.update({
+            "file_bytes": b_data, "file_name": os.path.basename(initial_file),
+            "df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, 
+            "raw_df": raw_df, "memos": loaded_memos
+        })
+    else:
+        # 파일이 없을 경우 빈 구조 생성
+        dates = pd.date_range(start=datetime.date.today().replace(day=1), periods=60, freq="D")
+        empty_df = pd.DataFrame({
+            "날짜": dates, "근무자1": "미지정", "대직1": None, "근무자2": "미지정", "대직2": None,
+            "실제근무1": "미지정", "실제근무2": "미지정", "M열구분": "", "년월": dates.strftime("%Y-%m")
+        })
+        st.session_state.update({
+            "file_bytes": b"".encode(), "file_name": "숙직근무표.xlsx",
+            "df": empty_df, "selected_sheet": "숙직근무자", "sheet_names": ["숙직근무자"], 
+            "raw_df": empty_df, "memos": loaded_memos
+        })
+        save_to_excel_file(empty_df, initial_file, "숙직근무자")
 
 update_excel_download_bytes(st.session_state.df)
 
@@ -595,11 +458,11 @@ def confirm_exit_dialog():
     st.write("정말로 시스템을 종료하시겠습니까?")
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("취소", use_container_width=True): 
+        if st.button("취소", use_container_width=True, key="exit_cancel_btn"): 
             st.session_state.show_exit_dialog = False
             st.rerun()
     with c2:
-        if st.button("종료", use_container_width=True, type="primary"):
+        if st.button("종료", use_container_width=True, type="primary", key="exit_confirm_btn"):
             st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
             st.rerun()
 
@@ -609,10 +472,10 @@ def settings_dialog():
     
     with tab_s1:
         st.markdown("#### 📱 해당 기기 전용 화면 설정")
-        new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1)
-        new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
+        new_view = st.radio("달력 표출 형식", ["🗓️ 가로형 Grid", "📄 세로형 리스트"], index=0 if st.session_state.auto_view_type == "🗓️ 가로형 Grid" else 1, key="dlg_view_radio")
+        new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1, key="dlg_theme_radio")
 
-        if st.button("화면 설정 적용 (이 기기만)", use_container_width=True, type="primary"):
+        if st.button("화면 설정 적용", use_container_width=True, type="primary", key="dlg_apply_view_btn"):
             st.session_state.update({"auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False})
             save_local_config("auto_view_type", new_view)
             save_local_config("app_theme", new_th)
@@ -638,7 +501,7 @@ def settings_dialog():
         saved_w2 = cfg.get("batch_w2_names", ["", "", ""])
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
 
-        if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
+        if st.button("🔄 순환 패턴 반영 및 저장", use_container_width=True, type="primary", key="dlg_apply_batch_btn"):
             save_local_config("batch_start_date", str(start_d))
             save_local_config("batch_infinite", infinite_repeat)
             save_local_config("batch_days_c", int(days_c))
@@ -667,17 +530,18 @@ def settings_dialog():
                 cur_d += datetime.timedelta(days=1)
                 
             st.session_state.df = df_cur
+            # 엑셀 파일 및 상태 영구 저장
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
+            st.success("✅ 순환 패턴이 반영 및 엑셀에 저장되었습니다!")
             st.rerun()
 
     with tab_s3:
         st.markdown("#### 💬 카카오톡 개인 계정 연동 (나에게 보내기)")
-        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**을 입력하여 연동하세요.\n\n⚠️ 액세스 토큰은 유효기간이 있어 시간이 지나면 만료됩니다. 전송 시 '토큰 만료/유효하지 않음' 오류가 뜨면 카카오 로그인으로 토큰을 다시 발급받아 여기에 입력해주세요.")
-        k_token = st.text_input("카카오 액세스 토큰 (Access Token)", value=st.session_state.kakao_access_token, type="password", placeholder="토큰 값 입력 (Bearer 접두어 제외)")
+        st.info("발급받으신 **사용자 액세스 토큰(User Access Token)**을 입력하여 연동하세요.")
+        k_token = st.text_input("카카오 액세스 토큰", value=st.session_state.kakao_access_token, type="password", key="dlg_kakao_token_input")
 
-        if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary"):
+        if st.button("카카오 개인토큰 저장", use_container_width=True, type="primary", key="dlg_save_token_btn"):
             st.session_state.kakao_access_token = k_token.strip()
             save_local_config("kakao_access_token", k_token.strip())
             st.session_state.show_settings_dialog = False
@@ -689,7 +553,7 @@ def edit_worker_dialog(date_str, duty_info):
     st.markdown(f"### {date_str} 근무 관리")
     if duty_info is None or "idx" not in duty_info or duty_info["idx"] not in st.session_state.df.index:
         st.error("해당 날짜의 정보를 찾을 수 없습니다.")
-        if st.button("닫기", use_container_width=True):
+        if st.button("닫기", use_container_width=True, key="edit_err_close_btn"):
             st.session_state.update({"editing_date": None, "editing_duty_info": None})
             st.rerun()
         return
@@ -718,17 +582,17 @@ def edit_worker_dialog(date_str, duty_info):
     curr_sub2 = str(curr_row.get("대직2", "")).strip() if pd.notnull(curr_row.get("대직2")) else ""
 
     with st.form(f"form_{date_str}"):
-        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1))
-        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "") if p1_s == "(직접 입력)" else ""
-        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1))
-        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "") if sub1_s == "(직접 입력)" else ""
+        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key=f"f_p1_{date_str}")
+        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"f_p1c_{date_str}") if p1_s == "(직접 입력)" else ""
+        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key=f"f_sub1_{date_str}")
+        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"f_sub1c_{date_str}") if sub1_s == "(직접 입력)" else ""
 
-        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2))
-        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "") if p2_s == "(직접 입력)" else ""
-        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2))
-        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "") if sub2_s == "(직접 입력)" else ""
+        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key=f"f_p2_{date_str}")
+        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"f_p2c_{date_str}") if p2_s == "(직접 입력)" else ""
+        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key=f"f_sub2_{date_str}")
+        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"f_sub2c_{date_str}") if sub2_s == "(직접 입력)" else ""
         
-        memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str, ""))
+        memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str, ""), key=f"f_memo_{date_str}")
         
         submitted = st.form_submit_button("💾 저장", use_container_width=True, type="primary")
         closed = st.form_submit_button("❌ 닫기", use_container_width=True)
@@ -745,26 +609,35 @@ def edit_worker_dialog(date_str, duty_info):
         st.session_state.df.loc[row_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
         st.session_state.df.loc[row_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
         
-        if memo_in.strip(): st.session_state.memos[date_str] = memo_in.strip()
-        else: st.session_state.memos.pop(date_str, None)
+        if memo_in.strip(): 
+            st.session_state.memos[date_str] = memo_in.strip()
+        else: 
+            st.session_state.memos.pop(date_str, None)
         
+        # 달력 버튼 수정 내용 즉시 엑셀 덮어쓰기 저장
         save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
         st.session_state.update({"editing_date": None, "editing_duty_info": None})
+        st.success("✅ 근무 수정 내용이 엑셀에 저장되었습니다!")
         st.rerun()
 
     if closed:
         st.session_state.update({"editing_date": None, "editing_duty_info": None})
         st.rerun()
 
+# ---------------------------------------------------------
+# 사이드바 (파일 업로드 및 다운로드)
+# ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
-    if "file_name" in st.session_state: st.info(f"📄 `{st.session_state.file_name}`")
+    if "file_name" in st.session_state: 
+        st.info(f"📄 `{st.session_state.file_name}`")
     
     up_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"], key=f"file_uploader_{st.session_state.uploader_key}")
     if up_file:
         f_bytes = up_file.getvalue()
         save_p = os.path.join("data", up_file.name)
-        with open(save_p, "wb") as f: f.write(f_bytes)
+        with open(save_p, "wb") as f: 
+            f.write(f_bytes)
         
         parsed_df, used_s, s_names, r_df, _ = load_excel_smart(f_bytes, "숙직근무자")
         st.session_state.update({
@@ -786,13 +659,15 @@ with st.sidebar:
             data=st.session_state.file_bytes, 
             file_name="숙직근무표_수정본.xlsx", 
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-            use_container_width=True
+            use_container_width=True,
+            key="sidebar_excel_download_btn"
         )
     st.divider()
-    if st.button("🔴 앱 종료", use_container_width=True):
+    if st.button("🔴 앱 종료", use_container_width=True, key="sidebar_exit_btn"):
         st.session_state.show_exit_dialog = True
         st.rerun()
 
+# 다이얼로그 호출 분기
 if st.session_state.show_exit_dialog: 
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
@@ -803,12 +678,13 @@ elif st.session_state.editing_date and st.session_state.editing_duty_info:
 df = st.session_state.df
 today = datetime.date.today()
 
+# 메인 화면 상단 헤더 및 설정 버튼 (충돌 방지를 위해 독립적이고 고유한 Key 지정)
 col_title, col_settings = st.columns([0.82, 0.18])
 with col_title:
     st.title("광주교도소 의료과 숙직근무")
 with col_settings:
     st.write("")
-    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_settings_btn"):
+    if st.button("⚙️ 설정", use_container_width=True, type="secondary", key="main_top_unique_settings_btn"):
         st.session_state.show_settings_dialog = True
         st.rerun()
 
@@ -832,7 +708,7 @@ with tab1:
     if "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
         st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
-    sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
+    sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed", key="calendar_month_select")
     st.session_state.selected_month = sel_month
 
     if sel_month in avail_months:
@@ -879,7 +755,7 @@ with tab1:
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
                 btn_display_label = f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}"
-                if st.button(btn_display_label, key=f"v_{d_str}"):
+                if st.button(btn_display_label, key=f"list_btn_{d_str}"):
                     st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
                     st.rerun()
         else:
@@ -917,7 +793,7 @@ with tab1:
                         if memo_val:
                             btn_txt += f"\n📌 {memo_val}"
 
-                        if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
+                        if g_cols[c].button(btn_txt, key=f"grid_btn_{d_str}"):
                             st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
                             st.rerun()
                         day_cnt += 1
@@ -925,7 +801,7 @@ with tab1:
 with tab2:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
-    sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
+    sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0, key="editor_month_select")
     
     preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2", "M열구분"]
     display_cols = [c for c in preferred_order if c in df.columns]
@@ -935,9 +811,9 @@ with tab2:
     if "날짜" in display_cols:
         column_configs["날짜"] = st.column_config.DateColumn("날짜", format="YYYY-MM-DD", disabled=True)
 
-    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True, column_config=column_configs)
+    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main_data_table", use_container_width=True, column_config=column_configs)
 
-    if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
+    if st.button("변경사항 일괄 저장 (엑셀 반영)", use_container_width=True, type="primary", key="editor_save_btn"):
         m_df = st.session_state.df.copy()
         if sel_ed_m == "전체 기간":
             for idx in edited_df.index:
@@ -967,15 +843,16 @@ with tab2:
         m_df["실제근무2"] = sub2.replace(["", "nan", "None"], None).combine_first(p2).fillna("미지정")
         
         st.session_state.df = m_df
+        # 에디터 수정 내용 엑셀 덮어쓰기 저장
         save_app_state(m_df, st.session_state.selected_sheet, st.session_state.memos)
-        st.success("✅ 변경사항이 저장되었습니다.")
+        st.success("✅ 에디터 변경사항이 엑셀에 성공적으로 저장되었습니다.")
         st.rerun()
 
 with tab3:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
-    sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0)
+    sel_st_m = st.selectbox("통계 월 선택", ["전체 기간"] + stat_ms, index=default_stat_idx + 1 if cur_ym in stat_ms else 0, key="stat_month_select")
     f_df = df.copy() if sel_st_m == "전체 기간" else df[df["년월"] == sel_st_m]
     
     cat_col = next((c for c in f_df.columns if "구분" in c and c != "년월" and c != "M열구분"), None)
@@ -1082,22 +959,20 @@ with tab4:
         st.info(f"📌 **{target_str}** 당일 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
 
     default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
-    custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
+    custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg, key="kakao_msg_textarea")
 
     _msg_len = len(custom_kakao_msg)
     if _msg_len > 200:
-        st.warning(f"⚠️ 메시지가 {_msg_len}자입니다. 카카오톡 기본 템플릿은 최대 200자까지만 전송할 수 있어 전송 시 오류가 발생합니다. 내용을 줄여주세요.")
+        st.warning(f"⚠️ 메시지가 {_msg_len}자입니다. 카카오톡 기본 템플릿은 최대 200자까지만 전송할 수 있습니다.")
 
-    if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
+    if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True, key="kakao_send_btn"):
         access_token = st.session_state.get("kakao_access_token", "").strip()
-
-        # 토큰 내 비ASCII 문자(한글, 제어문자 등)를 제거하여 latin-1 인코딩 에러 원천 방지
         clean_token = "".join(c for c in access_token if ord(c) < 128).strip()
 
         if not clean_token:
             st.warning("⚠️ [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
         elif _msg_len > 200:
-            st.error("❌ 메시지가 200자를 초과하여 전송하지 않았습니다. 내용을 줄인 뒤 다시 시도해주세요.")
+            st.error("❌ 메시지가 200자를 초과하여 전송하지 않았습니다.")
         else:
             url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
             headers = {
@@ -1116,10 +991,9 @@ with tab4:
             }
             
             kakao_error_guide = {
-                -401: "액세스 토큰이 유효하지 않습니다. [⚙️ 설정] ➔ [카카오톡 개인계정 연동]에서 토큰을 다시 발급받아 입력해주세요.",
-                -402: "액세스 토큰이 만료되었습니다. 카카오 로그인으로 토큰을 재발급받아 다시 입력해주세요.",
+                -401: "액세스 토큰이 유효하지 않습니다. 토큰을 다시 발급받아 입력해주세요.",
+                -402: "액세스 토큰이 만료되었습니다. 토큰을 재발급받아 입력해주세요.",
                 -403: "카카오 개발자 콘솔에서 '카카오톡 메시지 전송(talk_message)' 동의 항목이 활성화되어 있는지 확인해주세요.",
-                -9798: "카카오톡이 설치되지 않은 계정이거나 메시지를 받을 수 없는 사용자입니다.",
             }
             try:
                 resp = requests.post(url, headers=headers, data=payload, timeout=10)
@@ -1137,11 +1011,9 @@ with tab4:
                     msg = f"❌ 카카오 전송 실패 (HTTP {resp.status_code}): {detail}"
                     if guide:
                         msg += f"\n\n💡 **안내**: {guide}"
-                    else:
-                        msg += "\n\n💡 **안내**: 문제가 계속되면 카카오 Developers 콘솔에서 새 토큰을 재발급받아 입력해주세요."
                     st.error(msg)
             except requests.exceptions.Timeout:
-                st.error("❌ 전송 시간이 초과되었습니다. 네트워크 상태를 확인 후 다시 시도해주세요.")
+                st.error("❌ 전송 시간이 초과되었습니다.")
             except requests.exceptions.RequestException as ex:
                 st.error(f"❌ 전송 중 네트워크 오류가 발생했습니다: {ex}")
 

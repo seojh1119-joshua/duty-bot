@@ -248,24 +248,24 @@ responsive_css = f"""
 
 <!-- 요청하신 드롭다운 1회 클릭 시 가상키보드 방지 및 더블 클릭 시 활성화 스크립트 -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const handleSelectInputs = () => {
-        document.querySelectorAll('[data-baseweb="select"] input, select').forEach(el => {
-            if (!el.dataset.keyboardControlled) {
+document.addEventListener('DOMContentLoaded', function() {{
+    const handleSelectInputs = () => {{
+        document.querySelectorAll('[data-baseweb="select"] input, select').forEach(el => {{
+            if (!el.dataset.keyboardControlled) {{
                 el.dataset.keyboardControlled = 'true';
                 el.setAttribute('readonly', 'true');
-                el.addEventListener('dblclick', function(e) {
+                el.addEventListener('dblclick', function(e) {{
                     el.removeAttribute('readonly');
                     el.focus();
-                });
-                el.addEventListener('blur', function(e) {
+                }});
+                el.addEventListener('blur', function(e) {{
                     el.setAttribute('readonly', 'true');
-                });
-            }
-        });
-    };
+                }});
+            }}
+        }});
+    }};
     setInterval(handleSelectInputs, 400);
-});
+}});
 </script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -676,7 +676,6 @@ with tab1:
                         info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
                         
                         holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
-                        # 13열 공휴일 정보가 공백인 경우 []도 표시되지 않도록 처리
                         hol_str = f"[{holiday_name}]" if holiday_name else ""
                         
                         memo_val = st.session_state.memos.get(d_str, "")

@@ -98,13 +98,23 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
+# 쿼리 파라미터로 오늘 근무 카드 클릭 시 다이얼로그 호출 처리 (충돌 방지 최적화)
+if st.query_params.get("open_today") == "1":
+    st.session_state.update({
+        "show_today_dialog": True,
+        "show_settings_dialog": False,
+        "show_exit_dialog": False
+    })
+    st.query_params.pop("open_today", None)
+    st.rerun()
+
 if st.session_state.is_app_closed:
     st.title("👋 앱이 종료되었습니다.")
     st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (모바일 더블탭 및 스와이프 기능 포함)
+# 시스템 CSS 및 자바스크립트 적용 (모바일 터치 가상키보드 및 스와이프 기능 최적화)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -175,10 +185,17 @@ responsive_css = f"""
         width: 100% !important;
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        cursor: pointer !important;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+    .today-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
     }}
     .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
     .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
+    .today-card .today-hint {{ font-size: 11px !important; color: #E0E7FF !important; text-align: right; margin-top: 4px; font-weight: 600; }}
 
     .month-header-card {{
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
@@ -269,44 +286,46 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 
-<!-- 모바일 친화적 더블탭 가상키보드 호출 및 스와이프 전후달 이동 스크립트 -->
+<!-- 모바일 가상키보드 및 스와이프 기능 최적화 스크립트 -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {{
-    let lastClickTime = 0;
-    let lastTarget = null;
-
-    // 모바일 터치 환경에서 dblclick이 안되므로 350ms 이내 연속 클릭(더블탭) 감지 구현
+    // 모바일 터치 환경에서 셀렉트박스 클릭 시 가상키보드 및 드롭다운이 즉시 열리도록 최적화
     document.addEventListener("click", function(e) {{
         const selectBox = e.target.closest('[data-baseweb="select"]');
         if (selectBox) {{
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastClickTime;
             const inputField = selectBox.querySelector("input");
-            
-            if (tapLength < 350 && tapLength > 0 && lastTarget === selectBox) {{
-                if (inputField) {{
-                    e.preventDefault();
-                    e.stopPropagation();
-                    inputField.focus();
-                    inputField.click();
-                }}
+            if (inputField) {{
+                inputField.focus();
+                inputField.click();
             }}
-            lastClickTime = currentTime;
-            lastTarget = selectBox;
         }}
     }}, true);
+
+    document.addEventListener("touchstart", function(e) {{
+        const selectBox = e.target.closest('[data-baseweb="select"]');
+        if (selectBox) {{
+            const inputField = selectBox.querySelector("input");
+            if (inputField) {{
+                inputField.focus();
+            }}
+        }}
+    }}, {{passive: true}});
 
     // 모바일 스와이프 전후 달 이동 감지
     let touchstartX = 0;
     let touchendX = 0;
 
     document.addEventListener('touchstart', e => {{
-        touchstartX = e.changedTouches[0].screenX;
+        if (e.changedTouches && e.changedTouches.length > 0) {{
+            touchstartX = e.changedTouches[0].screenX;
+        }}
     }}, {{passive: true}});
 
     document.addEventListener('touchend', e => {{
-        touchendX = e.changedTouches[0].screenX;
-        handleGesture();
+        if (e.changedTouches && e.changedTouches.length > 0) {{
+            touchendX = e.changedTouches[0].screenX;
+            handleGesture();
+        }}
     }}, {{passive: true}});
 
     function handleGesture() {{
@@ -316,12 +335,16 @@ document.addEventListener("DOMContentLoaded", function() {{
         
         if (!monthsEl || !currentMonthEl) return;
         
-        let months = JSON.parse(monthsEl.textContent || '[]');
+        let months = [];
+        try {{
+            months = JSON.parse(monthsEl.textContent || '[]');
+        }} catch(err) {{ return; }}
+        
         let currentMonth = currentMonthEl.textContent || '';
 
         if (touchendX < touchstartX - threshold) {{
             let idx = months.indexOf(currentMonth);
-            if (idx < months.length - 1) {{
+            if (idx >= 0 && idx < months.length - 1) {{
                 let nextMonth = months[idx + 1];
                 const url = new URL(window.location.href);
                 url.searchParams.set('month', nextMonth);
@@ -355,7 +378,7 @@ def get_solapi_auth_headers(api_key, api_secret):
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 파일 유틸 및 M열 공휴일 + 메모 연동 스마트 로더 함수
+# 파일 유틸 및 스마트 로더 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -520,7 +543,7 @@ def save_workers_db(workers):
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 모음
+# 다이얼로그 모음 (상태 충돌 방지 최적화 적용)
 # ---------------------------------------------------------
 @st.dialog("⚠️ 프로그램 종료 확인")
 def confirm_exit_dialog():
@@ -738,9 +761,14 @@ with st.sidebar:
         st.download_button("📥 엑셀 다운로드", data=st.session_state.file_bytes, file_name="숙직근무표_수정본.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     st.divider()
     if st.button("🔴 앱 종료", use_container_width=True):
-        st.session_state.show_exit_dialog = True
+        st.session_state.update({
+            "show_exit_dialog": True,
+            "show_settings_dialog": False,
+            "show_today_dialog": False
+        })
         st.rerun()
 
+# 다이얼로그 호출 상태 반영 (충돌 방지)
 if st.session_state.show_exit_dialog: 
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
@@ -757,7 +785,11 @@ today = datetime.date.today()
 st.title("광주교도소 의료과 숙직근무")
 
 if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True):
-    st.session_state.show_settings_dialog = True
+    st.session_state.update({
+        "show_settings_dialog": True,
+        "show_exit_dialog": False,
+        "show_today_dialog": False
+    })
     st.rerun()
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
@@ -776,10 +808,17 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        st.markdown(f'<div class="today-card"><div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div><div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div></div>', unsafe_allow_html=True)
-        if st.button("👆 오늘 근무 안내 및 메모 수정하기", use_container_width=True, type="primary"):
-            st.session_state.show_today_dialog = True
-            st.rerun()
+        # 오늘 근무 안내 박스 클릭 시 수정 다이얼로그가 열리도록 상호작용 카드 구현 (별도 버튼 제거)
+        st.markdown(
+            f"""
+            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 오늘 근무 및 메모 수정">
+                <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
+                <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
+                <div class="today-hint">👆 박스를 누르면 수정됩니다</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
@@ -882,7 +921,7 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # 스와이프 전환을 위한 월 데이터 태그 주입
+        # 전역 스와이프 인식을 위한 월 데이터 태그 주입
         avail_months_json = json.dumps(avail_months)
         st.markdown(f"""
         <div id="avail-months-data" style="display:none;">{avail_months_json}</div>

@@ -1,10 +1,5 @@
-streamlit
+flask
 pandas
 openpyxl
-streamlit-calendar
-plotly
-apscheduler
-pyyaml
 requests
-pytz
 holidays

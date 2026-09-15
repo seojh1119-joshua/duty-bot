@@ -98,15 +98,27 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# 쿼리 파라미터로 오늘 근무 카드 클릭 시 다이얼로그 호출 처리 (안정성 강화)
+# 쿼리 파라미터 처리 (오늘 근무 카드 클릭 시 -> 일자별 수정 탭 및 다이얼로그 호출)
 if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_today_dialog": True,
         "show_settings_dialog": False,
-        "show_exit_dialog": False
+        "show_exit_dialog": False,
+        "active_main_tab": 1 # 일자별 수정 탭 인덱스
     })
     if "open_today" in st.query_params:
         del st.query_params["open_today"]
+    st.rerun()
+
+# 달력 일자 클릭 시 쿼리 파라미터 처리 (특정 날짜를 탭2 일자별 수정의 기본값으로 지정)
+click_date_param = st.query_params.get("click_date")
+if click_date_param:
+    st.session_state.update({
+        "selected_edit_date_str": click_date_param,
+        "active_main_tab": 1 # 일자별 수정 탭
+    })
+    if "click_date" in st.query_params:
+        del st.query_params["click_date"]
     st.rerun()
 
 if st.session_state.is_app_closed:
@@ -220,6 +232,11 @@ responsive_css = f"""
         display: flex; flex-direction: column; position: relative;
         background-color: {box_bg};
         word-break: break-all;
+        cursor: pointer !important;
+        transition: background-color 0.1s ease;
+    }}
+    .cal-day-cell:hover {{
+        background-color: {'#2A2A2A' if is_dark else '#F8FAFC'} !important;
     }}
     .cal-day-cell:last-child {{ border-right: none; }}
     
@@ -345,6 +362,7 @@ document.addEventListener("DOMContentLoaded", function() {{
         
         let currentMonth = currentMonthEl.textContent || '';
 
+        // 왼쪽으로 스와이프 (다음 달로 이동)
         if (touchendX < touchstartX - threshold) {{
             let idx = months.indexOf(currentMonth);
             if (idx >= 0 && idx < months.length - 1) {{
@@ -354,6 +372,7 @@ document.addEventListener("DOMContentLoaded", function() {{
                 window.location.href = url.toString();
             }}
         }}
+        // 오른쪽으로 스와이프 (이전 달로 이동)
         if (touchendX > touchstartX + threshold) {{
             let idx = months.indexOf(currentMonth);
             if (idx > 0) {{
@@ -367,8 +386,9 @@ document.addEventListener("DOMContentLoaded", function() {{
 
     window.addEventListener('popstate', function(event) {{
         const url = new URL(window.location.href);
-        if (url.searchParams.has('open_today') || url.searchParams.has('month')) {{
+        if (url.searchParams.has('open_today') || url.searchParams.has('month') || url.searchParams.has('click_date')) {{
             url.searchParams.delete('open_today');
+            url.searchParams.delete('click_date');
             window.history.replaceState({{}}, '', url.toString());
             window.location.reload();
         }}
@@ -803,6 +823,9 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
+# 탭 선택 인덱스 제어 (기본값 0)
+active_tab_idx = st.session_state.get("active_main_tab", 0)
+
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
@@ -819,6 +842,7 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
+        # 오늘 근무 안내 박스 클릭 시 일자별 수정 메뉴(탭2 및 다이얼로그)로 이동하도록 링크 연결
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
@@ -900,7 +924,8 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                # 리스트 항목 클릭 시 일자별 수정 메뉴로 이동
+                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
@@ -932,7 +957,8 @@ with tab1:
                         w2 = duty_info["p2"]
                         memo = st.session_state.memos.get(d_str, "")
                         
-                        html_content += f'<div class="cal-day-cell {day_class}">'
+                        # 각 달력 일자 셀 클릭 시 쿼리파라미터를 통해 일자별 수정(탭2)으로 이동
+                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}\';" title="{d_str} 일자별 수정 열기">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
                         if holiday_name:
@@ -965,7 +991,17 @@ with tab2:
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
+        # 달력 일자 클릭 등으로 전달된 날짜가 있으면 우선 반영
         default_d = today if today in available_dates else available_dates[0]
+        if "selected_edit_date_str" in st.session_state:
+            try:
+                parsed_target = datetime.datetime.strptime(st.session_state.selected_edit_date_str, "%Y-%m-%d").date()
+                if parsed_target in available_dates:
+                    default_d = parsed_target
+                del st.session_state["selected_edit_date_str"]
+            except:
+                pass
+
         sel_edit_date = st.date_input("수정할 날짜 선택", value=default_d, key="tab2_date_input")
         
         row_match = df[df["날짜"].dt.date == sel_edit_date]

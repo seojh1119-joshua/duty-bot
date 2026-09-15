@@ -1,3 +1,4 @@
+import os
 import calendar
 import datetime
 import gc
@@ -151,7 +152,6 @@ responsive_css = f"""
         text-align: center;
     }}
 
-    /* 얇고 포인트를 주는 색상의 테두리 적용 */
     .setting-box {{
         background-color: {box_bg} !important;
         border: 1px solid {primary_blue} !important;
@@ -320,7 +320,6 @@ def load_excel_smart(file_input, selected_sheet=None):
             header_idx = idx
             break
 
-    # 공휴일 소스: data 폴더의 엑셀파일 숙직근무자 시트 13번째 열(인덱스 12) 참고
     holiday_map = {}
     try:
         if df_raw.shape[1] > 12:
@@ -334,7 +333,7 @@ def load_excel_smart(file_input, selected_sheet=None):
                 row_date_val = df_raw.iloc[r_idx, date_col_raw_idx]
                 parsed_d = pd.to_datetime(row_date_val, errors="coerce")
                 if pd.notnull(parsed_d):
-                    hol_val = df_raw.iloc[r_idx, 12] # 13번째 열 (0-based index 12)
+                    hol_val = df_raw.iloc[r_idx, 12]
                     if pd.notnull(hol_val) and str(hol_val).strip() not in ["nan", "None", ""]:
                         holiday_map[parsed_d.strftime("%Y-%m-%d")] = str(hol_val).strip()
     except Exception:
@@ -564,11 +563,10 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 탭 구성 (일자별 수정 탭 추가)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (수정 기능 제거 및 텍스트 표시 전용, 정해진 순서 반영)
+# [탭 1] 달력 뷰
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -642,7 +640,6 @@ with tab1:
                         d_str = c_date.strftime("%Y-%m-%d")
                         info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
                         
-                        # 공휴일 소스 (13번째 열 참고 값)
                         holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
                         hol_str = f"[{holiday_name}]" if holiday_name else ""
                         
@@ -659,7 +656,6 @@ with tab1:
                         else:
                             border_style = f"border: 1px solid {border_color};"
 
-                        # 요청된 순서: [공휴일] / 일자 / 실제근무1 / 실제근무2 / 메모
                         cell_html = f"""
                         <div style="background-color: {box_bg}; {border_style} border-radius: 8px; padding: 3px 2px; text-align: center; min-height: 82px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; box-sizing: border-box;">
                             <div style="color: #EF4444; font-weight: 700; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 12px;">{hol_str}</div>
@@ -673,7 +669,7 @@ with tab1:
                         day_cnt += 1
 
 # ---------------------------------------------------------
-# [탭 2] 일자별 근무자 및 메모 수정 탭 신설
+# [탭 2] 일자별 근무자 및 메모 수정 탭
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 일자별 근무자 및 메모 수정")

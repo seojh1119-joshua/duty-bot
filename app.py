@@ -15,6 +15,9 @@ import streamlit.components.v1 as components
 import altair as alt
 from pathlib import Path
 
+# 일요일을 주의 시작(첫 번째 열)으로 설정하여 요일 밀림 현상 방지
+calendar.setfirstweekday(calendar.SUNDAY)
+
 # 대한민국 공휴일 라이브러리 예외 처리
 try:
     import holidays
@@ -101,7 +104,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (드롭다운 더블클릭 키보드 인터랙션 포함)
+# 시스템 CSS 및 자바스크립트 적용 (모바일 더블탭 및 스와이프 기능 포함)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -266,20 +269,75 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
 
-<!-- 드롭다운 박스 인터랙션 스크립트: 1회 클릭 선택/오픈, 더블클릭 시 검색창 포커스로 가상키보드 호출 -->
+<!-- 모바일 친화적 더블탭 가상키보드 호출 및 스와이프 전후달 이동 스크립트 -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {{
-    const targetDoc = window.parent.document;
-    targetDoc.addEventListener("dblclick", function(e) {{
+    let lastClickTime = 0;
+    let lastTarget = null;
+
+    // 모바일 터치 환경에서 dblclick이 안되므로 350ms 이내 연속 클릭(더블탭) 감지 구현
+    document.addEventListener("click", function(e) {{
         const selectBox = e.target.closest('[data-baseweb="select"]');
         if (selectBox) {{
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastClickTime;
             const inputField = selectBox.querySelector("input");
-            if (inputField) {{
-                inputField.focus();
-                inputField.click();
+            
+            if (tapLength < 350 && tapLength > 0 && lastTarget === selectBox) {{
+                if (inputField) {{
+                    e.preventDefault();
+                    e.stopPropagation();
+                    inputField.focus();
+                    inputField.click();
+                }}
+            }}
+            lastClickTime = currentTime;
+            lastTarget = selectBox;
+        }}
+    }}, true);
+
+    // 모바일 스와이프 전후 달 이동 감지
+    let touchstartX = 0;
+    let touchendX = 0;
+
+    document.addEventListener('touchstart', e => {{
+        touchstartX = e.changedTouches[0].screenX;
+    }}, {{passive: true}});
+
+    document.addEventListener('touchend', e => {{
+        touchendX = e.changedTouches[0].screenX;
+        handleGesture();
+    }}, {{passive: true}});
+
+    function handleGesture() {{
+        let threshold = 50;
+        const monthsEl = document.getElementById('avail-months-data');
+        const currentMonthEl = document.getElementById('current-month-data');
+        
+        if (!monthsEl || !currentMonthEl) return;
+        
+        let months = JSON.parse(monthsEl.textContent || '[]');
+        let currentMonth = currentMonthEl.textContent || '';
+
+        if (touchendX < touchstartX - threshold) {{
+            let idx = months.indexOf(currentMonth);
+            if (idx < months.length - 1) {{
+                let nextMonth = months[idx + 1];
+                const url = new URL(window.location.href);
+                url.searchParams.set('month', nextMonth);
+                window.location.href = url.toString();
             }}
         }}
-    }});
+        if (touchendX > touchstartX + threshold) {{
+            let idx = months.indexOf(currentMonth);
+            if (idx > 0) {{
+                let prevMonth = months[idx - 1];
+                const url = new URL(window.location.href);
+                url.searchParams.set('month', prevMonth);
+                window.location.href = url.toString();
+            }}
+        }}
+    }}
 }});
 </script>
 """
@@ -705,7 +763,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (터치 스와이프 전후달 이동 및 공휴일 표시 보완)
+# [탭 1] 달력 뷰 (일자/요일 일치, 스와이프 이동 및 공휴일 표시 연동)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -760,7 +818,7 @@ with tab1:
             duty_map[row["날짜"].day] = {"p1": p1_name, "p2": p2_name}
 
         if st.session_state.auto_view_type == "📄 세로형 리스트":
-            weekdays_kr = ["월", "화", "수", "목", "금", "토", "일"]
+            weekdays_kr = ["일", "월", "화", "수", "목", "금", "토"]
             for d in range(1, calendar.monthrange(y, m)[1] + 1):
                 c_date = datetime.date(y, m, d)
                 d_str = c_date.strftime("%Y-%m-%d")
@@ -824,53 +882,12 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # 모바일 스와이프 전후 달 이동 스크립트 (부모 창 기준 터치 제스처 처리)
+        # 스와이프 전환을 위한 월 데이터 태그 주입
         avail_months_json = json.dumps(avail_months)
-        current_month_json = json.dumps(sel_month)
-        
-        swipe_script = f"""
-        <script>
-        (function() {{
-            const months = {avail_months_json};
-            const currentMonth = {current_month_json};
-            let touchstartX = 0;
-            let touchendX = 0;
-
-            const targetDoc = window.parent.document;
-            targetDoc.addEventListener('touchstart', e => {{
-                touchstartX = e.changedTouches[0].screenX;
-            }}, {{passive: true}});
-
-            targetDoc.addEventListener('touchend', e => {{
-                touchendX = e.changedTouches[0].screenX;
-                handleGesture();
-            }}, {{passive: true}});
-
-            function handleGesture() {{
-                let threshold = 60;
-                if (touchendX < touchstartX - threshold) {{
-                    let idx = months.indexOf(currentMonth);
-                    if (idx < months.length - 1) {{
-                        let nextMonth = months[idx + 1];
-                        const url = new URL(window.parent.location.href);
-                        url.searchParams.set('month', nextMonth);
-                        window.parent.location.href = url.toString();
-                    }}
-                }}
-                if (touchendX > touchstartX + threshold) {{
-                    let idx = months.indexOf(currentMonth);
-                    if (idx > 0) {{
-                        let prevMonth = months[idx - 1];
-                        const url = new URL(window.parent.location.href);
-                        url.searchParams.set('month', prevMonth);
-                        window.parent.location.href = url.toString();
-                    }}
-                }}
-            }}
-        }})();
-        </script>
-        """
-        st.markdown(swipe_script, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
+        <div id="current-month-data" style="display:none;">{sel_month}</div>
+        """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭

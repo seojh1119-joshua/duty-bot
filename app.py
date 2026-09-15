@@ -1100,33 +1100,43 @@ with tab4:
     default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
     custom_kakao_msg = st.text_area("발송할 카카오톡 메시지 내용 작성", value=default_kakao_msg)
 
-    # 카카오 기본 템플릿(text)은 최대 200자까지만 허용되므로, 미리 확인해 오류를 방지
-    _msg_len = len(custom_kakao_msg)
-    if _msg_len > 200:
-        st.warning(f"⚠️ 메시지가 {_msg_len}자입니다. 카카오톡 기본 템플릿은 최대 200자까지만 전송할 수 있어 전송 시 오류가 발생합니다. 내용을 줄여주세요.")
-
     if st.button("📤 내 카카오톡(나에게 보내기)으로 알림 전송", type="primary", use_container_width=True):
         access_token = st.session_state.get("kakao_access_token", "").strip()
 
         if not access_token:
             st.warning("⚠️ [⚙️ 설정] ➔ [카카오톡 개인계정 연동] 탭에서 카카오 사용자 액세스 토큰을 먼저 입력해주세요.")
-        elif _msg_len > 200:
-            st.error("❌ 메시지가 200자를 초과하여 전송하지 않았습니다. 내용을 줄인 뒤 다시 시도해주세요.")
         else:
             url = "https://kapi.kakao.com/v2/api/talk/memo/default/send"
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/x-www-form-urlencoded;charset=utf-8"
             }
+            
+            # 💡 수정 포인트: 한글이 포함된 딕셔너리를 utf-8 바이트로 직접 변환하여 인코딩 에러 방지
+            template_obj = {
+                "object_type": "text",
+                "text": custom_kakao_msg,
+                "link": {
+                    "web_url": "https://developers.kakao.com",
+                    "mobile_web_url": "https://developers.kakao.com"
+                }
+            }
             payload = {
-                "template_object": json.dumps({
-                    "object_type": "text",
-                    "text": custom_kakao_msg,
-                    "link": {
-                        "web_url": "https://developers.kakao.com",
-                        "mobile_web_url": "https://developers.kakao.com"
-                    }
-                }, ensure_ascii=False)
+                "template_object": json.dumps(template_obj, ensure_ascii=False)
+            }
+            
+            try:
+                resp = requests.post(url, headers=headers, data=payload, timeout=10)
+                if resp.status_code in [200, 201]:
+                    res_json = resp.json()
+                    if res_json.get("result_code") == 0:
+                        st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
+                    else:
+                        st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
+                else:
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
+            except Exception as ex:
+                st.error(f"전송 중 네트워크 오류 발생: {ex}")
             }
             # 카카오 API가 자주 반환하는 오류 코드에 대한 안내 문구
             kakao_error_guide = {

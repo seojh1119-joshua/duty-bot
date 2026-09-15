@@ -101,7 +101,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용 (세로 확장이 가능한 캘린더 그리드)
+# 시스템 CSS 및 자바스크립트 적용 (드롭다운 더블클릭 키보드 인터랙션 포함)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -183,7 +183,6 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    /* 7열 균등 배치 가로형 캘린더 컨테이너 구조 (세로 확장형) */
     .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; border-radius: 12px; overflow: hidden; }}
     .cal-week-row {{ display: flex; width: 100%; border-bottom: 1px solid {border_color}; }}
     .cal-week-row:last-child {{ border-bottom: none; }}
@@ -266,6 +265,23 @@ responsive_css = f"""
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
+
+<!-- 드롭다운 박스 인터랙션 스크립트: 1회 클릭 선택/오픈, 더블클릭 시 검색창 포커스로 가상키보드 호출 -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {{
+    const targetDoc = window.parent.document;
+    targetDoc.addEventListener("dblclick", function(e) {{
+        const selectBox = e.target.closest('[data-baseweb="select"]');
+        if (selectBox) {{
+            const inputField = selectBox.querySelector("input");
+            if (inputField) {{
+                inputField.focus();
+                inputField.click();
+            }}
+        }}
+    }});
+}});
+</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -689,7 +705,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰 (터치 스와이프 전후달 이동, 스와이프 버튼 제거, 셀 세로 확장)
+# [탭 1] 달력 뷰 (터치 스와이프 전후달 이동 및 공휴일 표시 보완)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -716,7 +732,6 @@ with tab1:
     elif "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
         st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
-    # 스와이프 버튼 제거 및 월 선택 셀렉트박스 단독 배치
     sel_month = st.selectbox("조회 월 선택", avail_months, index=avail_months.index(st.session_state.selected_month) if st.session_state.selected_month in avail_months else 0, label_visibility="collapsed")
     if sel_month != st.session_state.selected_month:
         st.session_state.selected_month = sel_month
@@ -753,12 +768,14 @@ with tab1:
                 info = duty_map.get(d, {"p1": "-", "p2": "-"})
                 
                 holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
+                if not holiday_name and c_date in kr_holidays:
+                    holiday_name = kr_holidays.get(c_date)
+
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
                 st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
-            # 7열 균등 배치 가로형 캘린더 그리드 구조 (세로 확장 및 말줄임표 제거)
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
@@ -778,6 +795,8 @@ with tab1:
                         is_today = (c_date == today)
                         
                         holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
+                        if not holiday_name and c_date in kr_holidays:
+                            holiday_name = kr_holidays.get(c_date)
                         
                         day_class = "is-today" if is_today else ""
                         text_color_class = "text-sun" if (i == 0 or holiday_name) else ("text-sat" if i == 6 else "")
@@ -790,15 +809,12 @@ with tab1:
                         html_content += f'<div class="cal-day-cell {day_class}">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
-                        # M열 공휴일 이름 표시 (줄바꿈 허용으로 세로 확장)
                         if holiday_name:
                             html_content += f'<div style="font-size:9px; font-weight:700; color:#EF4444; text-align:center; line-height:1.1; margin-bottom:2px; white-space:normal; word-break:break-all;">[{holiday_name}]</div>'
                         
-                        # 근무자명 표시 (줄바꿈 허용으로 세로 확장)
                         if w1 or w2:
                             html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:1px; line-height:1.3; white-space:normal; word-break:break-all;"><b>{w1}</b><br><b>{w2}</b></div>'
                         
-                        # 메모 표시 (줄바꿈 허용으로 세로 확장)
                         if memo and str(memo).strip():
                             html_content += f'<div style="font-size:10px; font-weight:700; color:#D97706; text-align:center; margin-top:4px; white-space:normal; word-break:break-all;">📌 {memo}</div>'
                         
@@ -808,22 +824,24 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # 모바일 드래그/스와이프 전후 달 이동 스크립트 컴포넌트
+        # 모바일 스와이프 전후 달 이동 스크립트 (부모 창 기준 터치 제스처 처리)
         avail_months_json = json.dumps(avail_months)
         current_month_json = json.dumps(sel_month)
         
-        swipe_component_html = f"""
+        swipe_script = f"""
         <script>
+        (function() {{
             const months = {avail_months_json};
             const currentMonth = {current_month_json};
             let touchstartX = 0;
             let touchendX = 0;
 
-            document.addEventListener('touchstart', e => {{
+            const targetDoc = window.parent.document;
+            targetDoc.addEventListener('touchstart', e => {{
                 touchstartX = e.changedTouches[0].screenX;
             }}, {{passive: true}});
 
-            document.addEventListener('touchend', e => {{
+            targetDoc.addEventListener('touchend', e => {{
                 touchendX = e.changedTouches[0].screenX;
                 handleGesture();
             }}, {{passive: true}});
@@ -834,20 +852,25 @@ with tab1:
                     let idx = months.indexOf(currentMonth);
                     if (idx < months.length - 1) {{
                         let nextMonth = months[idx + 1];
-                        window.parent.location.search = '?month=' + nextMonth;
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('month', nextMonth);
+                        window.parent.location.href = url.toString();
                     }}
                 }}
                 if (touchendX > touchstartX + threshold) {{
                     let idx = months.indexOf(currentMonth);
                     if (idx > 0) {{
                         let prevMonth = months[idx - 1];
-                        window.parent.location.search = '?month=' + prevMonth;
+                        const url = new URL(window.parent.location.href);
+                        url.searchParams.set('month', prevMonth);
+                        window.parent.location.href = url.toString();
                     }}
                 }}
             }}
+        }})();
         </script>
         """
-        components.html(swipe_component_html, height=0)
+        st.markdown(swipe_script, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭

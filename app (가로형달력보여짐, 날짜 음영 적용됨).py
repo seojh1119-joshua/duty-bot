@@ -835,7 +835,7 @@ with tab4:
     if not matched_row.empty:
         r_info = matched_row.iloc[0]
         m_p1 = r_info.get("실제근무1", "미지정")
-        m_p2 = r_info.get("실제근무2", "미지정")
+        m_p2 = r_info.get("실제클무2", r_info.get("실제근무2", "미지정"))
         st.info(f"📌 **{target_str}** 당일 근무자 확인 -> 1근무: **{m_p1}** | 2근무: **{m_p2}**")
 
     default_kakao_msg = f"[광주교도소 의료과] {target_str} 숙직 근무 안내\n- 1근무: {m_p1}\n- 2근무: {m_p2}\n지정된 시간에 근무에 임해주시기 바랍니다."
@@ -870,10 +870,8 @@ with tab4:
                         st.success("🎉 본인 카카오톡(나에게 보내기)으로 메시지가 성공적으로 전송되었습니다!")
                     else:
                         st.error(f"❌ 카카오 전송 오류 응답: {res_json}")
-                elif resp.status_code == 401:
-                    st.error(f"❌ **[인증 오류 (401)]** 상세 응답: {resp.text}\n\n💡 **해결 방법**: IP 설정을 비웠음에도 이 오류가 난다면, 사용 중인 **액세스 토큰이 만료되었거나** 카카오 Developers 앱 설정에서 **'카카오 로그인' 활성화 및 '나에게 보내기(talk_message)' 동의 항목**이 켜져 있지 않은 상태입니다. 토큰을 다시 발급받아 입력해 보세요.")
                 else:
-                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}")
+                    st.error(f"❌ 전송 실패 (HTTP 코드 {resp.status_code}): {resp.text}\n\n💡 **안내**: 'ip mismatched' 오류가 계속된다면 카카오 서버에 설정이 반영되는 중이거나 IP 보안 설정이 활성화된 상태입니다. 카카오 Developers 콘솔에서 앱을 새로 생성하여 IP 입력을 완전히 배제한 상태로 토큰을 재발급받아 보세요.")
             except Exception as ex:
                 st.error(f"전송 중 네트워크 오류 발생: {ex}")
 

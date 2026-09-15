@@ -4,7 +4,6 @@ import gc
 import glob
 import io
 import json
-import os
 import hmac
 import hashlib
 import uuid
@@ -86,7 +85,6 @@ local_cfg = load_local_config()
 
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False),
-    ("editing_date", None), ("editing_duty_info", None),
     ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
@@ -102,7 +100,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 적용
+# 시스템 CSS 적용 (9:16 비율 및 얇고 포인트 있는 테두리)
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -139,48 +137,49 @@ responsive_css = f"""
     .main .block-container {{
         background-color: {theme_bg} !important;
         color: {main_text_color} !important;
-        padding: 0.6rem 10px 1.2rem 10px !important;
-        max-width: 520px !important;
+        padding: 0.5rem 10px 1rem 10px !important;
+        max-width: 450px !important; /* 9:16 모바일 비율 최적화 */
         margin: 0 auto !important;
         box-sizing: border-box !important;
     }}
 
     h1 {{
-        font-size: 22px !important;
-        margin: 10px 0px 14px 0px !important;
+        font-size: 21px !important;
+        margin: 8px 0px 12px 0px !important;
         font-weight: 800 !important;
         color: {main_text_color} !important;
         text-align: center;
     }}
 
+    /* 얇고 포인트를 주는 색상의 테두리 적용 */
     .setting-box {{
         background-color: {box_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 16px !important;
-        padding: 14px 16px !important;
-        margin: 10px 0px 14px 0px !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border: 1px solid {primary_blue} !important;
+        border-radius: 12px !important;
+        padding: 10px 14px !important;
+        margin: 8px 0px 12px 0px !important;
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
     }}
 
     .today-card {{
         background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
         color: #FFFFFF !important;
-        padding: 16px 18px !important;
-        border-radius: 16px !important;
-        margin-bottom: 16px !important;
+        padding: 14px 16px !important;
+        border-radius: 14px !important;
+        margin-bottom: 12px !important;
         width: 100% !important;
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
     }}
-    .today-card .today-title {{ font-size: 12px !important; font-weight: 800 !important; margin-bottom: 6px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
-    .today-card .today-content {{ font-size: 16px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
-    .today-card span {{ color: #FEF08A !important; font-size: 17px !important; font-weight: 900 !important; text-decoration: underline; }}
+    .today-card .today-title {{ font-size: 11px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
+    .today-card .today-content {{ font-size: 15px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
+    .today-card span {{ color: #FEF08A !important; font-size: 16px !important; font-weight: 900 !important; text-decoration: underline; }}
 
     .month-header-card {{
-        background: {box_bg}; border: 1px solid {border_color}; border-radius: 14px; padding: 12px 16px; margin: 12px 0 14px 0; text-align: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
+        box-shadow: 0 2px 6px rgba(59, 130, 246, 0.08);
     }}
-    .month-header-card h2 {{ margin: 0 !important; font-size: 17px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
+    .month-header-card h2 {{ margin: 0 !important; font-size: 16px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
         background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
@@ -188,58 +187,50 @@ responsive_css = f"""
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .stButton > button {{
-        width: 100% !important; min-height: 40px !important;
-        padding: 8px 10px !important; border: 1px solid {border_color} !important; border-radius: 12px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
+        width: 100% !important; min-height: 38px !important;
+        padding: 6px 10px !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
+        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 12px !important; font-weight: 800 !important; 
         box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         transition: all 0.2s ease;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
     [data-testid="stHorizontalBlock"] {{
-        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 3px !important; margin: 0 !important; padding: 0 !important;
+        display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: 100% !important; gap: 2px !important; margin: 0 !important; padding: 0 !important;
     }}
     [data-testid="column"] {{
         width: 14.285% !important; max-width: 14.285% !important; min-width: 14.285% !important; flex: 0 0 14.285% !important; padding: 0px !important; margin: 0 !important; box-sizing: border-box !important;
     }}
-    div[data-testid="column"] .stButton > button {{
-        min-height: 72px !important; max-height: 96px !important; padding: 4px 2px !important; font-size: 10px !important; border-radius: 10px !important;
-        display: flex !important; flex-direction: column !important; justify-content: flex-start !important; align-items: center !important; line-height: 1.25 !important;
-        width: 100% !important; box-sizing: border-box !important; background-color: {box_bg} !important; border: 1px solid {border_color} !important; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    }}
-    div[data-testid="column"] .stButton > button:hover {{
-        border-color: {primary_blue} !important; box-shadow: 0 3px 8px rgba(0,0,0,0.08);
-    }}
 
     [data-testid="stDialog"] > div:first-child {{
         background-color: {dialog_bg} !important; color: {main_text_color} !important; width: 88vw !important; max-width: 380px !important;
-        border-radius: 20px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
+        border-radius: 18px !important; padding: 16px 14px !important; border: 1px solid {border_color} !important; margin: auto !important;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
     }}
     input, select, textarea, [data-baseweb="input"], [data-baseweb="select"] {{
         background-color: {input_bg} !important; color: {input_text} !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
     }}
     [data-baseweb="tab-list"] {{
-        width: 100% !important; display: flex !important; gap: 4px !important; background-color: {box_bg}; padding: 4px !important; border-radius: 14px; border: 1px solid {border_color};
+        width: 100% !important; display: flex !important; gap: 3px !important; background-color: {box_bg}; padding: 3px !important; border-radius: 12px; border: 1px solid {border_color};
     }}
     [data-baseweb="tab"] {{
-        flex: 1 1 auto !important; padding: 8px 6px !important; font-size: 13px !important; font-weight: 800 !important; text-align: center !important; border-radius: 10px !important; justify-content: center !important;
+        flex: 1 1 auto !important; padding: 6px 4px !important; font-size: 11px !important; font-weight: 800 !important; text-align: center !important; border-radius: 8px !important; justify-content: center !important;
     }}
 
     .table-container {{
         width: 100%; max-height: 450px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
     .sticky-table {{
-        width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; white-space: nowrap;
+        width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; white-space: nowrap;
     }}
     .sticky-table th, .sticky-table td {{
-        padding: 10px 12px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
+        padding: 8px 10px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
     }}
     .sticky-table th {{
         background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
     }}
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 90px; min-width: 90px;
+        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 85px; min-width: 85px;
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
@@ -329,6 +320,26 @@ def load_excel_smart(file_input, selected_sheet=None):
             header_idx = idx
             break
 
+    # 공휴일 소스: data 폴더의 엑셀파일 숙직근무자 시트 13번째 열(인덱스 12) 참고
+    holiday_map = {}
+    try:
+        if df_raw.shape[1] > 12:
+            date_col_raw_idx = 0
+            for c_idx in range(df_raw.shape[1]):
+                col_vals = df_raw.iloc[:, c_idx].astype(str).values
+                if any(any(k in str(v) for k in ["날짜", "일자", "date"]) for v in col_vals[:header_idx+2]):
+                    date_col_raw_idx = c_idx
+                    break
+            for r_idx in range(header_idx + 1, len(df_raw)):
+                row_date_val = df_raw.iloc[r_idx, date_col_raw_idx]
+                parsed_d = pd.to_datetime(row_date_val, errors="coerce")
+                if pd.notnull(parsed_d):
+                    hol_val = df_raw.iloc[r_idx, 12] # 13번째 열 (0-based index 12)
+                    if pd.notnull(hol_val) and str(hol_val).strip() not in ["nan", "None", ""]:
+                        holiday_map[parsed_d.strftime("%Y-%m-%d")] = str(hol_val).strip()
+    except Exception:
+        pass
+
     file_obj.seek(0)
     df = pd.read_excel(file_obj, sheet_name=target_sheet, header=header_idx)
     df.columns = [str(col).strip() if not str(col).startswith("Unnamed") else f"열_{i}" for i, col in enumerate(df.columns)]
@@ -356,7 +367,7 @@ def load_excel_smart(file_input, selected_sheet=None):
     other_cols = [c for c in df.columns if c not in base_cols and c != "년월"]
     ordered_cols = base_cols + other_cols + ["년월"]
     
-    return df[ordered_cols], target_sheet, sheet_names, df_raw, file_bytes
+    return df[ordered_cols], target_sheet, sheet_names, df_raw, file_bytes, holiday_map
 
 initial_file = get_initial_excel_file()
 if "file_path" not in st.session_state: st.session_state.file_path = initial_file
@@ -365,8 +376,12 @@ if "file_bytes" not in st.session_state and os.path.exists(initial_file):
     st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
-    parsed_df, used_sheet, sheet_names, raw_df, _ = load_excel_smart(st.session_state.file_bytes)
-    st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}})
+    parsed_df, used_sheet, sheet_names, raw_df, _, holiday_map = load_excel_smart(st.session_state.file_bytes)
+    st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": {}, "holiday_map": holiday_map})
+else:
+    if "holiday_map" not in st.session_state:
+        _, _, _, _, _, holiday_map = load_excel_smart(st.session_state.file_bytes)
+        st.session_state.holiday_map = holiday_map
 
 def load_workers_db():
     if WORKERS_DB_FILE.exists():
@@ -496,78 +511,6 @@ def settings_dialog():
             st.success("✅ 문자(SMS) API 설정이 저장되었습니다.")
             st.rerun()
 
-@st.dialog("✏️ 근무자 및 메모 수정")
-def edit_worker_dialog(date_str, duty_info):
-    st.markdown(f"### {date_str} 근무 관리")
-    if duty_info is None or "idx" not in duty_info or duty_info["idx"] not in st.session_state.df.index:
-        st.error("해당 날짜의 정보를 찾을 수 없습니다.")
-        if st.button("닫기", use_container_width=True):
-            st.session_state.update({"editing_date": None, "editing_duty_info": None})
-            st.rerun()
-        return
-
-    row_idx = duty_info["idx"]
-    curr_row = st.session_state.df.loc[row_idx]
-    
-    all_workers = set()
-    for col in ["근무자1", "근무자2", "대직1", "대직2"]:
-        if col in st.session_state.df.columns:
-            for v in st.session_state.df[col].dropna().unique():
-                v_str = str(v).strip()
-                if v_str and v_str not in ["미지정", "nan", "None"]:
-                    all_workers.add(v_str)
-
-    worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
-    
-    def get_idx(val):
-        if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: return 0
-        val_str = str(val).strip()
-        return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
-
-    curr_p1 = str(curr_row.get("근무자1", "")).strip() if pd.notnull(curr_row.get("근무자1")) else ""
-    curr_p2 = str(curr_row.get("근무자2", "")).strip() if pd.notnull(curr_row.get("근무자2")) else ""
-    curr_sub1 = str(curr_row.get("대직1", "")).strip() if pd.notnull(curr_row.get("대직1")) else ""
-    curr_sub2 = str(curr_row.get("대직2", "")).strip() if pd.notnull(curr_row.get("대직2")) else ""
-
-    with st.form(f"form_{date_str}"):
-        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1))
-        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "") if p1_s == "(직접 입력)" else ""
-        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1))
-        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "") if sub1_s == "(직접 입력)" else ""
-
-        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2))
-        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "") if p2_s == "(직접 입력)" else ""
-        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2))
-        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "") if sub2_s == "(직접 입력)" else ""
-        
-        memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str, ""))
-        
-        submitted = st.form_submit_button("💾 저장", use_container_width=True, type="primary")
-        closed = st.form_submit_button("❌ 닫기", use_container_width=True)
-
-    if submitted:
-        f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
-        f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
-        f_sub1 = sub1_c if sub1_s == "(직접 입력)" else ("" if sub1_s == "(선택 안함)" else sub1_s)
-        f_sub2 = sub2_c if sub2_s == "(직접 입력)" else ("" if sub2_s == "(선택 안함)" else sub2_s)
-        
-        st.session_state.df.loc[row_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [
-            f_p1 if f_p1 else "미지정", f_p2 if f_p2 else "미지정", f_sub1 if f_sub1 else None, f_sub2 if f_sub2 else None
-        ]
-        st.session_state.df.loc[row_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
-        st.session_state.df.loc[row_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
-        
-        if memo_in.strip(): st.session_state.memos[date_str] = memo_in.strip()
-        else: st.session_state.memos.pop(date_str, None)
-        
-        save_app_state(st.session_state.df, st.session_state.selected_sheet, st.session_state.memos)
-        st.session_state.update({"editing_date": None, "editing_duty_info": None})
-        st.rerun()
-
-    if closed:
-        st.session_state.update({"editing_date": None, "editing_duty_info": None})
-        st.rerun()
-
 # ---------------------------------------------------------
 # 사이드바
 # ---------------------------------------------------------
@@ -581,10 +524,10 @@ with st.sidebar:
         save_p = os.path.join("data", up_file.name)
         with open(save_p, "wb") as f: f.write(f_bytes)
         
-        parsed_df, used_s, s_names, r_df, _ = load_excel_smart(f_bytes, "숙직근무자")
+        parsed_df, used_s, s_names, r_df, _, holiday_map = load_excel_smart(f_bytes, "숙직근무자")
         st.session_state.update({
             "file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name,
-            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df,
+            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df, "holiday_map": holiday_map,
             "upload_success_msg": "✅ 파일 업로드 완료!"
         })
         save_app_state(parsed_df, used_s, st.session_state.memos)
@@ -606,8 +549,6 @@ if st.session_state.show_exit_dialog:
     confirm_exit_dialog()
 elif st.session_state.show_settings_dialog: 
     settings_dialog()
-elif st.session_state.editing_date and st.session_state.editing_duty_info: 
-    edit_worker_dialog(st.session_state.editing_date, st.session_state.editing_duty_info)
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -623,10 +564,11 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 달력", "✏️ 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
+# 탭 구성 (일자별 수정 탭 추가)
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
-# [탭 1] 달력 뷰
+# [탭 1] 달력 뷰 (수정 기능 제거 및 텍스트 표시 전용, 정해진 순서 반영)
 # ---------------------------------------------------------
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
@@ -677,22 +619,16 @@ with tab1:
                 weekday_str = weekdays_kr[weekday_idx]
                 info = duty_map.get(d, {"p1": "-", "p2": "-"})
                 
-                is_today = (c_date == today)
-                if is_today: t_str = f"🌟 [오늘] {d:02d}일({weekday_str})"
-                elif weekday_idx == 6 or c_date in kr_holidays: t_str = f"🔴 {d:02d}일({weekday_str})"
-                elif weekday_idx == 5: t_str = f"🔵 {d:02d}일({weekday_str})"
-                else: t_str = f"🗓️ {d:02d}일({weekday_str})"
-                    
+                holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
+                hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                if st.button(f"{t_str} | 1:{info['p1']} | 2:{info['p2']}{memo_s}", key=f"v_{d_str}"):
-                    st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(d)})
-                    st.rerun()
+                st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:12px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | 1: {info['p1']} / 2: {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             cols_h = st.columns(7)
             h_names = [("일", "#EF4444"), ("월", main_text_color), ("화", main_text_color), ("수", main_text_color), ("목", main_text_color), ("금", main_text_color), ("토", "#3B82F6")]
             for idx, (h_n, col_c) in enumerate(h_names):
-                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 12px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
+                cols_h[idx].markdown(f"<div style='text-align: center; color: {col_c}; font-weight: 800; font-size: 11px; padding: 4px 0;'>{h_n}</div>", unsafe_allow_html=True)
 
             offset = (calendar.monthrange(y, m)[0] + 1) % 7
             day_cnt = 1
@@ -700,32 +636,124 @@ with tab1:
                 g_cols = st.columns(7)
                 for c in range(7):
                     if (r * 7 + c) < offset or day_cnt > num_days:
-                        g_cols[c].write("")
+                        g_cols[c].markdown("<div style='min-height: 80px;'></div>", unsafe_allow_html=True)
                     else:
                         c_date = datetime.date(y, m, day_cnt)
                         d_str = c_date.strftime("%Y-%m-%d")
                         info = duty_map.get(day_cnt, {"p1": "-", "p2": "-"})
-                        memo_s = "📌" if st.session_state.memos.get(d_str) else ""
+                        
+                        # 공휴일 소스 (13번째 열 참고 값)
+                        holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
+                        hol_str = f"[{holiday_name}]" if holiday_name else ""
+                        
+                        memo_val = st.session_state.memos.get(d_str, "")
+                        memo_str = f"📌 {memo_val}" if memo_val else ""
                         
                         is_today = (c_date == today)
-                        if is_today: day_prefix = "🌟"
-                        elif c == 0 or c_date in kr_holidays: day_prefix = "🔴"
-                        elif c == 6: day_prefix = "🔵"
-                        else: day_prefix = ""
-                            
-                        t_str = f"{day_prefix}{day_cnt}" if day_prefix else str(day_cnt)
-                        btn_txt = f"{t_str}\n{info['p1']}\n{info['p2']}"
-                        if memo_s: btn_txt += f" {memo_s}"
+                        if is_today:
+                            border_style = f"border: 2px solid {primary_blue};"
+                        elif c == 0 or holiday_name:
+                            border_style = f"border: 1px solid #EF4444;"
+                        elif c == 6:
+                            border_style = f"border: 1px solid #3B82F6;"
+                        else:
+                            border_style = f"border: 1px solid {border_color};"
 
-                        if g_cols[c].button(btn_txt, key=f"g_{d_str}"):
-                            st.session_state.update({"editing_date": d_str, "editing_duty_info": duty_map.get(day_cnt)})
-                            st.rerun()
+                        # 요청된 순서: [공휴일] / 일자 / 실제근무1 / 실제근무2 / 메모
+                        cell_html = f"""
+                        <div style="background-color: {box_bg}; {border_style} border-radius: 8px; padding: 3px 2px; text-align: center; min-height: 82px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; box-sizing: border-box;">
+                            <div style="color: #EF4444; font-weight: 700; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 12px;">{hol_str}</div>
+                            <div style="color: {main_text_color}; font-weight: 900; font-size: 11px;">{day_cnt}</div>
+                            <div style="color: {main_text_color}; font-weight: 600; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p1']}</div>
+                            <div style="color: {main_text_color}; font-weight: 600; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{info['p2']}</div>
+                            <div style="color: #D97706; font-weight: 600; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; height: 11px;">{memo_str}</div>
+                        </div>
+                        """
+                        g_cols[c].markdown(cell_html, unsafe_allow_html=True)
                         day_cnt += 1
 
 # ---------------------------------------------------------
-# [탭 2] 수정 뷰
+# [탭 2] 일자별 근무자 및 메모 수정 탭 신설
 # ---------------------------------------------------------
 with tab2:
+    st.subheader("✏️ 일자별 근무자 및 메모 수정")
+    st.markdown("수정할 날짜를 선택하여 근무자 및 메모를 일자별로 상세히 관리할 수 있습니다.")
+    
+    available_dates = sorted(df["날짜"].dt.date.unique())
+    if available_dates:
+        default_d = today if today in available_dates else available_dates[0]
+        sel_edit_date = st.date_input("수정할 날짜 선택", value=default_d, key="tab2_date_input")
+        
+        row_match = df[df["날짜"].dt.date == sel_edit_date]
+        if not row_match.empty:
+            r_idx = row_match.index[0]
+            curr_r = df.loc[r_idx]
+            
+            all_workers = set()
+            for col in ["근무자1", "근무자2", "대직1", "대직2"]:
+                if col in df.columns:
+                    for v in df[col].dropna().unique():
+                        v_str = str(v).strip()
+                        if v_str and v_str not in ["미지정", "nan", "None"]:
+                            all_workers.add(v_str)
+
+            worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
+            
+            def get_idx(val):
+                if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: return 0
+                val_str = str(val).strip()
+                return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
+
+            curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
+            curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
+            curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
+            curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
+            date_str_key = sel_edit_date.strftime("%Y-%m-%d")
+
+            with st.form(f"tab2_edit_form_{date_str_key}"):
+                st.markdown(f"#### 📅 {date_str_key} 근무 관리")
+                p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="t2_p1")
+                p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="t2_p1_c") if p1_s == "(직접 입력)" else ""
+                sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="t2_sub1")
+                sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="t2_sub1_c") if sub1_s == "(직접 입력)" else ""
+
+                p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key="t2_p2")
+                p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="t2_p2_c") if p2_s == "(직접 입력)" else ""
+                sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key="t2_sub2")
+                sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="t2_sub2_c") if sub2_s == "(직접 입력)" else ""
+                
+                memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str_key, ""), key="t2_memo")
+                
+                submitted_t2 = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
+
+            if submitted_t2:
+                f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
+                f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
+                f_sub1 = sub1_c if sub1_s == "(직접 입력)" else ("" if sub1_s == "(선택 안함)" else sub1_s)
+                f_sub2 = sub2_c if sub2_s == "(직접 입력)" else ("" if sub2_s == "(선택 안함)" else sub2_s)
+                
+                df.loc[r_idx, ["근무자1", "근무자2", "대직1", "대직2"]] = [
+                    f_p1 if f_p1 else "미지정", f_p2 if f_p2 else "미지정", f_sub1 if f_sub1 else None, f_sub2 if f_sub2 else None
+                ]
+                df.loc[r_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
+                df.loc[r_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
+                
+                if memo_in.strip(): st.session_state.memos[date_str_key] = memo_in.strip()
+                else: st.session_state.memos.pop(date_str_key, None)
+                
+                st.session_state.df = df
+                save_app_state(df, st.session_state.selected_sheet, st.session_state.memos)
+                st.success(f"✅ {date_str_key} 근무 정보가 성공적으로 수정되었습니다!")
+                st.rerun()
+        else:
+            st.warning("선택한 날짜에 해당하는 근무 정보가 없습니다.")
+    else:
+        st.info("등록된 날짜 데이터가 없습니다.")
+
+# ---------------------------------------------------------
+# [탭 3] 전체 수정 뷰
+# ---------------------------------------------------------
+with tab3:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
@@ -780,9 +808,9 @@ with tab2:
         st.rerun()
 
 # ---------------------------------------------------------
-# [탭 3] 통계 뷰
+# [탭 4] 통계 뷰
 # ---------------------------------------------------------
-with tab3:
+with tab4:
     st.subheader("근무자 월별 통계 및 근무 구분 분석")
     stat_ms = sorted(df["년월"].dropna().unique(), reverse=True)
     default_stat_idx = stat_ms.index(cur_ym) if cur_ym in stat_ms else 0
@@ -832,7 +860,7 @@ with tab3:
             y=alt.Y('근무시간:Q', title='총 근무시간 (시간)'),
             color=alt.Color('근무구분:N', scale=alt.Scale(domain=['평일', '금요일', '토요일', '일요일'], range=['#EAB308', '#22C55E', '#3B82F6', '#EF4444']), title='근무 구분'),
             tooltip=['근무자', '근무구분', '근무횟수', '근무시간']
-        ).properties(height=380).configure_legend(orient="bottom", title=None)
+        ).properties(height=350).configure_legend(orient="bottom", title=None)
         
         st.altair_chart(chart, use_container_width=True)
         
@@ -879,20 +907,20 @@ with tab3:
 
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 14px; margin-top: 12px; text-align: center;">
+            <div style="display: flex; justify-content: space-around; background-color: {box_bg}; border: 1px solid {border_color}; border-radius: 12px; padding: 12px; margin-top: 10px; text-align: center;">
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">👥 총 근무자 명수</div>
-                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>
+                    <div style="font-size: 10px; font-weight: 700; color: #888; margin-bottom: 2px;">👥 총 근무자 명수</div>
+                    <div style="font-size: 15px; font-weight: 900; color: {main_text_color};">{total_workers_count} 명</div>
                 </div>
                 <div style="border-right: 1px solid {border_color};"></div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">📅 총 근무일수</div>
-                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_days} 일</div>
+                    <div style="font-size: 10px; font-weight: 700; color: #888; margin-bottom: 2px;">📅 총 근무일수</div>
+                    <div style="font-size: 15px; font-weight: 900; color: {main_text_color};">{total_duty_days} 일</div>
                 </div>
                 <div style="border-right: 1px solid {border_color};"></div>
                 <div>
-                    <div style="font-size: 11px; font-weight: 700; color: #888; margin-bottom: 4px;">⏱️ 총 근무시간</div>
-                    <div style="font-size: 16px; font-weight: 900; color: {main_text_color};">{total_duty_hours} 시간</div>
+                    <div style="font-size: 10px; font-weight: 700; color: #888; margin-bottom: 2px;">⏱️ 총 근무시간</div>
+                    <div style="font-size: 15px; font-weight: 900; color: {main_text_color};">{total_duty_hours} 시간</div>
                 </div>
             </div>
             """,
@@ -902,9 +930,9 @@ with tab3:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 4] 문자 통보 탭
+# [탭 5] 문자 통보 탭
 # ---------------------------------------------------------
-with tab4:
+with tab5:
     st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
     st.markdown("""
     > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
@@ -1101,8 +1129,8 @@ with tab4:
             st.info("등록된 근무자 연락처가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 5] 원본 데이터 뷰
+# [탭 6] 원본 데이터 뷰
 # ---------------------------------------------------------
-with tab5:
+with tab6:
     st.subheader("시트 데이터 원본")
     st.dataframe(df, use_container_width=True)

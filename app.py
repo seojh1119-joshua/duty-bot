@@ -413,7 +413,8 @@ def get_solapi_auth_headers(api_key, api_secret):
 # 파일 유틸 및 스마트 로더 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
-    candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
+    os.makedirs("data", exist_ok=True)
+    candidates = glob.glob(os.path.join("data", "*.xlsx")) + glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob("*.xlsx")
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
     return valid_files[0] if valid_files else os.path.join("data", "숙직근무표.xlsx")
 
@@ -443,6 +444,10 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         memos = st.session_state.get("memos", {})
         if "메모" in save_df.columns:
             save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        else:
+            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        
+        os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         
         if os.path.exists(file_path):
             with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
@@ -463,9 +468,12 @@ def save_app_state(df, sheet_name, memos):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         state_data = {"selected_sheet": sheet_name, "memos": memos, "df_dict": save_df.to_dict(orient="records")}
+        os.makedirs("DATA", exist_ok=True)
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
-        save_to_excel_file(df, st.session_state.get("file_path", get_initial_excel_file()), sheet_name)
+        
+        target_file_path = st.session_state.get("file_path", os.path.join("data", "숙직근무표.xlsx"))
+        save_to_excel_file(df, target_file_path, sheet_name)
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
@@ -739,9 +747,10 @@ def settings_dialog():
                 cur_d += datetime.timedelta(days=1)
                 
             st.session_state.df = df_cur
+            # data 폴더의 숙직근무자 시트에 수정된 값이 저장되도록 호출
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 순환 패턴이 성공적으로 반영되었습니다!")
+            st.success("✅ 순환 패턴이 성공적으로 반영되고 data 폴더의 엑셀 시트에 저장되었습니다!")
             st.rerun()
 
     with tab_s3:
@@ -772,6 +781,7 @@ with st.sidebar:
     up_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"], key=f"file_uploader_{st.session_state.uploader_key}")
     if up_file:
         f_bytes = up_file.getvalue()
+        os.makedirs("data", exist_ok=True)
         save_p = os.path.join("data", up_file.name)
         with open(save_p, "wb") as f: f.write(f_bytes)
         
@@ -779,7 +789,7 @@ with st.sidebar:
         st.session_state.update({
             "file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name,
             "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df, "holiday_map": holiday_map, "memos": memo_dict,
-            "upload_success_msg": "✅ 파일 업로드 완료!"
+            "upload_success_msg": "✅ 파일 업로드 및 data 폴더 내 숙직근무자 시트 덮어쓰기 완료!"
         })
         save_app_state(parsed_df, used_s, st.session_state.memos)
         st.session_state.uploader_key += 1
@@ -924,7 +934,6 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                # 리스트 항목 클릭 시 일자별 수정 메뉴로 이동
                 st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             html_content = '<div class="cal-container">'
@@ -957,7 +966,6 @@ with tab1:
                         w2 = duty_info["p2"]
                         memo = st.session_state.memos.get(d_str, "")
                         
-                        # 각 달력 일자 셀 클릭 시 쿼리파라미터를 통해 일자별 수정(탭2)으로 이동
                         html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}\';" title="{d_str} 일자별 수정 열기">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
@@ -991,7 +999,6 @@ with tab2:
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
-        # 달력 일자 클릭 등으로 전달된 날짜가 있으면 우선 반영
         default_d = today if today in available_dates else available_dates[0]
         if "selected_edit_date_str" in st.session_state:
             try:

@@ -4,3 +4,4 @@ openpyxl
 holidays
 altair
 requests
+streamlit-swipecards>=0.2.6

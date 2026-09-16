@@ -751,18 +751,17 @@ with tab1:
     
     query_month = st.query_params.get("month")
     
-    target_month = cur_ym if cur_ym in avail_months else avail_months[0]
     if query_month and query_month in avail_months:
         target_month = query_month
     elif "selected_month" in st.session_state and st.session_state.selected_month in avail_months:
         target_month = st.session_state.selected_month
+    else:
+        target_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
     st.session_state.selected_month = target_month
 
-    if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget not in avail_months:
+    if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget != target_month:
         st.session_state.month_selectbox_widget = target_month
-    elif query_month and query_month in avail_months and st.session_state.month_selectbox_widget != query_month:
-        st.session_state.month_selectbox_widget = query_month
 
     def on_month_change():
         chosen = st.session_state.month_selectbox_widget
@@ -867,9 +866,62 @@ with tab1:
             st.markdown(html_content, unsafe_allow_html=True)
 
         # ---------------------------------------------------------
-        # 달력 아래 양방향 이동 작고 직관적인 버튼 추가
+        # 화면 하단 1/3 지점에 항상 고정되는 달력 좌우 플로팅 버튼
         # ---------------------------------------------------------
         cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
+        prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
+        next_m = avail_months[cur_idx + 1] if cur_idx < len(avail_months) - 1 else ""
+        
+        left_dis = "disabled" if cur_idx <= 0 else ""
+        right_dis = "disabled" if cur_idx >= len(avail_months) - 1 else ""
+
+        st.markdown(f"""
+        <style>
+            .floating-cal-btn {{
+                position: fixed;
+                bottom: 33vh;
+                z-index: 999999;
+                width: 46px;
+                height: 46px;
+                border-radius: 50%;
+                background: {'#1E293B' if is_dark else '#FFFFFF'};
+                color: {'#3B82F6' if is_dark else '#2563EB'};
+                border: 2px solid #3B82F6;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                font-weight: 900;
+                cursor: pointer;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+                backdrop-filter: blur(4px);
+                user-select: none;
+                transition: all 0.2s ease-in-out;
+            }}
+            .floating-cal-btn:hover {{
+                background: #3B82F6;
+                color: #FFFFFF;
+                transform: scale(1.12);
+            }}
+            .floating-cal-btn.left {{ left: 12px; }}
+            .floating-cal-btn.right {{ right: 12px; }}
+            .floating-cal-btn.disabled {{
+                opacity: 0.2;
+                cursor: not-allowed;
+                pointer-events: none;
+            }}
+        </style>
+        <div class="floating-cal-btn left {left_dis}" 
+             onclick="const url = new URL(window.location.href); url.searchParams.set('month', '{prev_m}'); window.location.href = url.toString();" 
+             title="이전달 ({prev_m})">◀</div>
+        <div class="floating-cal-btn right {right_dis}" 
+             onclick="const url = new URL(window.location.href); url.searchParams.set('month', '{next_m}'); window.location.href = url.toString();" 
+             title="다음달 ({next_m})">▶</div>
+        """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------------
+        # 달력 하단 하단 컨트롤 버튼
+        # ---------------------------------------------------------
         st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
         col_prev, col_mid, col_next = st.columns([1, 2, 1])
         
@@ -877,7 +929,6 @@ with tab1:
             if st.button("◀ 이전달", key="cal_btn_prev", disabled=(cur_idx <= 0), use_container_width=True):
                 prev_month = avail_months[cur_idx - 1]
                 st.session_state.selected_month = prev_month
-                st.session_state.month_selectbox_widget = prev_month
                 st.query_params["month"] = prev_month
                 st.rerun()
                 
@@ -888,7 +939,6 @@ with tab1:
             if st.button("다음달 ▶", key="cal_btn_next", disabled=(cur_idx >= len(avail_months) - 1), use_container_width=True):
                 next_month = avail_months[cur_idx + 1]
                 st.session_state.selected_month = next_month
-                st.session_state.month_selectbox_widget = next_month
                 st.query_params["month"] = next_month
                 st.rerun()
 
@@ -903,7 +953,7 @@ with tab1:
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 일자별 근무자 및 메모 수정")
-    st.markdown("수정할 날짜를 선택하여 해당 일자의 근무자 및 대직자 정보를 확인하고 수정할 수 있습니다.")
+    st.markdown("수정할 날짜를 선택하여 해당 일자의 근무자 및 대직자 정보를 선택하여 변경할 수 있습니다.")
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
@@ -929,33 +979,12 @@ with tab2:
             curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
             curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
             curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
-            
-            curr_real1 = str(curr_r.get("실제근무1", "")).strip() if pd.notnull(curr_r.get("실제근무1")) else ""
-            curr_real2 = str(curr_r.get("실제근무2", "")).strip() if pd.notnull(curr_r.get("실제근무2")) else ""
 
             disp_p1 = curr_p1 if curr_p1 not in ["nan", "None", ""] else "미지정"
             disp_p2 = curr_p2 if curr_p2 not in ["nan", "None", ""] else "미지정"
-            disp_sub1 = curr_sub1 if curr_sub1 not in ["nan", "None", ""] else "(없음)"
-            disp_sub2 = curr_sub2 if curr_sub2 not in ["nan", "None", ""] else "(없음)"
+            disp_sub1 = curr_sub1 if curr_sub1 not in ["nan", "None", ""] else "없음"
+            disp_sub2 = curr_sub2 if curr_sub2 not in ["nan", "None", ""] else "없음"
 
-            # ---------------------------------------------------------
-            # 선택한 날짜의 근무자 및 대직자 정보를 명확히 보여주는 상태 정보 카드
-            # ---------------------------------------------------------
-            st.markdown(
-                f"""
-                <div style="background-color: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 12px 16px; margin: 10px 0 14px 0; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);">
-                    <div style="font-weight: 800; font-size: 15px; color: {primary_blue}; margin-bottom: 8px;">
-                        📌 선택일자 ({date_str_key}) 현재 근무 현황
-                    </div>
-                    <div style="font-size: 13px; line-height: 1.7; color: {main_text_color};">
-                        <b>[1근무]</b> 지정 근무자: <span style="color:#2563EB; font-weight:800;">{disp_p1}</span> | 대직자: <span style="color:#D97706; font-weight:800;">{disp_sub1}</span> → <span style="font-weight:800; text-decoration:underline;">실제근무: {curr_real1}</span><br>
-                        <b>[2근무]</b> 지정 근무자: <span style="color:#2563EB; font-weight:800;">{disp_p2}</span> | 대직자: <span style="color:#D97706; font-weight:800;">{disp_sub2}</span> → <span style="font-weight:800; text-decoration:underline;">실제근무: {curr_real2}</span>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
             all_workers = set()
             for col in ["근무자1", "근무자2", "대직1", "대직2"]:
                 if col in df.columns:
@@ -971,16 +1000,20 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
+            # 근무자 드롭다운 선택상자 항목에 직접 현재 지정된 근무자 정보 표출
             with st.form(f"tab2_edit_form_{date_str_key}"):
                 st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
-                p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="t2_p1")
+                
+                p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key="t2_p1")
                 p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="t2_p1_c") if p1_s == "(직접 입력)" else ""
-                sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="t2_sub1")
+                
+                sub1_s = st.selectbox(f"대직자1 (현재: {disp_sub1})", worker_options, index=get_idx(curr_sub1), key="t2_sub1")
                 sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="t2_sub1_c") if sub1_s == "(직접 입력)" else ""
 
-                p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key="t2_p2")
+                p2_s = st.selectbox(f"근무자2 (현재: {disp_p2})", worker_options, index=get_idx(curr_p2), key="t2_p2")
                 p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="t2_p2_c") if p2_s == "(직접 입력)" else ""
-                sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key="t2_sub2")
+                
+                sub2_s = st.selectbox(f"대직자2 (현재: {disp_sub2})", worker_options, index=get_idx(curr_sub2), key="t2_sub2")
                 sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="t2_sub2_c") if sub2_s == "(직접 입력)" else ""
                 
                 memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str_key, ""), key="t2_memo")

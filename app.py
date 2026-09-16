@@ -362,7 +362,6 @@ document.addEventListener("DOMContentLoaded", function() {{
         
         let currentMonth = currentMonthEl.textContent || '';
 
-        // 왼쪽으로 스와이프 (다음 달로 이동)
         if (touchendX < touchstartX - threshold) {{
             let idx = months.indexOf(currentMonth);
             if (idx >= 0 && idx < months.length - 1) {{
@@ -372,7 +371,6 @@ document.addEventListener("DOMContentLoaded", function() {{
                 window.location.href = url.toString();
             }}
         }}
-        // 오른쪽으로 스와이프 (이전 달로 이동)
         if (touchendX > touchstartX + threshold) {{
             let idx = months.indexOf(currentMonth);
             if (idx > 0) {{
@@ -747,7 +745,6 @@ def settings_dialog():
                 cur_d += datetime.timedelta(days=1)
                 
             st.session_state.df = df_cur
-            # data 폴더의 숙직근무자 시트에 수정된 값이 저장되도록 호출
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
             st.success("✅ 순환 패턴이 성공적으로 반영되고 data 폴더의 엑셀 시트에 저장되었습니다!")
@@ -833,7 +830,6 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-# 탭 선택 인덱스 제어 (기본값 0)
 active_tab_idx = st.session_state.get("active_main_tab", 0)
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
@@ -852,7 +848,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 근무 안내 박스 클릭 시 일자별 수정 메뉴(탭2 및 다이얼로그)로 이동하도록 링크 연결
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">

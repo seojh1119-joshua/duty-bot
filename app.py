@@ -98,30 +98,6 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# 쿼리 파라미터 처리 (오늘 근무 카드 클릭 시 -> 일자별 수정 탭 및 다이얼로그 호출)
-if st.query_params.get("open_today") == "1":
-    st.session_state.update({
-        "show_today_dialog": True,
-        "show_settings_dialog": False,
-        "show_exit_dialog": False,
-        "active_main_tab": 1 # 일자별 수정 탭 인덱스
-    })
-    if "open_today" in st.query_params:
-        del st.query_params["open_today"]
-    st.rerun()
-
-# 달력 일자 클릭 시 쿼리 파라미터 처리 (특정 날짜를 탭2 일자별 수정의 기본값으로 지정 및 다이얼로그 호출)
-click_date_param = st.query_params.get("click_date")
-if click_date_param:
-    st.session_state.update({
-        "selected_edit_date_str": click_date_param,
-        "show_today_dialog": True, # 칸을 누르면 다이얼로그가 바로 뜨도록 설정
-        "active_main_tab": 1 
-    })
-    if "click_date" in st.query_params:
-        del st.query_params["click_date"]
-    st.rerun()
-
 if st.session_state.is_app_closed:
     st.title("👋 앱이 종료되었습니다.")
     st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
@@ -307,7 +283,8 @@ responsive_css = f"""
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {{
-    document.addEventListener("click", function(e) {{
+    // 모바일 가상 키보드 및 셀렉트박스 포커스 개선
+    document.addEventListener("pointerdown", function(e) {{
         const selectBox = e.target.closest('[data-baseweb="select"]');
         if (selectBox) {{
             const inputField = selectBox.querySelector("input");
@@ -317,21 +294,6 @@ document.addEventListener("DOMContentLoaded", function() {{
             }}
         }}
     }}, true);
-
-    let lastTapTime = 0;
-    document.addEventListener("touchend", function(e) {{
-        const selectBox = e.target.closest('[data-baseweb="select"]');
-        if (selectBox) {{
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastTapTime;
-            const inputField = selectBox.querySelector("input");
-            if (tapLength < 300 && tapLength > 0 && inputField) {{
-                inputField.focus();
-                inputField.click();
-            }}
-            lastTapTime = currentTime;
-        }}
-    }}, {{passive: true}});
 
     let touchstartX = 0;
     let touchendX = 0;
@@ -351,47 +313,10 @@ document.addEventListener("DOMContentLoaded", function() {{
 
     function handleGesture() {{
         let threshold = 50;
-        const monthsEl = document.getElementById('avail-months-data');
-        const currentMonthEl = document.getElementById('current-month-data');
-        
-        if (!monthsEl || !currentMonthEl) return;
-        
-        let months = [];
-        try {{
-            months = JSON.parse(monthsEl.textContent || '[]');
-        }} catch(err) {{ return; }}
-        
-        let currentMonth = currentMonthEl.textContent || '';
-
-        if (touchendX < touchstartX - threshold) {{
-            let idx = months.indexOf(currentMonth);
-            if (idx >= 0 && idx < months.length - 1) {{
-                let nextMonth = months[idx + 1];
-                const url = new URL(window.location.href);
-                url.searchParams.set('month', nextMonth);
-                window.location.href = url.toString();
-            }}
-        }}
-        if (touchendX > touchstartX + threshold) {{
-            let idx = months.indexOf(currentMonth);
-            if (idx > 0) {{
-                let prevMonth = months[idx - 1];
-                const url = new URL(window.location.href);
-                url.searchParams.set('month', prevMonth);
-                window.location.href = url.toString();
-            }}
+        if (touchendX < touchstartX - threshold || touchendX > touchstartX + threshold) {{
+            // 스와이프 감지 시 Streamlit 친화적 동작 수행 가능
         }}
     }}
-
-    window.addEventListener('popstate', function(event) {{
-        const url = new URL(window.location.href);
-        if (url.searchParams.has('open_today') || url.searchParams.has('month') || url.searchParams.has('click_date')) {{
-            url.searchParams.delete('open_today');
-            url.searchParams.delete('click_date');
-            window.history.replaceState({{}}, '', url.toString());
-            window.location.reload();
-        }}
-    }});
 }});
 </script>
 """
@@ -836,8 +761,6 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-active_tab_idx = st.session_state.get("active_main_tab", 0)
-
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
@@ -854,39 +777,28 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        st.markdown(
-            f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 창 열기">
-                <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
-                <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
-                <div class="today-hint">👆 박스를 누르면 근무 관리창이 팝업됩니다</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        # 오늘 근무 안내 카드 클릭 시 Streamlit 버튼으로 세션 제어
+        if st.button(f"오늘 근무 안내 ({today.strftime('%m월 %d일')})\n1: {p1} | 2: {p2}{memo_txt}\n👉 클릭하여 근무 관리창 열기", key="btn_today_card", use_container_width=True, type="primary"):
+            st.session_state.update({
+                "selected_edit_date_str": today.strftime("%Y-%m-%d"),
+                "show_today_dialog": True
+            })
+            st.rerun()
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
-    query_month = st.query_params.get("month")
-    
     target_month = cur_ym if cur_ym in avail_months else avail_months[0]
-    if query_month and query_month in avail_months:
-        target_month = query_month
-    elif "selected_month" in st.session_state and st.session_state.selected_month in avail_months:
+    if "selected_month" in st.session_state and st.session_state.selected_month in avail_months:
         target_month = st.session_state.selected_month
 
     st.session_state.selected_month = target_month
 
     if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget not in avail_months:
         st.session_state.month_selectbox_widget = target_month
-    elif query_month and query_month in avail_months and st.session_state.month_selectbox_widget != query_month:
-        st.session_state.month_selectbox_widget = query_month
 
     def on_month_change():
-        chosen = st.session_state.month_selectbox_widget
-        st.session_state.selected_month = chosen
-        st.query_params["month"] = chosen
+        st.session_state.selected_month = st.session_state.month_selectbox_widget
 
     sel_month = st.selectbox(
         "조회 월 선택", 
@@ -895,9 +807,6 @@ with tab1:
         on_change=on_month_change,
         label_visibility="collapsed"
     )
-
-    if st.query_params.get("month") != st.session_state.selected_month:
-        st.query_params["month"] = st.session_state.selected_month
 
     sel_month = st.session_state.selected_month
 
@@ -920,7 +829,7 @@ with tab1:
                 
             duty_map[row["날짜"].day] = {"p1": p1_name, "p2": p2_name}
 
-        # [요구사항 반영] 세로형 리스트를 가로형처럼 박스칸 형태로 리스트화하여 출력하고 클릭 시 근무 관리 팝업 연동
+        # 세로형 리스트 / 가로형 그리드 버튼 기반 구현 (팝업 연동 안정화)
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             weekdays_kr = ["일", "월", "화", "수", "목", "금", "토"]
             for d in range(1, calendar.monthrange(y, m)[1] + 1):
@@ -935,72 +844,57 @@ with tab1:
 
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
-                is_today_cls = "border: 2px solid #3B82F6;" if c_date == today else f"border: 1px solid {border_color};"
                 
-                st.markdown(
-                    f"""
-                    <div onclick="window.location.href='?click_date={d_str}';" 
-                         style="background:{box_bg}; {is_today_cls} border-radius:12px; padding:10px 14px; margin-bottom:8px; font-size:14px; cursor:pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s;" 
-                         title="클릭하여 일자별 근무 관리창 팝업">
-                        <b>{hol_tag}{d:02d}일({weekday_str})</b> &nbsp;|&nbsp; 1근무: <b>{info['p1']}</b> &nbsp;/&nbsp; 2근무: <b>{info['p2']}</b>{memo_s}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                btn_label = f"{hol_tag}{d:02d}일({weekday_str}) | 1근무: {info['p1']} / 2근무: {info['p2']}{memo_s}"
+                if st.button(btn_label, key=f"list_btn_{d_str}", use_container_width=True):
+                    st.session_state.update({
+                        "selected_edit_date_str": d_str,
+                        "show_today_dialog": True
+                    })
+                    st.rerun()
         else:
-            html_content = '<div class="cal-container">'
+            # 가로형 그리드 달력 내 날짜별 버튼 배치
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
-            html_content += '<div class="cal-week-row">'
-            for day_name, css_class in weekdays:
-                html_content += f'<div class="cal-header-cell {css_class}">{day_name}</div>'
-            html_content += '</div>'
+            cols_header = st.columns(7)
+            for idx, (day_name, css_class) in enumerate(weekdays):
+                with cols_header[idx]:
+                    st.markdown(f'<div class="cal-header-cell {css_class}">{day_name}</div>', unsafe_allow_html=True)
             
             for week in cal:
-                html_content += '<div class="cal-week-row">'
+                cols_week = st.columns(7)
                 for i, day in enumerate(week):
-                    if day == 0:
-                        html_content += f'<div class="cal-day-cell" style="background-color: transparent; border-right: 1px solid {border_color};"></div>'
-                    else:
-                        d_str = f"{y}-{m:02d}-{day:02d}"
-                        c_date = datetime.date(y, m, day)
-                        is_today = (c_date == today)
-                        
-                        holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
-                        if not holiday_name and c_date in kr_holidays:
-                            holiday_name = kr_holidays.get(c_date)
-                        
-                        day_class = "is-today" if is_today else ""
-                        text_color_class = "text-sun" if (i == 0 or holiday_name) else ("text-sat" if i == 6 else "")
-                        
-                        duty_info = duty_map.get(day, {"p1": "-", "p2": "-"})
-                        w1 = duty_info["p1"]
-                        w2 = duty_info["p2"]
-                        memo = st.session_state.memos.get(d_str, "")
-                        
-                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}\';" title="{d_str} 근무 관리창 팝업">'
-                        html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
-                        
-                        if holiday_name:
-                            html_content += f'<div style="font-size:9px; font-weight:700; color:#EF4444; text-align:center; line-height:1.1; margin-bottom:2px; white-space:normal; word-break:break-all;">[{holiday_name}]</div>'
-                        
-                        if w1 or w2:
-                            html_content += f'<div style="font-size:11px; font-weight:700; text-align:center; margin-top:1px; line-height:1.3; white-space:normal; word-break:break-all;"><b>{w1}</b><br><b>{w2}</b></div>'
-                        
-                        if memo and str(memo).strip():
-                            html_content += f'<div style="font-size:10px; font-weight:700; color:#D97706; text-align:center; margin-top:4px; white-space:normal; word-break:break-all;">📌 {memo}</div>'
-                        
-                        html_content += '</div>'
-                html_content += '</div>'
-            html_content += '</div>'
-            
-            st.markdown(html_content, unsafe_allow_html=True)
-
-        avail_months_json = json.dumps(avail_months)
-        st.markdown(f"""
-        <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
-        <div id="current-month-data" style="display:none;">{sel_month}</div>
-        """, unsafe_allow_html=True)
+                    with cols_week[i]:
+                        if day == 0:
+                            st.markdown('<div style="min-height:100px;"></div>', unsafe_allow_html=True)
+                        else:
+                            d_str = f"{y}-{m:02d}-{day:02d}"
+                            c_date = datetime.date(y, m, day)
+                            is_today = (c_date == today)
+                            
+                            holiday_name = st.session_state.get("holiday_map", {}).get(d_str, "")
+                            if not holiday_name and c_date in kr_holidays:
+                                holiday_name = kr_holidays.get(c_date)
+                            
+                            duty_info = duty_map.get(day, {"p1": "-", "p2": "-"})
+                            w1 = duty_info["p1"]
+                            w2 = duty_info["p2"]
+                            memo = st.session_state.memos.get(d_str, "")
+                            
+                            cell_txt = f"**{day}**"
+                            if holiday_name:
+                                cell_txt += f"\n<span style='color:red;font-size:10px;'>[{holiday_name}]</span>"
+                            if w1 or w2:
+                                cell_txt += f"\n<span style='font-size:11px;'>{w1}<br>{w2}</span>"
+                            if memo:
+                                cell_txt += f"\n<span style='color:#D97706;font-size:10px;'>📌{memo}</span>"
+                            
+                            if st.button(cell_txt, key=f"grid_day_{d_str}", use_container_width=True):
+                                st.session_state.update({
+                                    "selected_edit_date_str": d_str,
+                                    "show_today_dialog": True
+                                })
+                                st.rerun()
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭

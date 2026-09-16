@@ -207,7 +207,6 @@ responsive_css = f"""
     .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
     .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
-    .today-card .today-hint {{ font-size: 11px !important; color: #E0E7FF !important; text-align: right; margin-top: 4px; font-weight: 600; }}
 
     .month-header-card {{
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
@@ -883,7 +882,7 @@ with tab1:
             st.markdown(html_content, unsafe_allow_html=True)
 
         # ---------------------------------------------------------
-        # 화면 하단 1/5 지점에 고정되는 달력 좌우 플로팅 스와이프 버튼
+        # 독립 고정 레이어(Overlay) 스와이프/플로팅 달이동 버튼
         # ---------------------------------------------------------
         cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
         prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
@@ -894,12 +893,21 @@ with tab1:
 
         st.markdown(f"""
         <style>
+            .floating-btn-overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                pointer-events: none;
+                z-index: 999999;
+            }}
             .floating-cal-btn {{
                 position: fixed;
                 bottom: 20vh;
-                z-index: 999999;
-                width: 46px;
-                height: 46px;
+                pointer-events: auto;
+                width: 48px;
+                height: 48px;
                 border-radius: 50%;
                 background: {'#1E293B' if is_dark else '#FFFFFF'};
                 color: {'#3B82F6' if is_dark else '#2563EB'};
@@ -928,32 +936,11 @@ with tab1:
                 pointer-events: none;
             }}
         </style>
-        <div class="floating-cal-btn left {left_dis}" data-month="{prev_m}" title="이전달 ({prev_m})">◀</div>
-        <div class="floating-cal-btn right {right_dis}" data-month="{next_m}" title="다음달 ({next_m})">▶</div>
+        <div class="floating-btn-overlay">
+            <div class="floating-cal-btn left {left_dis}" data-month="{prev_m}" title="이전달 ({prev_m})">◀</div>
+            <div class="floating-cal-btn right {right_dis}" data-month="{next_m}" title="다음달 ({next_m})">▶</div>
+        </div>
         """, unsafe_allow_html=True)
-
-        # ---------------------------------------------------------
-        # 달력 하단 하단 컨트롤 버튼
-        # ---------------------------------------------------------
-        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
-        col_prev, col_mid, col_next = st.columns([1, 2, 1])
-        
-        with col_prev:
-            if st.button("◀ 이전달", key="cal_btn_prev", disabled=(cur_idx <= 0), use_container_width=True):
-                prev_month = avail_months[cur_idx - 1]
-                st.session_state.selected_month = prev_month
-                st.query_params["month"] = prev_month
-                st.rerun()
-                
-        with col_mid:
-            st.markdown(f"<div style='text-align:center; font-weight:800; font-size:13px; line-height:38px; color:{main_text_color};'>◀ {sel_month} ▶</div>", unsafe_allow_html=True)
-            
-        with col_next:
-            if st.button("다음달 ▶", key="cal_btn_next", disabled=(cur_idx >= len(avail_months) - 1), use_container_width=True):
-                next_month = avail_months[cur_idx + 1]
-                st.session_state.selected_month = next_month
-                st.query_params["month"] = next_month
-                st.rerun()
 
         avail_months_json = json.dumps(avail_months)
         st.markdown(f"""
@@ -1013,7 +1000,6 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
-            # 근무자 드롭다운 선택상자 항목에 직접 현재 지정된 근무자 정보 표출
             with st.form(f"tab2_edit_form_{date_str_key}"):
                 st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
                 

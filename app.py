@@ -884,7 +884,7 @@ with tab1:
                 width: 46px;
                 height: 46px;
                 border-radius: 50%;
-                background: {transparent if is_dark else '#FFFFFF'};
+                background: {'#1E293B' if is_dark else '#FFFFFF'};
                 color: {'#3B82F6' if is_dark else '#2563EB'};
                 border: 2px solid #3B82F6;
                 display: flex;

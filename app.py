@@ -207,6 +207,7 @@ responsive_css = f"""
     .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
     .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
+    .today-card .today-hint {{ font-size: 11px !important; color: #E0E7FF !important; text-align: right; margin-top: 4px; font-weight: 600; }}
 
     .month-header-card {{
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
@@ -303,24 +304,7 @@ responsive_css = f"""
 </style>
 
 <script>
-(function() {{
-    if (window.__cal_swipe_listener_attached) return;
-    window.__cal_swipe_listener_attached = true;
-
-    // 플로팅 스와이프 버튼 클릭 이벤트 위임 처리
-    document.addEventListener('click', function(e) {{
-        const btn = e.target.closest('.floating-cal-btn');
-        if (btn && !btn.classList.contains('disabled')) {{
-            const targetMonth = btn.getAttribute('data-month');
-            if (targetMonth) {{
-                const url = new URL(window.location.href);
-                url.searchParams.set('month', targetMonth);
-                window.location.href = url.toString();
-            }}
-        }}
-    }});
-
-    // 모바일 터치 스와이프 제스처 처리
+document.addEventListener("DOMContentLoaded", function() {{
     let touchstartX = 0;
     let touchendX = 0;
 
@@ -370,7 +354,7 @@ responsive_css = f"""
             }}
         }}
     }}
-}})();
+}});
 </script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
@@ -882,7 +866,7 @@ with tab1:
             st.markdown(html_content, unsafe_allow_html=True)
 
         # ---------------------------------------------------------
-        # 독립 고정 레이어(Overlay) 스와이프/플로팅 달이동 버튼
+        # 화면 하단 1/6 지점에 고정되는 달력 좌우 플로팅 버튼 (정상 동작 앵커 링크 처리)
         # ---------------------------------------------------------
         cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
         prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
@@ -893,21 +877,12 @@ with tab1:
 
         st.markdown(f"""
         <style>
-            .floating-btn-overlay {{
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                pointer-events: none;
-                z-index: 999999;
-            }}
             .floating-cal-btn {{
                 position: fixed;
-                bottom: 20vh;
-                pointer-events: auto;
-                width: 48px;
-                height: 48px;
+                bottom: 16.67vh;
+                z-index: 999999;
+                width: 46px;
+                height: 46px;
                 border-radius: 50%;
                 background: {'#1E293B' if is_dark else '#FFFFFF'};
                 color: {'#3B82F6' if is_dark else '#2563EB'};
@@ -922,6 +897,7 @@ with tab1:
                 backdrop-filter: blur(4px);
                 user-select: none;
                 transition: all 0.2s ease-in-out;
+                text-decoration: none !important;
             }}
             .floating-cal-btn:hover {{
                 background: #3B82F6;
@@ -936,10 +912,8 @@ with tab1:
                 pointer-events: none;
             }}
         </style>
-        <div class="floating-btn-overlay">
-            <div class="floating-cal-btn left {left_dis}" data-month="{prev_m}" title="이전달 ({prev_m})">◀</div>
-            <div class="floating-cal-btn right {right_dis}" data-month="{next_m}" title="다음달 ({next_m})">▶</div>
-        </div>
+        <a href="?month={prev_m}" target="_self" class="floating-cal-btn left {left_dis}" title="이전달 ({prev_m})">◀</a>
+        <a href="?month={next_m}" target="_self" class="floating-cal-btn right {right_dis}" title="다음달 ({next_m})">▶</a>
         """, unsafe_allow_html=True)
 
         avail_months_json = json.dumps(avail_months)
@@ -1000,6 +974,7 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
+            # 근무자 드롭다운 선택상자 항목에 직접 현재 지정된 근무자 정보 표출
             with st.form(f"tab2_edit_form_{date_str_key}"):
                 st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
                 

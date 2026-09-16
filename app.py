@@ -166,42 +166,67 @@ responsive_css = f"""
         box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
     }}
 
-    .today-card {{
-        background: linear-gradient(135deg, {primary_blue}, #2563EB) !important;
-        color: #FFFFFF !important;
-        padding: 14px 16px !important;
-        border-radius: 14px !important;
-        margin-bottom: 8px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-        cursor: pointer !important;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }}
-    .today-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
-    }}
-    .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
-    .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
-    .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
-    .today-card .today-hint {{ font-size: 11px !important; color: #E0E7FF !important; text-align: right; margin-top: 4px; font-weight: 600; }}
-
     .month-header-card {{
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
         box-shadow: 0 2px 6px rgba(59, 130, 246, 0.08);
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
+    /* 커스텀 그리드 달력 스타일링 */
+    .calendar-grid {{
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+        margin-top: 8px;
+    }}
     .cal-header-cell {{
         text-align: center; font-weight: 800; font-size: 12px; padding: 8px 0;
         border-bottom: 2px solid {border_color}; background-color: {table_header_bg};
-        border-radius: 6px 6px 0 0; margin-bottom: 4px;
+        border-radius: 6px 6px 0 0;
     }}
     .text-sun {{ color: #EF4444 !important; }}
     .text-sat {{ color: #3B82F6 !important; }}
     .cal-header-cell.text-sun {{ background-color: {'#352222' if is_dark else '#FEF2F2'} !important; color: #EF4444 !important; }}
     .cal-header-cell.text-sat {{ background-color: {'#1E293B' if is_dark else '#EFF6FF'} !important; color: #3B82F6 !important; }}
+
+    .cal-day-cell {{
+        background-color: {btn_bg};
+        border: 1px solid {border_color};
+        border-radius: 8px;
+        min-height: 75px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        transition: all 0.15s ease;
+    }}
+    .cal-day-cell:hover {{
+        border-color: {btn_hover_border};
+        background-color: {btn_hover_bg};
+        transform: translateY(-1px);
+    }}
+    .cal-day-header {{
+        font-size: 12px;
+        font-weight: 800;
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }}
+    .cal-day-body {{
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.3;
+        color: {main_text_color};
+    }}
+    .cal-memo {{
+        font-size: 10px;
+        color: #EAB308;
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
         background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
@@ -783,20 +808,22 @@ with tab1:
                     })
                     st.rerun()
         else:
-            # 가로형 그리드 달력 (시인성을 높인 버튼 레이아웃 적용)
+            # 완벽하게 구현된 가로형 그리드 달력 렌더링
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
+            # 요일 헤더 렌더링
             cols_header = st.columns(7)
             for idx, (day_name, css_class) in enumerate(weekdays):
                 with cols_header[idx]:
                     st.markdown(f'<div class="cal-header-cell {css_class}">{day_name}</div>', unsafe_allow_html=True)
             
+            # 주별 날짜 셀 렌더링 (Streamlit columns 내부에 버튼 배치)
             for week in cal:
                 cols_week = st.columns(7)
                 for i, day in enumerate(week):
                     with cols_week[i]:
                         if day == 0:
-                            st.markdown('<div style="min-height:52px; margin-bottom:4px;"></div>', unsafe_allow_html=True)
+                            st.markdown('<div style="min-height:75px; margin-bottom:4px;"></div>', unsafe_allow_html=True)
                         else:
                             d_str = f"{y}-{m:02d}-{day:02d}"
                             c_date = datetime.date(y, m, day)
@@ -811,18 +838,19 @@ with tab1:
                             w2 = duty_info["p2"]
                             memo = st.session_state.memos.get(d_str, "")
                             
-                            # 시인성이 뛰어난 텍스트 구조 설계
-                            day_label = f"📌 {day}일 ({holiday_name})" if holiday_name else (f"⭐ {day}일 (오늘)" if is_today else f"{day}일")
-                            w1_str = f"1️⃣ {w1}" if w1 and w1 != "미지정" else "1️⃣ -"
-                            w2_str = f"2️⃣ {w2}" if w2 and w2 != "미지정" else "2️⃣ -"
+                            # 날짜 표시용 라벨 조합
+                            day_disp = f"{day}일"
+                            if holiday_name:
+                                day_disp += f" <span style='color:#EF4444; font-size:10px;'>({holiday_name})</span>"
+                            elif is_today:
+                                day_disp += f" <span style='color:#3B82F6; font-size:10px;'>(오늘)</span>"
+                                
+                            w1_disp = f"1: {w1}" if w1 and w1 != "미지정" else "1: -"
+                            w2_disp = f"2: {w2}" if w2 and w2 != "미지정" else "2: -"
                             
-                            cell_lines = [day_label, f"{w1_str} | {w2_str}"]
-                            if memo:
-                                cell_lines.append(f"📝 {memo}")
-                            
-                            cell_txt = "\n".join(cell_lines)
-                            
-                            if st.button(cell_txt, key=f"grid_day_{d_str}", use_container_width=True):
+                            # Streamlit 기본 버튼을 누르면 일자별 수정 팝업이 호출됨
+                            btn_label = f"{day}일 | {w1} / {w2}" + (f" [{holiday_name}]" if holiday_name else "") + (f" 📝" if memo else "")
+                            if st.button(btn_label, key=f"grid_day_{d_str}", use_container_width=True):
                                 st.session_state.update({
                                     "selected_edit_date_str": d_str,
                                     "show_today_dialog": True

@@ -110,12 +110,13 @@ if st.query_params.get("open_today") == "1":
         del st.query_params["open_today"]
     st.rerun()
 
-# 달력 일자 클릭 시 쿼리 파라미터 처리 (특정 날짜를 탭2 일자별 수정의 기본값으로 지정)
+# 달력 일자 클릭 시 쿼리 파라미터 처리 (특정 날짜를 탭2 일자별 수정의 기본값으로 지정 및 다이얼로그 호출)
 click_date_param = st.query_params.get("click_date")
 if click_date_param:
     st.session_state.update({
         "selected_edit_date_str": click_date_param,
-        "active_main_tab": 1 # 일자별 수정 탭
+        "show_today_dialog": True, # 칸을 누르면 다이얼로그가 바로 뜨도록 설정
+        "active_main_tab": 1 
     })
     if "click_date" in st.query_params:
         del st.query_params["click_date"]
@@ -581,30 +582,22 @@ def save_workers_db(workers):
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 다이얼로그 모음
+# 통합 공용 일자별 근무 관리 다이얼로그 (오늘/달력 칸 클릭 시 공통 호출)
 # ---------------------------------------------------------
-@st.dialog("⚠️ 프로그램 종료 확인")
-def confirm_exit_dialog():
-    st.write("정말로 시스템을 종료하시겠습니까?")
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("취소", use_container_width=True): 
-            st.session_state.show_exit_dialog = False
-            st.rerun()
-    with c2:
-        if st.button("종료", use_container_width=True, type="primary"):
-            st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
-            st.rerun()
+@st.dialog("📅 일자별 근무 관리 및 수정")
+def shared_edit_dialog():
+    target_date_str = st.session_state.get("selected_edit_date_str", datetime.date.today().strftime("%Y-%m-%d"))
+    try:
+        target_date = datetime.datetime.strptime(target_date_str, "%Y-%m-%d").date()
+    except:
+        target_date = datetime.date.today()
+        target_date_str = target_date.strftime("%Y-%m-%d")
 
-@st.dialog("📅 오늘 근무 및 일자별 수정")
-def today_edit_dialog():
-    today_date = datetime.date.today()
-    today_str = today_date.strftime("%Y-%m-%d")
     df_cur = st.session_state.df
-    row_match = df_cur[df_cur["날짜"].dt.date == today_date]
+    row_match = df_cur[df_cur["날짜"].dt.date == target_date]
     
     if row_match.empty:
-        st.warning(f"오늘({today_str})에 해당하는 근무 정보가 없습니다.")
+        st.warning(f"선택한 날짜({target_date_str})에 해당하는 근무 정보가 없습니다.")
         if st.button("닫기", use_container_width=True):
             st.session_state.show_today_dialog = False
             st.rerun()
@@ -633,23 +626,23 @@ def today_edit_dialog():
     curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
     curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
 
-    with st.form("today_edit_form"):
-        st.markdown(f"#### 📅 {today_str} 일자별 수정 및 근무 관리")
-        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="td_p1")
-        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="td_p1_c") if p1_s == "(직접 입력)" else ""
-        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="td_sub1")
-        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="td_sub1_c") if sub1_s == "(직접 입력)" else ""
+    with st.form(f"shared_edit_form_{target_date_str}"):
+        st.markdown(f"#### 📅 {target_date_str} 근무 수정창")
+        p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="sh_p1")
+        p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="sh_p1_c") if p1_s == "(직접 입력)" else ""
+        sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="sh_sub1")
+        sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="sh_sub1_c") if sub1_s == "(직접 입력)" else ""
 
-        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key="td_p2")
-        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="td_p2_c") if p2_s == "(직접 입력)" else ""
-        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key="td_sub2")
-        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="td_sub2_c") if sub2_s == "(직접 입력)" else ""
+        p2_s = st.selectbox("근무자2", worker_options, index=get_idx(curr_p2), key="sh_p2")
+        p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="sh_p2_c") if p2_s == "(직접 입력)" else ""
+        sub2_s = st.selectbox("대직자2", worker_options, index=get_idx(curr_sub2), key="sh_sub2")
+        sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="sh_sub2_c") if sub2_s == "(직접 입력)" else ""
         
-        memo_in = st.text_area("메모", value=st.session_state.memos.get(today_str, ""), key="td_memo")
+        memo_in = st.text_area("메모", value=st.session_state.memos.get(target_date_str, ""), key="sh_memo")
         
-        submitted_td = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
+        submitted_sh = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
 
-    if submitted_td:
+    if submitted_sh:
         f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
         f_p2 = p2_c if p2_s == "(직접 입력)" else ("" if p2_s == "(선택 안함)" else p2_s)
         f_sub1 = sub1_c if sub1_s == "(직접 입력)" else ("" if sub1_s == "(선택 안함)" else sub1_s)
@@ -661,14 +654,27 @@ def today_edit_dialog():
         df_cur.loc[r_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
         df_cur.loc[r_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
         
-        if memo_in.strip(): st.session_state.memos[today_str] = memo_in.strip()
-        else: st.session_state.memos.pop(today_str, None)
+        if memo_in.strip(): st.session_state.memos[target_date_str] = memo_in.strip()
+        else: st.session_state.memos.pop(target_date_str, None)
         
         st.session_state.df = df_cur
         save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
         st.session_state.show_today_dialog = False
-        st.success(f"✅ 오늘({today_str}) 근무 정보가 성공적으로 수정되었습니다!")
+        st.success(f"✅ {target_date_str} 근무 정보가 성공적으로 수정되었습니다!")
         st.rerun()
+
+@st.dialog("⚠️ 프로그램 종료 확인")
+def confirm_exit_dialog():
+    st.write("정말로 시스템을 종료하시겠습니까?")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("취소", use_container_width=True): 
+            st.session_state.show_exit_dialog = False
+            st.rerun()
+    with c2:
+        if st.button("종료", use_container_width=True, type="primary"):
+            st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
+            st.rerun()
 
 @st.dialog("⚙️ 화면 및 설정 관리")
 def settings_dialog():
@@ -812,7 +818,7 @@ if st.session_state.show_exit_dialog:
 elif st.session_state.show_settings_dialog: 
     settings_dialog()
 elif st.session_state.show_today_dialog:
-    today_edit_dialog()
+    shared_edit_dialog()
 
 df = st.session_state.df
 today = datetime.date.today()
@@ -850,10 +856,10 @@ with tab1:
         
         st.markdown(
             f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
+            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 창 열기">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
-                <div class="today-hint">👆 박스를 누르면 일자별 수정이 나옵니다</div>
+                <div class="today-hint">👆 박스를 누르면 근무 관리창이 팝업됩니다</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -914,6 +920,7 @@ with tab1:
                 
             duty_map[row["날짜"].day] = {"p1": p1_name, "p2": p2_name}
 
+        # [요구사항 반영] 세로형 리스트를 가로형처럼 박스칸 형태로 리스트화하여 출력하고 클릭 시 근무 관리 팝업 연동
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             weekdays_kr = ["일", "월", "화", "수", "목", "금", "토"]
             for d in range(1, calendar.monthrange(y, m)[1] + 1):
@@ -928,8 +935,18 @@ with tab1:
 
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
+                is_today_cls = "border: 2px solid #3B82F6;" if c_date == today else f"border: 1px solid {border_color};"
                 
-                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"""
+                    <div onclick="window.location.href='?click_date={d_str}';" 
+                         style="background:{box_bg}; {is_today_cls} border-radius:12px; padding:10px 14px; margin-bottom:8px; font-size:14px; cursor:pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.1s;" 
+                         title="클릭하여 일자별 근무 관리창 팝업">
+                        <b>{hol_tag}{d:02d}일({weekday_str})</b> &nbsp;|&nbsp; 1근무: <b>{info['p1']}</b> &nbsp;/&nbsp; 2근무: <b>{info['p2']}</b>{memo_s}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
         else:
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
@@ -961,7 +978,7 @@ with tab1:
                         w2 = duty_info["p2"]
                         memo = st.session_state.memos.get(d_str, "")
                         
-                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}\';" title="{d_str} 일자별 수정 열기">'
+                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}\';" title="{d_str} 근무 관리창 팝업">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
                         if holiday_name:
@@ -1000,7 +1017,6 @@ with tab2:
                 parsed_target = datetime.datetime.strptime(st.session_state.selected_edit_date_str, "%Y-%m-%d").date()
                 if parsed_target in available_dates:
                     default_d = parsed_target
-                del st.session_state["selected_edit_date_str"]
             except:
                 pass
 

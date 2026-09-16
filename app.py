@@ -193,46 +193,15 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; border-radius: 12px; overflow: hidden; }}
-    .cal-week-row {{ display: flex; width: 100%; border-bottom: 1px solid {border_color}; }}
-    .cal-week-row:last-child {{ border-bottom: none; }}
-    
-    .cal-day-cell, .cal-header-cell {{
-        flex: 1 1 0% !important;
-        width: calc(100% / 7) !important;
-        min-width: 0 !important;
-        box-sizing: border-box !important;
-    }}
-
-    .cal-day-cell {{
-        min-height: 120px; height: auto !important; padding: 6px 3px; border-right: 1px solid {border_color};
-        display: flex; flex-direction: column; position: relative;
-        background-color: {box_bg};
-        word-break: break-all;
-        cursor: pointer !important;
-        transition: background-color 0.1s ease;
-    }}
-    .cal-day-cell:hover {{
-        background-color: {'#2A2A2A' if is_dark else '#F8FAFC'} !important;
-    }}
-    .cal-day-cell:last-child {{ border-right: none; }}
-    
     .cal-header-cell {{
         text-align: center; font-weight: 800; font-size: 12px; padding: 8px 0;
         border-bottom: 2px solid {border_color}; background-color: {table_header_bg};
+        border-radius: 6px 6px 0 0; margin-bottom: 4px;
     }}
-    
-    .cal-day-number {{
-        font-size: 13px; font-weight: 900; text-align: right; display: block; margin-bottom: 2px;
-    }}
-    
     .text-sun {{ color: #EF4444 !important; }}
     .text-sat {{ color: #3B82F6 !important; }}
     .cal-header-cell.text-sun {{ background-color: {'#352222' if is_dark else '#FEF2F2'} !important; color: #EF4444 !important; }}
     .cal-header-cell.text-sat {{ background-color: {'#1E293B' if is_dark else '#EFF6FF'} !important; color: #3B82F6 !important; }}
-
-    .cal-day-cell.is-today {{ background-color: {'#1E293B' if is_dark else '#EFF6FF'} !important; border: 2px solid {primary_blue}; }}
-    .cal-day-cell.is-today .cal-day-number {{ color: {primary_blue}; }}
 
     [data-testid="stSidebar"], [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {{ 
         background-color: {sidebar_bg} !important; color: {main_text_color} !important; 
@@ -240,11 +209,13 @@ responsive_css = f"""
     p, span, label, .stMarkdown, h2, h3, h4, h5, h6 {{ color: {main_text_color} !important; }}
 
     .stButton > button {{
-        width: 100% !important; min-height: 38px !important;
-        padding: 6px 10px !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
-        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 13px !important; font-weight: 800 !important; 
+        width: 100% !important; min-height: 52px !important;
+        padding: 8px 6px !important; border: 1px solid {border_color} !important; border-radius: 10px !important;
+        background-color: {btn_bg} !important; color: {btn_text} !important; font-size: 12px !important; font-weight: 700 !important; 
         box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         transition: all 0.2s ease;
+        text-align: left !important;
+        line-height: 1.3 !important;
     }}
     .stButton > button:hover {{ border-color: {btn_hover_border} !important; background-color: {btn_hover_bg} !important; transform: translateY(-1px); }}
 
@@ -280,45 +251,6 @@ responsive_css = f"""
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {{
-    // 모바일 가상 키보드 및 셀렉트박스 포커스 개선
-    document.addEventListener("pointerdown", function(e) {{
-        const selectBox = e.target.closest('[data-baseweb="select"]');
-        if (selectBox) {{
-            const inputField = selectBox.querySelector("input");
-            if (inputField) {{
-                inputField.focus();
-                inputField.click();
-            }}
-        }}
-    }}, true);
-
-    let touchstartX = 0;
-    let touchendX = 0;
-
-    document.addEventListener('touchstart', e => {{
-        if (e.changedTouches && e.changedTouches.length > 0) {{
-            touchstartX = e.changedTouches[0].screenX;
-        }}
-    }}, {{passive: true}});
-
-    document.addEventListener('touchend', e => {{
-        if (e.changedTouches && e.changedTouches.length > 0) {{
-            touchendX = e.changedTouches[0].screenX;
-            handleGesture();
-        }}
-    }}, {{passive: true}});
-
-    function handleGesture() {{
-        let threshold = 50;
-        if (touchendX < touchstartX - threshold || touchendX > touchstartX + threshold) {{
-            // 스와이프 감지 시 Streamlit 친화적 동작 수행 가능
-        }}
-    }}
-}});
-</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -507,7 +439,7 @@ def save_workers_db(workers):
 update_excel_download_bytes(st.session_state.df)
 
 # ---------------------------------------------------------
-# 통합 공용 일자별 근무 관리 다이얼로그 (오늘/달력 칸 클릭 시 공통 호출)
+# 통합 공용 일자별 근무 관리 다이얼로그
 # ---------------------------------------------------------
 @st.dialog("📅 일자별 근무 관리 및 수정")
 def shared_edit_dialog():
@@ -777,7 +709,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 근무 안내 카드 클릭 시 Streamlit 버튼으로 세션 제어
         if st.button(f"오늘 근무 안내 ({today.strftime('%m월 %d일')})\n1: {p1} | 2: {p2}{memo_txt}\n👉 클릭하여 근무 관리창 열기", key="btn_today_card", use_container_width=True, type="primary"):
             st.session_state.update({
                 "selected_edit_date_str": today.strftime("%Y-%m-%d"),
@@ -829,7 +760,6 @@ with tab1:
                 
             duty_map[row["날짜"].day] = {"p1": p1_name, "p2": p2_name}
 
-        # 세로형 리스트 / 가로형 그리드 버튼 기반 구현 (팝업 연동 안정화)
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             weekdays_kr = ["일", "월", "화", "수", "목", "금", "토"]
             for d in range(1, calendar.monthrange(y, m)[1] + 1):
@@ -853,7 +783,7 @@ with tab1:
                     })
                     st.rerun()
         else:
-            # 가로형 그리드 달력 내 날짜별 버튼 배치
+            # 가로형 그리드 달력 (시인성을 높인 버튼 레이아웃 적용)
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
             cols_header = st.columns(7)
@@ -866,7 +796,7 @@ with tab1:
                 for i, day in enumerate(week):
                     with cols_week[i]:
                         if day == 0:
-                            st.markdown('<div style="min-height:100px;"></div>', unsafe_allow_html=True)
+                            st.markdown('<div style="min-height:52px; margin-bottom:4px;"></div>', unsafe_allow_html=True)
                         else:
                             d_str = f"{y}-{m:02d}-{day:02d}"
                             c_date = datetime.date(y, m, day)
@@ -881,13 +811,16 @@ with tab1:
                             w2 = duty_info["p2"]
                             memo = st.session_state.memos.get(d_str, "")
                             
-                            cell_txt = f"**{day}**"
-                            if holiday_name:
-                                cell_txt += f"\n<span style='color:red;font-size:10px;'>[{holiday_name}]</span>"
-                            if w1 or w2:
-                                cell_txt += f"\n<span style='font-size:11px;'>{w1}<br>{w2}</span>"
+                            # 시인성이 뛰어난 텍스트 구조 설계
+                            day_label = f"📌 {day}일 ({holiday_name})" if holiday_name else (f"⭐ {day}일 (오늘)" if is_today else f"{day}일")
+                            w1_str = f"1️⃣ {w1}" if w1 and w1 != "미지정" else "1️⃣ -"
+                            w2_str = f"2️⃣ {w2}" if w2 and w2 != "미지정" else "2️⃣ -"
+                            
+                            cell_lines = [day_label, f"{w1_str} | {w2_str}"]
                             if memo:
-                                cell_txt += f"\n<span style='color:#D97706;font-size:10px;'>📌{memo}</span>"
+                                cell_lines.append(f"📝 {memo}")
+                            
+                            cell_txt = "\n".join(cell_lines)
                             
                             if st.button(cell_txt, key=f"grid_day_{d_str}", use_container_width=True):
                                 st.session_state.update({

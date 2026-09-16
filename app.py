@@ -866,6 +866,32 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
+        # ---------------------------------------------------------
+        # 달력 아래 양방향 이동 작고 직관적인 버튼 추가
+        # ---------------------------------------------------------
+        cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
+        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+        col_prev, col_mid, col_next = st.columns([1, 2, 1])
+        
+        with col_prev:
+            if st.button("◀ 이전달", key="cal_btn_prev", disabled=(cur_idx <= 0), use_container_width=True):
+                prev_month = avail_months[cur_idx - 1]
+                st.session_state.selected_month = prev_month
+                st.session_state.month_selectbox_widget = prev_month
+                st.query_params["month"] = prev_month
+                st.rerun()
+                
+        with col_mid:
+            st.markdown(f"<div style='text-align:center; font-weight:800; font-size:13px; line-height:38px; color:{main_text_color};'>◀ {sel_month} ▶</div>", unsafe_allow_html=True)
+            
+        with col_next:
+            if st.button("다음달 ▶", key="cal_btn_next", disabled=(cur_idx >= len(avail_months) - 1), use_container_width=True):
+                next_month = avail_months[cur_idx + 1]
+                st.session_state.selected_month = next_month
+                st.session_state.month_selectbox_widget = next_month
+                st.query_params["month"] = next_month
+                st.rerun()
+
         avail_months_json = json.dumps(avail_months)
         st.markdown(f"""
         <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
@@ -877,7 +903,7 @@ with tab1:
 # ---------------------------------------------------------
 with tab2:
     st.subheader("✏️ 일자별 근무자 및 메모 수정")
-    st.markdown("수정할 날짜를 선택하여 근무자 및 메모를 일자별로 상세히 관리할 수 있습니다.")
+    st.markdown("수정할 날짜를 선택하여 해당 일자의 근무자 및 대직자 정보를 확인하고 수정할 수 있습니다.")
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
@@ -892,11 +918,43 @@ with tab2:
                 pass
 
         sel_edit_date = st.date_input("수정할 날짜 선택", value=default_d, key="tab2_date_input")
+        date_str_key = sel_edit_date.strftime("%Y-%m-%d")
         
         row_match = df[df["날짜"].dt.date == sel_edit_date]
         if not row_match.empty:
             r_idx = row_match.index[0]
             curr_r = df.loc[r_idx]
+            
+            curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
+            curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
+            curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
+            curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
+            
+            curr_real1 = str(curr_r.get("실제근무1", "")).strip() if pd.notnull(curr_r.get("실제근무1")) else ""
+            curr_real2 = str(curr_r.get("실제근무2", "")).strip() if pd.notnull(curr_r.get("실제근무2")) else ""
+
+            disp_p1 = curr_p1 if curr_p1 not in ["nan", "None", ""] else "미지정"
+            disp_p2 = curr_p2 if curr_p2 not in ["nan", "None", ""] else "미지정"
+            disp_sub1 = curr_sub1 if curr_sub1 not in ["nan", "None", ""] else "(없음)"
+            disp_sub2 = curr_sub2 if curr_sub2 not in ["nan", "None", ""] else "(없음)"
+
+            # ---------------------------------------------------------
+            # 선택한 날짜의 근무자 및 대직자 정보를 명확히 보여주는 상태 정보 카드
+            # ---------------------------------------------------------
+            st.markdown(
+                f"""
+                <div style="background-color: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 12px 16px; margin: 10px 0 14px 0; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);">
+                    <div style="font-weight: 800; font-size: 15px; color: {primary_blue}; margin-bottom: 8px;">
+                        📌 선택일자 ({date_str_key}) 현재 근무 현황
+                    </div>
+                    <div style="font-size: 13px; line-height: 1.7; color: {main_text_color};">
+                        <b>[1근무]</b> 지정 근무자: <span style="color:#2563EB; font-weight:800;">{disp_p1}</span> | 대직자: <span style="color:#D97706; font-weight:800;">{disp_sub1}</span> → <span style="font-weight:800; text-decoration:underline;">실제근무: {curr_real1}</span><br>
+                        <b>[2근무]</b> 지정 근무자: <span style="color:#2563EB; font-weight:800;">{disp_p2}</span> | 대직자: <span style="color:#D97706; font-weight:800;">{disp_sub2}</span> → <span style="font-weight:800; text-decoration:underline;">실제근무: {curr_real2}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             
             all_workers = set()
             for col in ["근무자1", "근무자2", "대직1", "대직2"]:
@@ -913,14 +971,8 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
-            curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
-            curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
-            curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
-            curr_sub2 = str(curr_r.get("대직2", "")).strip() if pd.notnull(curr_r.get("대직2")) else ""
-            date_str_key = sel_edit_date.strftime("%Y-%m-%d")
-
             with st.form(f"tab2_edit_form_{date_str_key}"):
-                st.markdown(f"#### 📅 {date_str_key} 근무 관리")
+                st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
                 p1_s = st.selectbox("근무자1", worker_options, index=get_idx(curr_p1), key="t2_p1")
                 p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="t2_p1_c") if p1_s == "(직접 입력)" else ""
                 sub1_s = st.selectbox("대직자1", worker_options, index=get_idx(curr_sub1), key="t2_sub1")

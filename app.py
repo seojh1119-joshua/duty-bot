@@ -215,7 +215,7 @@ responsive_css = f"""
     }}
     .month-header-card h2 {{ margin: 0 !important; font-size: 18px !important; font-weight: 800 !important; color: {main_text_color} !important; }}
 
-    .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; border-radius: 12px; overflow: hidden; touch-action: pan-y; }}
+    .cal-container {{ display: flex; flex-direction: column; width: 100%; border: 1px solid {border_color}; border-radius: 12px; overflow: hidden; }}
     .cal-week-row {{ display: flex; width: 100%; border-bottom: 1px solid {border_color}; }}
     .cal-week-row:last-child {{ border-bottom: none; }}
     
@@ -305,88 +305,71 @@ responsive_css = f"""
 
 <script>
 (function() {{
-    let touchstartX = 0;
-    let touchstartY = 0;
-    let touchendX = 0;
-    let touchendY = 0;
+    if (window.__cal_swipe_listener_attached) return;
+    window.__cal_swipe_listener_attached = true;
 
-    function handleGesture() {{
-        let threshold = 40;
-        let restraint = 100;
-        
-        let deltaX = touchendX - touchstartX;
-        let deltaY = Math.abs(touchendY - touchstartY);
-
-        if (Math.abs(deltaX) >= threshold && deltaY <= restraint) {{
-            const monthsEl = document.getElementById('avail-months-data');
-            const currentMonthEl = document.getElementById('current-month-data');
-            
-            let months = [];
-            let currentMonth = '';
-
-            if (monthsEl && currentMonthEl) {{
-                try {{
-                    months = JSON.parse(monthsEl.textContent || '[]');
-                }} catch(err) {{ months = []; }}
-                currentMonth = currentMonthEl.textContent || '';
-            }}
-
-            if (!months.length) {{
-                const calElem = document.querySelector('[data-avail-months]');
-                if (calElem) {{
-                    try {{
-                        months = JSON.parse(calElem.getAttribute('data-avail-months') || '[]');
-                        currentMonth = calElem.getAttribute('data-current-month') || '';
-                    }} catch(e) {{}}
-                }}
-            }}
-
-            if (!months.length || !currentMonth) return;
-
-            let idx = months.indexOf(currentMonth);
-            if (idx === -1) return;
-
-            if (deltaX < 0) {{
-                // 왼쪽으로 스와이프 -> 다음달로 이동
-                if (idx < months.length - 1) {{
-                    let nextMonth = months[idx + 1];
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('month', nextMonth);
-                    window.location.href = url.toString();
-                }}
-            }} else {{
-                // 오른쪽으로 스와이프 -> 이전달로 이동
-                if (idx > 0) {{
-                    let prevMonth = months[idx - 1];
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('month', prevMonth);
-                    window.location.href = url.toString();
-                }}
+    // 플로팅 스와이프 버튼 클릭 이벤트 위임 처리
+    document.addEventListener('click', function(e) {{
+        const btn = e.target.closest('.floating-cal-btn');
+        if (btn && !btn.classList.contains('disabled')) {{
+            const targetMonth = btn.getAttribute('data-month');
+            if (targetMonth) {{
+                const url = new URL(window.location.href);
+                url.searchParams.set('month', targetMonth);
+                window.location.href = url.toString();
             }}
         }}
-    }}
+    }});
 
-    function initSwipe() {{
-        document.addEventListener('touchstart', function(e) {{
-            if (e.touches && e.touches.length > 0) {{
-                touchstartX = e.touches[0].clientX;
-                touchstartY = e.touches[0].clientY;
+    // 모바일 터치 스와이프 제스처 처리
+    let touchstartX = 0;
+    let touchendX = 0;
+
+    document.addEventListener('touchstart', e => {{
+        if (e.changedTouches && e.changedTouches.length > 0) {{
+            touchstartX = e.changedTouches[0].screenX;
+        }}
+    }}, {{passive: true}});
+
+    document.addEventListener('touchend', e => {{
+        if (e.changedTouches && e.changedTouches.length > 0) {{
+            touchendX = e.changedTouches[0].screenX;
+            handleGesture();
+        }}
+    }}, {{passive: true}});
+
+    function handleGesture() {{
+        let threshold = 50;
+        const monthsEl = document.getElementById('avail-months-data');
+        const currentMonthEl = document.getElementById('current-month-data');
+        
+        if (!monthsEl || !currentMonthEl) return;
+        
+        let months = [];
+        try {{
+            months = JSON.parse(monthsEl.textContent || '[]');
+        }} catch(err) {{ return; }}
+        
+        let currentMonth = currentMonthEl.textContent || '';
+
+        if (touchendX < touchstartX - threshold) {{
+            let idx = months.indexOf(currentMonth);
+            if (idx >= 0 && idx < months.length - 1) {{
+                let nextMonth = months[idx + 1];
+                const url = new URL(window.location.href);
+                url.searchParams.set('month', nextMonth);
+                window.location.href = url.toString();
             }}
-        }}, {{passive: true}});
-
-        document.addEventListener('touchend', function(e) {{
-            if (e.changedTouches && e.changedTouches.length > 0) {{
-                touchendX = e.changedTouches[0].clientX;
-                touchendY = e.changedTouches[0].clientY;
-                handleGesture();
+        }}
+        if (touchendX > touchstartX + threshold) {{
+            let idx = months.indexOf(currentMonth);
+            if (idx > 0) {{
+                let prevMonth = months[idx - 1];
+                const url = new URL(window.location.href);
+                url.searchParams.set('month', prevMonth);
+                window.location.href = url.toString();
             }}
-        }}, {{passive: true}});
-    }}
-
-    if (document.readyState === 'loading') {{
-        document.addEventListener('DOMContentLoaded', initSwipe);
-    }} else {{
-        initSwipe();
+        }}
     }}
 }})();
 </script>
@@ -834,8 +817,6 @@ with tab1:
                 
             duty_map[row["날짜"].day] = {"p1": p1_name, "p2": p2_name}
 
-        avail_months_json = json.dumps(avail_months)
-
         if st.session_state.auto_view_type == "📄 세로형 리스트":
             weekdays_kr = ["일", "월", "화", "수", "목", "금", "토"]
             for d in range(1, calendar.monthrange(y, m)[1] + 1):
@@ -853,7 +834,7 @@ with tab1:
                 
                 st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
-            html_content = f'<div class="cal-container" data-avail-months=\'{avail_months_json}\' data-current-month=\'{sel_month}\'>'
+            html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
             
             html_content += '<div class="cal-week-row">'
@@ -901,14 +882,8 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # 숨김 참조 요소 추가
-        st.markdown(f"""
-        <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
-        <div id="current-month-data" style="display:none;">{sel_month}</div>
-        """, unsafe_allow_html=True)
-
         # ---------------------------------------------------------
-        # 화면 하단 1/4 지점(bottom: 25vh)에 항상 고정되는 달력 좌우 플로팅 버튼
+        # 화면 하단 1/5 지점에 고정되는 달력 좌우 플로팅 스와이프 버튼
         # ---------------------------------------------------------
         cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
         prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
@@ -921,7 +896,7 @@ with tab1:
         <style>
             .floating-cal-btn {{
                 position: fixed;
-                bottom: 25vh;
+                bottom: 20vh;
                 z-index: 999999;
                 width: 46px;
                 height: 46px;
@@ -953,12 +928,37 @@ with tab1:
                 pointer-events: none;
             }}
         </style>
-        <div class="floating-cal-btn left {left_dis}" 
-             onclick="const url = new URL(window.location.href); url.searchParams.set('month', '{prev_m}'); window.location.href = url.toString();" 
-             title="이전달 ({prev_m})">◀</div>
-        <div class="floating-cal-btn right {right_dis}" 
-             onclick="const url = new URL(window.location.href); url.searchParams.set('month', '{next_m}'); window.location.href = url.toString();" 
-             title="다음달 ({next_m})">▶</div>
+        <div class="floating-cal-btn left {left_dis}" data-month="{prev_m}" title="이전달 ({prev_m})">◀</div>
+        <div class="floating-cal-btn right {right_dis}" data-month="{next_m}" title="다음달 ({next_m})">▶</div>
+        """, unsafe_allow_html=True)
+
+        # ---------------------------------------------------------
+        # 달력 하단 하단 컨트롤 버튼
+        # ---------------------------------------------------------
+        st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+        col_prev, col_mid, col_next = st.columns([1, 2, 1])
+        
+        with col_prev:
+            if st.button("◀ 이전달", key="cal_btn_prev", disabled=(cur_idx <= 0), use_container_width=True):
+                prev_month = avail_months[cur_idx - 1]
+                st.session_state.selected_month = prev_month
+                st.query_params["month"] = prev_month
+                st.rerun()
+                
+        with col_mid:
+            st.markdown(f"<div style='text-align:center; font-weight:800; font-size:13px; line-height:38px; color:{main_text_color};'>◀ {sel_month} ▶</div>", unsafe_allow_html=True)
+            
+        with col_next:
+            if st.button("다음달 ▶", key="cal_btn_next", disabled=(cur_idx >= len(avail_months) - 1), use_container_width=True):
+                next_month = avail_months[cur_idx + 1]
+                st.session_state.selected_month = next_month
+                st.query_params["month"] = next_month
+                st.rerun()
+
+        avail_months_json = json.dumps(avail_months)
+        st.markdown(f"""
+        <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
+        <div id="current-month-data" style="display:none;">{sel_month}</div>
         """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
@@ -1013,6 +1013,7 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
+            # 근무자 드롭다운 선택상자 항목에 직접 현재 지정된 근무자 정보 표출
             with st.form(f"tab2_edit_form_{date_str_key}"):
                 st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
                 

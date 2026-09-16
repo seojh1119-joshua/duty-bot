@@ -858,7 +858,7 @@ with tab1:
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
-                <div class="today-hint">👆 박스를 누르면 일자별 수정이 나옵니다</div>
+
             </div>
             """,
             unsafe_allow_html=True

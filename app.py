@@ -122,6 +122,7 @@ click_date_param = st.query_params.get("click_date")
 if click_date_param:
     st.session_state.update({
         "selected_edit_date_str": click_date_param,
+        "tab2_date_input_key": datetime.datetime.strptime(click_date_param, "%Y-%m-%d").date(),
         "active_main_tab": 1 # 일자별 수정 탭
     })
     if "click_date" in st.query_params:
@@ -986,7 +987,10 @@ with tab2:
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
+        # 1. 기본값: 오늘 날짜 (데이터셋에 없으면 첫번째 날짜)
         default_d = today if today in available_dates else available_dates[0]
+        
+        # 외부/달력에서 파라미터로 선택한 특정 날짜가 있는 경우 반영
         if "selected_edit_date_str" in st.session_state:
             try:
                 parsed_target = datetime.datetime.strptime(st.session_state.selected_edit_date_str, "%Y-%m-%d").date()
@@ -996,7 +1000,18 @@ with tab2:
             except:
                 pass
 
-        sel_edit_date = st.date_input("수정할 날짜 선택", value=default_d, key="tab2_date_input")
+        if "tab2_date_input_key" not in st.session_state or st.session_state.tab2_date_input_key not in available_dates:
+            st.session_state.tab2_date_input_key = default_d
+
+        def update_tab2_date():
+            st.session_state.tab2_date_input_key = st.session_state.tab2_date_picker
+
+        sel_edit_date = st.date_input(
+            "수정할 날짜 선택", 
+            value=st.session_state.tab2_date_input_key, 
+            key="tab2_date_picker",
+            on_change=update_tab2_date
+        )
         date_str_key = sel_edit_date.strftime("%Y-%m-%d")
         
         row_match = df[df["날짜"].dt.date == sel_edit_date]
@@ -1029,25 +1044,24 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
-            # 근무자 드롭다운 선택상자 항목에 직접 현재 지정된 근무자 정보 표출
-            with st.form(f"tab2_edit_form_{date_str_key}"):
-                st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
-                
-                p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key="t2_p1")
-                p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key="t2_p1_c") if p1_s == "(직접 입력)" else ""
-                
-                sub1_s = st.selectbox(f"대직자1 (현재: {disp_sub1})", worker_options, index=get_idx(curr_sub1), key="t2_sub1")
-                sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key="t2_sub1_c") if sub1_s == "(직접 입력)" else ""
+            # 2. 날짜 변경 시 선택 상자가 실시간으로 해당 날짜의 근무자로 동기화되도록 드롭다운 구성
+            st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
+            
+            p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key=f"t2_p1_{date_str_key}")
+            p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"t2_p1_c_{date_str_key}") if p1_s == "(직접 입력)" else ""
+            
+            sub1_s = st.selectbox(f"대직자1 (현재: {disp_sub1})", worker_options, index=get_idx(curr_sub1), key=f"t2_sub1_{date_str_key}")
+            sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"t2_sub1_c_{date_str_key}") if sub1_s == "(직접 입력)" else ""
 
-                p2_s = st.selectbox(f"근무자2 (현재: {disp_p2})", worker_options, index=get_idx(curr_p2), key="t2_p2")
-                p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key="t2_p2_c") if p2_s == "(직접 입력)" else ""
-                
-                sub2_s = st.selectbox(f"대직자2 (현재: {disp_sub2})", worker_options, index=get_idx(curr_sub2), key="t2_sub2")
-                sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key="t2_sub2_c") if sub2_s == "(직접 입력)" else ""
-                
-                memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str_key, ""), key="t2_memo")
-                
-                submitted_t2 = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
+            p2_s = st.selectbox(f"근무자2 (현재: {disp_p2})", worker_options, index=get_idx(curr_p2), key=f"t2_p2_{date_str_key}")
+            p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"t2_p2_c_{date_str_key}") if p2_s == "(직접 입력)" else ""
+            
+            sub2_s = st.selectbox(f"대직자2 (현재: {disp_sub2})", worker_options, index=get_idx(curr_sub2), key=f"t2_sub2_{date_str_key}")
+            sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"t2_sub2_c_{date_str_key}") if sub2_s == "(직접 입력)" else ""
+            
+            memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str_key, ""), key=f"t2_memo_{date_str_key}")
+            
+            submitted_t2 = st.button("💾 수정사항 저장", use_container_width=True, type="primary", key=f"t2_submit_{date_str_key}")
 
             if submitted_t2:
                 f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)

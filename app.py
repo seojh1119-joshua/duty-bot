@@ -748,10 +748,9 @@ with tab1:
     
     query_month = st.query_params.get("month")
     
+    # URL 쿼리 파라미터가 유효하면 사용하고, 없는 경우 오늘 기준 월(cur_ym)을 최우선 적용하여 갱신 보장
     if query_month and query_month in avail_months:
         target_month = query_month
-    elif "selected_month" in st.session_state and st.session_state.selected_month in avail_months:
-        target_month = st.session_state.selected_month
     else:
         target_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
@@ -919,7 +918,7 @@ with tab2:
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
-        # ① 선택 날짜 기본값: 오늘 날짜 (데이터 존재 시 오늘, 없을 경우 첫 번째 날짜)
+        # 선택 날짜 기본값: 오늘 날짜 (데이터 존재 시 오늘, 없을 경우 첫 번째 날짜)
         default_d = today if today in available_dates else available_dates[0]
         
         # External navigation or saved date priority
@@ -963,7 +962,7 @@ with tab2:
 
             worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
             
-            # ②, ③ 날짜 변경 시 해당 날짜 근무자로 드롭다운 인덱스 자동 지정
+            # 날짜 변경 시 해당 날짜 근무자로 드롭다운 인덱스 자동 지정
             def get_idx(val):
                 if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: 
                     return 0

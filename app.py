@@ -44,11 +44,11 @@ WORKERS_DB_FILE = Path("data/workers_db.json")
 DEFAULT_EXCEL_PATH = os.path.join("data", "숙직근무표.xlsx")
 
 # ---------------------------------------------------------
-# [오류수정 1] 정확한 한국 시간(KST, UTC+9) 기준 오늘 날짜 계산
+# 정확한 한국 시간(KST, UTC+9) 기준 오늘 날짜 계산
 # ---------------------------------------------------------
 tz_kst = datetime.timezone(datetime.timedelta(hours=9))
 now_kst = datetime.datetime.now(tz_kst)
-today = now_kst.date()  # 서버 시간대 및 새벽시간 오류 방지 (오늘 날짜 정확 적용)
+today = now_kst.date()
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -109,7 +109,7 @@ for k, v in [
         st.session_state[k] = v
 
 # ---------------------------------------------------------
-# [오류수정 2] LocalStorage 동기화 및 블랙테마 고정 원인 해결
+# LocalStorage 및 Query Params 동기화 (오류 수정 반영)
 # ---------------------------------------------------------
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
@@ -119,7 +119,7 @@ if display_view_param and display_view_param != st.session_state.auto_view_type:
 if display_theme_param and display_theme_param != st.session_state.app_theme:
     st.session_state.app_theme = display_theme_param
 
-# 브라우저 LocalStorage에 저장된 테마 정보를 쿼리 파라미터로 동기화하는 JS 스크립트
+# 초기 접속 시 LocalStorage 값을 읽어와 URL 파라미터 동기화
 if not display_theme_param or not display_view_param:
     components.html(
         """
@@ -175,7 +175,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 시스템 CSS 및 자바스크립트 적용
+# 시스템 CSS 및 스타일 적용
 # ---------------------------------------------------------
 is_dark = st.session_state.app_theme == "🌙 블랙 테마"
 
@@ -432,7 +432,6 @@ def save_app_state(df, sheet_name, memos):
         target_file_path = st.session_state.get("file_path", DEFAULT_EXCEL_PATH)
         save_to_excel_file(df, target_file_path, sheet_name)
         
-        # data 폴더 내 기본 파일에도 항상 동일하게 동기화 저장
         if target_file_path != DEFAULT_EXCEL_PATH:
             save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name="숙직근무자")
     except Exception as e:
@@ -570,27 +569,30 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
-            st.session_state.update({
-                "auto_view_type": new_view, 
-                "app_theme": new_th, 
-                "show_settings_dialog": False
-            })
+            # 1. 로컬 설정 저장
+            save_local_config("auto_view_type", new_view)
+            save_local_config("app_theme", new_th)
             
-            # LocalStorage 및 URL 쿼리 동시 저장 및 즉시 리로드
+            # 2. 세션 상태 업데이트
+            st.session_state.auto_view_type = new_view
+            st.session_state.app_theme = new_th
+            st.session_state.show_settings_dialog = False
+
+            # 3. Query Parameter 및 LocalStorage 즉시 동기화
+            st.query_params["local_view"] = new_view
+            st.query_params["local_theme"] = new_th
+
             components.html(
                 f"""
                 <script>
                     localStorage.setItem('local_auto_view_type', '{new_view}');
                     localStorage.setItem('local_app_theme', '{new_th}');
-                    const urlParams = new URLSearchParams(window.parent.location.search);
-                    urlParams.set('local_view', '{new_view}');
-                    urlParams.set('local_theme', '{new_th}');
-                    window.parent.location.search = urlParams.toString();
                 </script>
                 """,
                 height=0,
                 width=0
             )
+            st.rerun()
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)

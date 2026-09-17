@@ -39,7 +39,6 @@ os.makedirs("DATA", exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
-CONFIG_PATH = os.path.join("DATA", "local_config.json")
 WORKERS_DB_FILE = Path("data/workers_db.json")
 
 # ---------------------------------------------------------
@@ -52,47 +51,75 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-def load_local_config():
-    default_config = {
-        "auto_view_type": "🗓️ 가로형 Grid", 
-        "app_theme": "☀️ 화이트 테마", 
-        "sms_api_key": "",
-        "sms_api_secret": "",
-        "sms_sender_phone": "",
-        "batch_start_date": str(datetime.date.today()),
-        "batch_infinite": False,
-        "batch_days_c": 30,
-        "batch_i1": 3,
-        "batch_w1_names": ["", "", ""],
-        "batch_i2": 3,
-        "batch_w2_names": ["", "", ""]
-    }
-    if os.path.exists(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-                default_config.update(saved)
-        except Exception as e:
-            st.sidebar.warning(f"⚠️ 설정 로드 실패: {e}")
-    return default_config
+# ---------------------------------------------------------
+# 하드웨어 기기 브라우저(localStorage) 연동 설정
+# ---------------------------------------------------------
+DEFAULT_CONFIG = {
+    "auto_view_type": "🗓️ 가로형 Grid", 
+    "app_theme": "☀️ 화이트 테마", 
+    "sms_api_key": "",
+    "sms_api_secret": "",
+    "sms_sender_phone": "",
+    "batch_start_date": str(datetime.date.today()),
+    "batch_infinite": False,
+    "batch_days_c": 30,
+    "batch_i1": 3,
+    "batch_w1_names": ["", "", ""],
+    "batch_i2": 3,
+    "batch_w2_names": ["", "", ""]
+}
 
-def save_local_config(key, value):
-    config = load_local_config()
-    config[key] = value
+# 기기 브라우저(localStorage)에서 설정을 불러오는 JS 컴포넌트
+def sync_device_config():
+    js_code = """
+    <script>
+        const localData = localStorage.getItem('app_device_local_config');
+        const urlParams = new URLSearchParams(window.location.search);
+        if (localData && !urlParams.has('device_cfg_synced')) {
+            const encoded = encodeURIComponent(localData);
+            urlParams.set('device_cfg_synced', '1');
+            urlParams.set('device_config', encoded);
+            window.location.search = urlParams.toString();
+        }
+    </script>
+    """
+    components.html(js_code, height=0, width=0)
+
+if "device_cfg_loaded" not in st.session_state:
+    sync_device_config()
+    st.session_state.device_cfg_loaded = True
+
+# 쿼리 파라미터로 동기화된 현재 기기 전용 설정 로드
+device_cfg_param = st.query_params.get("device_config")
+device_config = DEFAULT_CONFIG.copy()
+
+if device_cfg_param:
     try:
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        st.sidebar.warning(f"⚠️ 설정 저장 실패: {e}")
+        parsed_cfg = json.loads(device_cfg_param)
+        device_config.update(parsed_cfg)
+    except Exception:
+        pass
 
-local_cfg = load_local_config()
+def save_device_config_to_browser(config_dict):
+    """현재 접속한 기기(브라우저)의 localStorage에만 저장"""
+    json_str = json.dumps(config_dict)
+    js_code = f"""
+    <script>
+        localStorage.setItem('app_device_local_config', JSON.stringify({json_str}));
+        const url = new URL(window.location.href);
+        url.searchParams.set('device_config', encodeURIComponent(JSON.stringify({json_str})));
+        url.searchParams.set('device_cfg_synced', '1');
+        window.location.href = url.toString();
+    </script>
+    """
+    components.html(js_code, height=0, width=0)
 
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
-    ("auto_view_type", local_cfg["auto_view_type"]), ("app_theme", local_cfg["app_theme"]),
-    ("sms_api_key", local_cfg.get("sms_api_key", "")),
-    ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
-    ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
+    ("auto_view_type", device_config["auto_view_type"]), ("app_theme", device_config["app_theme"]),
+    ("sms_api_key", device_config.get("sms_api_key", "")),
+    ("sms_api_secret", device_config.get("sms_api_secret", "")),
+    ("sms_sender_phone", device_config.get("sms_sender_phone", "")),
     ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
@@ -103,18 +130,18 @@ if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_settings_dialog": False,
         "show_exit_dialog": False,
-        "active_main_tab": 1 # 일자별 수정 탭 인덱스
+        "active_main_tab": 1
     })
     if "open_today" in st.query_params:
         del st.query_params["open_today"]
     st.rerun()
 
-# 달력 일자 클릭 시 쿼리 파라미터 처리 (특정 날짜를 탭2 일자별 수정의 기본값으로 지정하고 탭2로 이동)
+# 달력 일자 클릭 시 쿼리 파라미터 처리
 click_date_param = st.query_params.get("click_date")
 if click_date_param:
     st.session_state.update({
         "selected_edit_date_str": click_date_param,
-        "active_main_tab": 1 # 일자별 수정 탭
+        "active_main_tab": 1
     })
     if "click_date" in st.query_params:
         del st.query_params["click_date"]
@@ -559,7 +586,7 @@ def confirm_exit_dialog():
             st.session_state.update({"show_exit_dialog": False, "is_app_closed": True})
             st.rerun()
 
-@st.dialog("⚙️ 화면 및 설정 관리")
+@st.dialog("⚙️ 화면 및 설정 관리 (현재 사용기기에만 적용)")
 def settings_dialog():
     tab_s1, tab_s2, tab_s3 = st.tabs(["화면 설정", "순환 등록", "SMS 연동 설정"])
     
@@ -569,45 +596,45 @@ def settings_dialog():
         new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("화면 설정 적용", use_container_width=True, type="primary"):
+        if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
             st.session_state.update({
                 "auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False
             })
-            save_local_config("auto_view_type", new_view)
-            save_local_config("app_theme", new_th)
-            st.rerun()
+            device_config["auto_view_type"] = new_view
+            device_config["app_theme"] = new_th
+            save_device_config_to_browser(device_config)
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
         st.markdown("#### 🔄 순환 등록 설정")
         
-        cfg = load_local_config()
         try:
-            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
+            default_start_date = datetime.datetime.strptime(device_config.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
         except:
             default_start_date = datetime.date.today()
 
         start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
-        infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
-        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(cfg.get("batch_days_c", 30)), disabled=infinite_repeat, key="batch_days_c_input")
+        infinite_repeat = st.checkbox("무한 순환", value=device_config.get("batch_infinite", False), key="batch_infinite_input")
+        days_c = st.number_input("적용 일수", min_value=1, max_value=365, value=int(device_config.get("batch_days_c", 30)), disabled=infinite_repeat, key="batch_days_c_input")
         
-        i1 = st.number_input("근무자1 주기", 1, 30, int(cfg.get("batch_i1", 3)), key="batch_i1_input")
-        saved_w1 = cfg.get("batch_w1_names", ["", "", ""])
+        i1 = st.number_input("근무자1 주기", 1, 30, int(device_config.get("batch_i1", 3)), key="batch_i1_input")
+        saved_w1 = device_config.get("batch_w1_names", ["", "", ""])
         w1_names = [st.text_input(f"1-{i+1}", value=saved_w1[i] if i < len(saved_w1) else "", key=f"w1_{i}").strip() for i in range(int(i1))]
         
-        i2 = st.number_input("근무자2 주기", 1, 30, int(cfg.get("batch_i2", 3)), key="batch_i2_input")
-        saved_w2 = cfg.get("batch_w2_names", ["", "", ""])
+        i2 = st.number_input("근무자2 주기", 1, 30, int(device_config.get("batch_i2", 3)), key="batch_i2_input")
+        saved_w2 = device_config.get("batch_w2_names", ["", "", ""])
         w2_names = [st.text_input(f"2-{i+1}", value=saved_w2[i] if i < len(saved_w2) else "", key=f"w2_{i}").strip() for i in range(int(i2))]
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("🔄 순환 패턴 반영", use_container_width=True, type="primary"):
-            save_local_config("batch_start_date", str(start_d))
-            save_local_config("batch_infinite", infinite_repeat)
-            save_local_config("batch_days_c", int(days_c))
-            save_local_config("batch_i1", int(i1))
-            save_local_config("batch_w1_names", w1_names)
-            save_local_config("batch_i2", int(i2))
-            save_local_config("batch_w2_names", w2_names)
+        if st.button("🔄 순환 패턴 반영 (현재 기기에 저장)", use_container_width=True, type="primary"):
+            device_config["batch_start_date"] = str(start_d)
+            device_config["batch_infinite"] = infinite_repeat
+            device_config["batch_days_c"] = int(days_c)
+            device_config["batch_i1"] = int(i1)
+            device_config["batch_w1_names"] = w1_names
+            device_config["batch_i2"] = int(i2)
+            device_config["batch_w2_names"] = w2_names
+            save_device_config_to_browser(device_config)
 
             df_cur = st.session_state.df
             cur_d = start_d
@@ -636,8 +663,7 @@ def settings_dialog():
             st.session_state.df = df_cur
             save_app_state(df_cur, st.session_state.selected_sheet, st.session_state.memos)
             st.session_state.show_settings_dialog = False
-            st.success("✅ 순환 패턴이 성공적으로 반영되고 엑셀 시트에 저장되었습니다!")
-            st.rerun()
+            st.success("✅ 순환 패턴이 반영되었습니다!")
 
     with tab_s3:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -646,16 +672,18 @@ def settings_dialog():
         s_phone = st.text_input("발신자 대표 번호", value=st.session_state.sms_sender_phone, placeholder="0200000000 (등록된 발신번호)")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("SMS 설정 저장", use_container_width=True, type="primary"):
+        if st.button("SMS 설정 저장 (현재 기기에 저장)", use_container_width=True, type="primary"):
             st.session_state.sms_api_key = s_key
             st.session_state.sms_api_secret = s_sec
             st.session_state.sms_sender_phone = s_phone
-            save_local_config("sms_api_key", s_key)
-            save_local_config("sms_api_secret", s_sec)
-            save_local_config("sms_sender_phone", s_phone)
+            
+            device_config["sms_api_key"] = s_key
+            device_config["sms_api_secret"] = s_sec
+            device_config["sms_sender_phone"] = s_phone
+            save_device_config_to_browser(device_config)
+            
             st.session_state.show_settings_dialog = False
-            st.success("✅ 문자(SMS) API 설정이 저장되었습니다.")
-            st.rerun()
+            st.success("✅ 문자(SMS) API 설정이 현재 기기에 저장되었습니다.")
 
 # ---------------------------------------------------------
 # 사이드바
@@ -741,7 +769,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 근무 안내 박스 클릭 시 일자별 수정 탭(탭2)으로 이동하도록 링크 연결
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
@@ -871,9 +898,6 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # ---------------------------------------------------------
-        # 화면 하단 1/6 지점에 고정되는 달력 좌우 플로팅 버튼 (정상 동작 앵커 링크 처리)
-        # ---------------------------------------------------------
         cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
         prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
         next_m = avail_months[cur_idx + 1] if cur_idx < len(avail_months) - 1 else ""
@@ -980,7 +1004,6 @@ with tab2:
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
-            # 근무자 드롭다운 선택상자 항목에 직접 현재 지정된 근무자 정보 표출
             with st.form(f"tab2_edit_form_{date_str_key}"):
                 st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
                 

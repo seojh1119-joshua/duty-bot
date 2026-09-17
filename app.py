@@ -111,7 +111,7 @@ if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_settings_dialog": False,
         "show_exit_dialog": False,
-        "active_main_tab": 1 # 일자별 수정 탭 인덱스
+        "active_main_tab": 1
     })
     if "open_today" in st.query_params:
         del st.query_params["open_today"]
@@ -123,7 +123,7 @@ if click_date_param:
     st.session_state.update({
         "selected_edit_date_str": click_date_param,
         "tab2_date_input_key": click_date_param,
-        "active_main_tab": 1 # 일자별 수정 탭
+        "active_main_tab": 1
     })
     if "click_date" in st.query_params:
         del st.query_params["click_date"]
@@ -133,34 +133,6 @@ if st.session_state.is_app_closed:
     st.title("👋 앱이 종료되었습니다.")
     st.info("다시 이용하시려면 브라우저 페이지를 새로고침(F5) 해주세요.")
     st.stop()
-
-# ---------------------------------------------------------
-# 브라우저 전용 설정 불러오기 스크립트
-# ---------------------------------------------------------
-components.html(
-    """
-    <script>
-        const localView = localStorage.getItem('local_auto_view_type');
-        const localTheme = localStorage.getItem('local_app_theme');
-        const urlParams = new URLSearchParams(window.parent.location.search);
-        
-        let needReload = false;
-        if (localView && urlParams.get('local_view') !== localView) {
-            urlParams.set('local_view', localView);
-            needReload = true;
-        }
-        if (localTheme && urlParams.get('local_theme') !== localTheme) {
-            urlParams.set('local_theme', localTheme);
-            needReload = true;
-        }
-        if (needReload) {
-            window.parent.location.search = urlParams.toString();
-        }
-    </script>
-    """,
-    height=0,
-    width=0
-)
 
 # ---------------------------------------------------------
 # 시스템 CSS 및 자바스크립트 적용
@@ -697,7 +669,7 @@ elif st.session_state.show_settings_dialog:
 
 df = st.session_state.df
 
-# 매 rerun 실행 시점마다 실시간 오늘 날짜를 동적으로 정확하게 계산
+# 매 rerun 실행 시점마다 실시간 오늘 날짜를 동적으로 정확하게 계산 (오전 7시 교대 기준)
 now = datetime.datetime.now()
 if now.hour < 7:
     today = (now - datetime.timedelta(days=1)).date()
@@ -716,7 +688,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-# 탭 선택 인덱스 제어
+# 탭 구성
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
@@ -746,36 +718,34 @@ with tab1:
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
+    # URL 쿼리 파라미터 체크 및 오늘 날짜 우선 초기화 로직
     query_month = st.query_params.get("month")
     
-    # URL 쿼리 파라미터가 유효하면 사용하고, 없는 경우 실시간 오늘 기준 월(cur_ym)을 최우선 적용
-    if query_month and query_month in avail_months:
-        target_month = query_month
-    else:
-        target_month = cur_ym if cur_ym in avail_months else avail_months[0]
+    if "selected_month" not in st.session_state:
+        if query_month and query_month in avail_months:
+            st.session_state.selected_month = query_month
+        else:
+            st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
-    st.session_state.selected_month = target_month
-
-    if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget not in avail_months:
-        st.session_state.month_selectbox_widget = target_month
+    sel_month = st.session_state.selected_month
+    if sel_month not in avail_months:
+        sel_month = cur_ym if cur_ym in avail_months else avail_months[0]
+        st.session_state.selected_month = sel_month
 
     def on_month_change():
-        chosen = st.session_state.month_selectbox_widget
-        st.session_state.selected_month = chosen
-        st.query_params["month"] = chosen
+        st.session_state.selected_month = st.session_state.month_selectbox_widget
+        st.query_params["month"] = st.session_state.month_selectbox_widget
+
+    selected_index = avail_months.index(sel_month) if sel_month in avail_months else 0
 
     sel_month = st.selectbox(
         "조회 월 선택", 
         avail_months, 
+        index=selected_index,
         key="month_selectbox_widget",
         on_change=on_month_change,
         label_visibility="collapsed"
     )
-
-    if st.query_params.get("month") != st.session_state.selected_month:
-        st.query_params["month"] = st.session_state.selected_month
-
-    sel_month = st.session_state.selected_month
 
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
@@ -918,10 +888,8 @@ with tab2:
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
-        # 선택 날짜 기본값: 오늘 날짜 (데이터 존재 시 오늘, 없을 경우 첫 번째 날짜)
         default_d = today if today in available_dates else available_dates[0]
         
-        # External navigation or saved date priority
         if "selected_edit_date_str" in st.session_state:
             try:
                 parsed_target = datetime.datetime.strptime(st.session_state.selected_edit_date_str, "%Y-%m-%d").date()
@@ -931,7 +899,6 @@ with tab2:
             except:
                 pass
 
-        # 날짜 선택 인풋
         sel_edit_date = st.date_input("수정할 날짜 선택", value=default_d, key="tab2_date_picker")
         date_str_key = sel_edit_date.strftime("%Y-%m-%d")
         
@@ -940,7 +907,6 @@ with tab2:
             r_idx = row_match.index[0]
             curr_r = df.loc[r_idx]
             
-            # 선택된 날짜의 현재 근무자 정보 추출
             curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
             curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
             curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
@@ -951,7 +917,6 @@ with tab2:
             disp_sub1 = curr_sub1 if curr_sub1 not in ["nan", "None", ""] else "없음"
             disp_sub2 = curr_sub2 if curr_sub2 not in ["nan", "None", ""] else "없음"
 
-            # 모든 근무자 목록 수집
             all_workers = set()
             for col in ["근무자1", "근무자2", "대직1", "대직2"]:
                 if col in df.columns:
@@ -962,14 +927,12 @@ with tab2:
 
             worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
             
-            # 날짜 변경 시 해당 날짜 근무자로 드롭다운 인덱스 자동 지정
             def get_idx(val):
                 if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: 
                     return 0
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
-            # 날짜(date_str_key) 기반 동적 form 생성하여 날짜 변경 시 드롭다운과 메모가 자동으로 업데이트됨
             with st.form(f"tab2_edit_form_{date_str_key}"):
                 st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
                 

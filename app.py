@@ -85,7 +85,7 @@ def save_local_config(key, value):
 
 local_cfg = load_local_config()
 
-# 세션 상태 기본값 설정 (화면 설정은 현재 기기의 localStorage에서 동적으로 반영됨)
+# 세션 상태 기본값 설정
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
     ("auto_view_type", "🗓️ 가로형 Grid"), ("app_theme", "☀️ 화이트 테마"),
@@ -97,7 +97,7 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# 쿼리 파라미터를 이용한 현재 사용 기기(Local Storage) 전용 화면 설정 동기화
+# 쿼리 파라미터를 이용한 현재 사용 기기 전용 화면 설정 동기화
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
 
@@ -117,12 +117,12 @@ if st.query_params.get("open_today") == "1":
         del st.query_params["open_today"]
     st.rerun()
 
-# 달력 일자 클릭 시 쿼리 파라미터 처리 (특정 날짜를 탭2 일자별 수정의 기본값으로 지정하고 탭2로 이동)
+# 달력 일자 클릭 시 쿼리 파라미터 처리
 click_date_param = st.query_params.get("click_date")
 if click_date_param:
     st.session_state.update({
         "selected_edit_date_str": click_date_param,
-        "tab2_date_input_key": datetime.datetime.strptime(click_date_param, "%Y-%m-%d").date(),
+        "tab2_date_input_key": click_date_param,
         "active_main_tab": 1 # 일자별 수정 탭
     })
     if "click_date" in st.query_params:
@@ -135,7 +135,7 @@ if st.session_state.is_app_closed:
     st.stop()
 
 # ---------------------------------------------------------
-# 브라우저(하드웨어 기기) 전용 설정 불러오기 스크립트
+# 브라우저 전용 설정 불러오기 스크립트
 # ---------------------------------------------------------
 components.html(
     """
@@ -244,7 +244,6 @@ responsive_css = f"""
     .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
     .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
-    .today-card .today-hint {{ font-size: 11px !important; color: #E0E7FF !important; text-align: right; margin-top: 4px; font-weight: 600; }}
 
     .month-header-card {{
         background: {box_bg}; border: 1px solid {primary_blue}; border-radius: 12px; padding: 10px 14px; margin: 10px 0 12px 0; text-align: center;
@@ -339,60 +338,6 @@ responsive_css = f"""
     }}
     .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
 </style>
-
-<script>
-document.addEventListener("DOMContentLoaded", function() {{
-    let touchstartX = 0;
-    let touchendX = 0;
-
-    document.addEventListener('touchstart', e => {{
-        if (e.changedTouches && e.changedTouches.length > 0) {{
-            touchstartX = e.changedTouches[0].screenX;
-        }}
-    }}, {{passive: true}});
-
-    document.addEventListener('touchend', e => {{
-        if (e.changedTouches && e.changedTouches.length > 0) {{
-            touchendX = e.changedTouches[0].screenX;
-            handleGesture();
-        }}
-    }}, {{passive: true}});
-
-    function handleGesture() {{
-        let threshold = 50;
-        const monthsEl = document.getElementById('avail-months-data');
-        const currentMonthEl = document.getElementById('current-month-data');
-        
-        if (!monthsEl || !currentMonthEl) return;
-        
-        let months = [];
-        try {{
-            months = JSON.parse(monthsEl.textContent || '[]');
-        }} catch(err) {{ return; }}
-        
-        let currentMonth = currentMonthEl.textContent || '';
-
-        if (touchendX < touchstartX - threshold) {{
-            let idx = months.indexOf(currentMonth);
-            if (idx >= 0 && idx < months.length - 1) {{
-                let nextMonth = months[idx + 1];
-                const url = new URL(window.location.href);
-                url.searchParams.set('month', nextMonth);
-                window.location.href = url.toString();
-            }}
-        }}
-        if (touchendX > touchstartX + threshold) {{
-            let idx = months.indexOf(currentMonth);
-            if (idx > 0) {{
-                let prevMonth = months[idx - 1];
-                const url = new URL(window.location.href);
-                url.searchParams.set('month', prevMonth);
-                window.location.href = url.toString();
-            }}
-        }}
-    }}
-}});
-</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -610,7 +555,6 @@ def settings_dialog():
             st.session_state.update({
                 "auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False
             })
-            # 사용자의 웹브라우저 LocalStorage에 저장하여 현재 기기에만 독립 반영
             components.html(
                 f"""
                 <script>
@@ -772,9 +716,7 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-# 탭 선택 인덱스 제어 (기본값 0)
-active_tab_idx = st.session_state.get("active_main_tab", 0)
-
+# 탭 선택 인덱스 제어
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
@@ -791,7 +733,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 근무 안내 박스 클릭 시 일자별 수정 탭(탭2)으로 이동하도록 링크 연결
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
@@ -921,9 +862,6 @@ with tab1:
             
             st.markdown(html_content, unsafe_allow_html=True)
 
-        # ---------------------------------------------------------
-        # 화면 하단 1/6 지점에 고정되는 달력 좌우 플로팅 버튼 (정상 동작 앵커 링크 처리)
-        # ---------------------------------------------------------
         cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
         prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
         next_m = avail_months[cur_idx + 1] if cur_idx < len(avail_months) - 1 else ""
@@ -972,12 +910,6 @@ with tab1:
         <a href="?month={next_m}" target="_self" class="floating-cal-btn right {right_dis}" title="다음달 ({next_m})">▶</a>
         """, unsafe_allow_html=True)
 
-        avail_months_json = json.dumps(avail_months)
-        st.markdown(f"""
-        <div id="avail-months-data" style="display:none;">{avail_months_json}</div>
-        <div id="current-month-data" style="display:none;">{sel_month}</div>
-        """, unsafe_allow_html=True)
-
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭
 # ---------------------------------------------------------
@@ -987,10 +919,10 @@ with tab2:
     
     available_dates = sorted(df["날짜"].dt.date.unique())
     if available_dates:
-        # 1. 기본값: 오늘 날짜 (데이터셋에 없으면 첫번째 날짜)
+        # ① 선택 날짜 기본값: 오늘 날짜 (데이터 존재 시 오늘, 없을 경우 첫 번째 날짜)
         default_d = today if today in available_dates else available_dates[0]
         
-        # 외부/달력에서 파라미터로 선택한 특정 날짜가 있는 경우 반영
+        # External navigation or saved date priority
         if "selected_edit_date_str" in st.session_state:
             try:
                 parsed_target = datetime.datetime.strptime(st.session_state.selected_edit_date_str, "%Y-%m-%d").date()
@@ -1000,18 +932,8 @@ with tab2:
             except:
                 pass
 
-        if "tab2_date_input_key" not in st.session_state or st.session_state.tab2_date_input_key not in available_dates:
-            st.session_state.tab2_date_input_key = default_d
-
-        def update_tab2_date():
-            st.session_state.tab2_date_input_key = st.session_state.tab2_date_picker
-
-        sel_edit_date = st.date_input(
-            "수정할 날짜 선택", 
-            value=st.session_state.tab2_date_input_key, 
-            key="tab2_date_picker",
-            on_change=update_tab2_date
-        )
+        # 날짜 선택 인풋
+        sel_edit_date = st.date_input("수정할 날짜 선택", value=default_d, key="tab2_date_picker")
         date_str_key = sel_edit_date.strftime("%Y-%m-%d")
         
         row_match = df[df["날짜"].dt.date == sel_edit_date]
@@ -1019,6 +941,7 @@ with tab2:
             r_idx = row_match.index[0]
             curr_r = df.loc[r_idx]
             
+            # 선택된 날짜의 현재 근무자 정보 추출
             curr_p1 = str(curr_r.get("근무자1", "")).strip() if pd.notnull(curr_r.get("근무자1")) else ""
             curr_p2 = str(curr_r.get("근무자2", "")).strip() if pd.notnull(curr_r.get("근무자2")) else ""
             curr_sub1 = str(curr_r.get("대직1", "")).strip() if pd.notnull(curr_r.get("대직1")) else ""
@@ -1029,6 +952,7 @@ with tab2:
             disp_sub1 = curr_sub1 if curr_sub1 not in ["nan", "None", ""] else "없음"
             disp_sub2 = curr_sub2 if curr_sub2 not in ["nan", "None", ""] else "없음"
 
+            # 모든 근무자 목록 수집
             all_workers = set()
             for col in ["근무자1", "근무자2", "대직1", "대직2"]:
                 if col in df.columns:
@@ -1039,29 +963,32 @@ with tab2:
 
             worker_options = ["(선택 안함)"] + sorted(all_workers) + ["(직접 입력)"]
             
+            # ②, ③ 날짜 변경 시 해당 날짜 근무자로 드롭다운 인덱스 자동 지정
             def get_idx(val):
-                if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: return 0
+                if not val or pd.isna(val) or str(val).strip() in ["nan", "None", "미지정"]: 
+                    return 0
                 val_str = str(val).strip()
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
-            # 2. 날짜 변경 시 선택 상자가 실시간으로 해당 날짜의 근무자로 동기화되도록 드롭다운 구성
-            st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
-            
-            p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key=f"t2_p1_{date_str_key}")
-            p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"t2_p1_c_{date_str_key}") if p1_s == "(직접 입력)" else ""
-            
-            sub1_s = st.selectbox(f"대직자1 (현재: {disp_sub1})", worker_options, index=get_idx(curr_sub1), key=f"t2_sub1_{date_str_key}")
-            sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"t2_sub1_c_{date_str_key}") if sub1_s == "(직접 입력)" else ""
+            # 날짜(date_str_key) 기반 동적 form 생성하여 날짜 변경 시 드롭다운과 메모가 자동으로 업데이트됨
+            with st.form(f"tab2_edit_form_{date_str_key}"):
+                st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
+                
+                p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key=f"t2_p1_{date_str_key}")
+                p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"t2_p1_c_{date_str_key}") if p1_s == "(직접 입력)" else ""
+                
+                sub1_s = st.selectbox(f"대직자1 (현재: {disp_sub1})", worker_options, index=get_idx(curr_sub1), key=f"t2_sub1_{date_str_key}")
+                sub1_c = st.text_input("대직1 직접입력", value=curr_sub1 if sub1_s == "(직접 입력)" else "", key=f"t2_sub1_c_{date_str_key}") if sub1_s == "(직접 입력)" else ""
 
-            p2_s = st.selectbox(f"근무자2 (현재: {disp_p2})", worker_options, index=get_idx(curr_p2), key=f"t2_p2_{date_str_key}")
-            p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"t2_p2_c_{date_str_key}") if p2_s == "(직접 입력)" else ""
-            
-            sub2_s = st.selectbox(f"대직자2 (현재: {disp_sub2})", worker_options, index=get_idx(curr_sub2), key=f"t2_sub2_{date_str_key}")
-            sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"t2_sub2_c_{date_str_key}") if sub2_s == "(직접 입력)" else ""
-            
-            memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str_key, ""), key=f"t2_memo_{date_str_key}")
-            
-            submitted_t2 = st.button("💾 수정사항 저장", use_container_width=True, type="primary", key=f"t2_submit_{date_str_key}")
+                p2_s = st.selectbox(f"근무자2 (현재: {disp_p2})", worker_options, index=get_idx(curr_p2), key=f"t2_p2_{date_str_key}")
+                p2_c = st.text_input("직접입력2", value=curr_p2 if p2_s == "(직접 입력)" else "", key=f"t2_p2_c_{date_str_key}") if p2_s == "(직접 입력)" else ""
+                
+                sub2_s = st.selectbox(f"대직자2 (현재: {disp_sub2})", worker_options, index=get_idx(curr_sub2), key=f"t2_sub2_{date_str_key}")
+                sub2_c = st.text_input("대직2 직접입력", value=curr_sub2 if sub2_s == "(직접 입력)" else "", key=f"t2_sub2_c_{date_str_key}") if sub2_s == "(직접 입력)" else ""
+                
+                memo_in = st.text_area("메모", value=st.session_state.memos.get(date_str_key, ""), key=f"t2_memo_{date_str_key}")
+                
+                submitted_t2 = st.form_submit_button("💾 수정사항 저장", use_container_width=True, type="primary")
 
             if submitted_t2:
                 f_p1 = p1_c if p1_s == "(직접 입력)" else ("" if p1_s == "(선택 안함)" else p1_s)
@@ -1075,8 +1002,10 @@ with tab2:
                 df.loc[r_idx, "실제근무1"] = f_sub1 if f_sub1 else (f_p1 if f_p1 else "미지정")
                 df.loc[r_idx, "실제근무2"] = f_sub2 if f_sub2 else (f_p2 if f_p2 else "미지정")
                 
-                if memo_in.strip(): st.session_state.memos[date_str_key] = memo_in.strip()
-                else: st.session_state.memos.pop(date_str_key, None)
+                if memo_in.strip(): 
+                    st.session_state.memos[date_str_key] = memo_in.strip()
+                else: 
+                    st.session_state.memos.pop(date_str_key, None)
                 
                 st.session_state.df = df
                 save_app_state(df, st.session_state.selected_sheet, st.session_state.memos)

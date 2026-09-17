@@ -702,7 +702,13 @@ elif st.session_state.show_settings_dialog:
     settings_dialog()
 
 df = st.session_state.df
-today = datetime.date.today()
+
+# 오전 7시 이전까지는 '전일 근무'로 처리
+now = datetime.datetime.now()
+if now.hour < 7:
+    today = (now - datetime.timedelta(days=1)).date()
+else:
+    today = now.date()
 
 # ---------------------------------------------------------
 # 메인 화면
@@ -1207,7 +1213,7 @@ with tab5:
     with sub_k1:
         st.markdown("#### 선택 일자 근무자 문자 통보 발송")
         
-        target_send_date = st.date_input("알림 대상 일자 선택", value=datetime.date.today(), key="sms_target_send_date")
+        target_send_date = st.date_input("알림 대상 일자 선택", value=today, key="sms_target_send_date")
         target_str = target_send_date.strftime("%Y-%m-%d")
 
         matched_row = df[df["날짜"].dt.date == target_send_date]

@@ -697,7 +697,7 @@ elif st.session_state.show_settings_dialog:
 
 df = st.session_state.df
 
-# 오전 7시 이전까지는 '전일 근무'로 처리
+# 매 rerun 실행 시점마다 실시간 오늘 날짜를 동적으로 정확하게 계산
 now = datetime.datetime.now()
 if now.hour < 7:
     today = (now - datetime.timedelta(days=1)).date()
@@ -748,7 +748,7 @@ with tab1:
     
     query_month = st.query_params.get("month")
     
-    # URL 쿼리 파라미터가 유효하면 사용하고, 없는 경우 오늘 기준 월(cur_ym)을 최우선 적용하여 갱신 보장
+    # URL 쿼리 파라미터가 유효하면 사용하고, 없는 경우 실시간 오늘 기준 월(cur_ym)을 최우선 적용
     if query_month and query_month in avail_months:
         target_month = query_month
     else:
@@ -756,7 +756,7 @@ with tab1:
 
     st.session_state.selected_month = target_month
 
-    if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget != target_month:
+    if "month_selectbox_widget" not in st.session_state or st.session_state.month_selectbox_widget not in avail_months:
         st.session_state.month_selectbox_widget = target_month
 
     def on_month_change():

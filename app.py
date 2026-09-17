@@ -52,12 +52,23 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ---------------------------------------------------------
+# [FIX] 오전 7시 교대 기준 실시간 오늘 날짜 최상단 동적 계산
+# ---------------------------------------------------------
+now = datetime.datetime.now()
+if now.hour < 7:
+    today = (now - datetime.timedelta(days=1)).date()
+else:
+    today = now.date()
+
+cur_ym = today.strftime("%Y-%m")
+
 def load_local_config():
     default_config = {
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
-        "batch_start_date": str(datetime.date.today()),
+        "batch_start_date": str(today),
         "batch_infinite": False,
         "batch_days_c": 30,
         "batch_i1": 3,
@@ -92,7 +103,8 @@ for k, v in [
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
-    ("uploader_key", 0), ("upload_success_msg", "")
+    ("uploader_key", 0), ("upload_success_msg", ""),
+    ("active_main_tab", 0)
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -111,6 +123,7 @@ if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_settings_dialog": False,
         "show_exit_dialog": False,
+        "selected_edit_date_str": str(today),
         "active_main_tab": 1
     })
     if "open_today" in st.query_params:
@@ -549,9 +562,9 @@ def settings_dialog():
         
         cfg = load_local_config()
         try:
-            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
+            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(today)), "%Y-%m-%d").date()
         except:
-            default_start_date = datetime.date.today()
+            default_start_date = today
 
         start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
         infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
@@ -669,13 +682,6 @@ elif st.session_state.show_settings_dialog:
 
 df = st.session_state.df
 
-# 매 rerun 실행 시점마다 실시간 오늘 날짜를 동적으로 정확하게 계산 (오전 7시 교대 기준)
-now = datetime.datetime.now()
-if now.hour < 7:
-    today = (now - datetime.timedelta(days=1)).date()
-else:
-    today = now.date()
-
 # ---------------------------------------------------------
 # 메인 화면
 # ---------------------------------------------------------
@@ -688,8 +694,9 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-# 탭 구성
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
+# [FIX] 세션 상태를 연동한 안정적인 탭 이동 구조 구현
+tab_list = ["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"]
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(tab_list)
 
 # ---------------------------------------------------------
 # [탭 1] 달력 뷰
@@ -715,22 +722,16 @@ with tab1:
             unsafe_allow_html=True
         )
 
-    avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
-    cur_ym = today.strftime("%Y-%m")
+    avail_months = sorted(df["년월"].dropna().unique()) or [cur_ym]
     
-    # URL 쿼리 파라미터 체크 및 오늘 날짜 우선 초기화 로직
+    # [FIX] 오늘 날짜 월이 항상 기본값으로 안전하게 매핑되도록 보장
     query_month = st.query_params.get("month")
-    
-    if "selected_month" not in st.session_state:
-        if query_month and query_month in avail_months:
-            st.session_state.selected_month = query_month
-        else:
-            st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
+    if query_month and query_month in avail_months:
+        st.session_state.selected_month = query_month
+    elif "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
+        st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
     sel_month = st.session_state.selected_month
-    if sel_month not in avail_months:
-        sel_month = cur_ym if cur_ym in avail_months else avail_months[0]
-        st.session_state.selected_month = sel_month
 
     def on_month_change():
         st.session_state.selected_month = st.session_state.month_selectbox_widget

@@ -44,10 +44,11 @@ WORKERS_DB_FILE = Path("data/workers_db.json")
 DEFAULT_EXCEL_PATH = os.path.join("data", "숙직근무표.xlsx")
 
 # ---------------------------------------------------------
-# 매 rerun 실행 시점마다 07시 교대 기준 적용하여 오늘 날짜 정확히 계산
+# [오류수정 1] 정확한 한국 시간(KST, UTC+9) 기준 오늘 날짜 계산
 # ---------------------------------------------------------
-now = datetime.datetime.now()
-today = now.date() if now.hour >= 7 else (now - datetime.timedelta(days=1)).date()
+tz_kst = datetime.timezone(datetime.timedelta(hours=9))
+now_kst = datetime.datetime.now(tz_kst)
+today = now_kst.date()  # 서버 시간대 및 새벽시간 오류 방지 (오늘 날짜 정확 적용)
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -107,16 +108,43 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# 쿼리 파라미터를 이용한 현재 사용 기기 전용 화면 설정 동기화
+# ---------------------------------------------------------
+# [오류수정 2] LocalStorage 동기화 및 블랙테마 고정 원인 해결
+# ---------------------------------------------------------
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
 
 if display_view_param and display_view_param != st.session_state.auto_view_type:
     st.session_state.auto_view_type = display_view_param
-    save_local_config("auto_view_type", display_view_param)
 if display_theme_param and display_theme_param != st.session_state.app_theme:
     st.session_state.app_theme = display_theme_param
-    save_local_config("app_theme", display_theme_param)
+
+# 브라우저 LocalStorage에 저장된 테마 정보를 쿼리 파라미터로 동기화하는 JS 스크립트
+if not display_theme_param or not display_view_param:
+    components.html(
+        """
+        <script>
+            const localView = localStorage.getItem('local_auto_view_type');
+            const localTheme = localStorage.getItem('local_app_theme');
+            const urlParams = new URLSearchParams(window.parent.location.search);
+            let updateNeeded = false;
+            
+            if (localView && urlParams.get('local_view') !== localView) {
+                urlParams.set('local_view', localView);
+                updateNeeded = true;
+            }
+            if (localTheme && urlParams.get('local_theme') !== localTheme) {
+                urlParams.set('local_theme', localTheme);
+                updateNeeded = true;
+            }
+            if (updateNeeded) {
+                window.parent.location.search = urlParams.toString();
+            }
+        </script>
+        """,
+        height=0,
+        width=0
+    )
 
 # 쿼리 파라미터 처리 (오늘 근무 카드 클릭 시 -> 일자별 수정 탭 이동)
 if st.query_params.get("open_today") == "1":
@@ -542,27 +570,27 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
-            # 1. 현재 접속된 개별 세션(session_state)에만 즉시 반영
             st.session_state.update({
                 "auto_view_type": new_view, 
                 "app_theme": new_th, 
                 "show_settings_dialog": False
             })
             
-            # 2. 서버 파일(local_config.json) 공유 및 URL 쿼리 파라미터 수정을 중단하고,
-            #    현재 브라우저의 LocalStorage에만 전용 저장 후 새로고침 처리
+            # LocalStorage 및 URL 쿼리 동시 저장 및 즉시 리로드
             components.html(
                 f"""
                 <script>
                     localStorage.setItem('local_auto_view_type', '{new_view}');
                     localStorage.setItem('local_app_theme', '{new_th}');
-                    window.parent.location.reload();
+                    const urlParams = new URLSearchParams(window.parent.location.search);
+                    urlParams.set('local_view', '{new_view}');
+                    urlParams.set('local_theme', '{new_th}');
+                    window.parent.location.search = urlParams.toString();
                 </script>
                 """,
                 height=0,
                 width=0
             )
-            st.rerun()
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -655,13 +683,9 @@ with st.sidebar:
     if up_file:
         f_bytes = up_file.getvalue()
         
-        # 1. uploaded 파싱
         parsed_df, used_s, s_names, r_df, _, holiday_map, memo_dict = load_excel_smart(f_bytes, "숙직근무자")
-        
-        # 2. data/숙직근무표.xlsx 파일로 물리적 덮어쓰기 저장
         save_to_excel_file(parsed_df, DEFAULT_EXCEL_PATH, sheet_name="숙직근무자")
         
-        # 3. 세션 정보 업데이트
         st.session_state.update({
             "file_path": DEFAULT_EXCEL_PATH,
             "file_bytes": f_bytes,

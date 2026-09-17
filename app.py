@@ -43,12 +43,10 @@ CONFIG_PATH = os.path.join("DATA", "local_config.json")
 WORKERS_DB_FILE = Path("data/workers_db.json")
 
 # ---------------------------------------------------------
-# 매 rerun 실행 시점마다 07시 교대 기준 적용하여 날짜 계산
+# 매 rerun 실행 시점마다 07시 교대 기준 적용하여 오늘 날짜 정확히 계산
 # ---------------------------------------------------------
 now = datetime.datetime.now()
-duty_start_date = (now - datetime.timedelta(days=1)).date() if now.hour < 7 else now.date()
-duty_end_date = duty_start_date + datetime.timedelta(days=1)
-today = duty_start_date  # 기준 'Today' 날짜
+today = now.date() if now.hour >= 7 else (now - datetime.timedelta(days=1)).date()
 
 # ---------------------------------------------------------
 # 페이지 기본 설정
@@ -221,7 +219,7 @@ responsive_css = f"""
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
     }}
-    .today-card .today-title {{ font-size: 13px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
+    .today-card .today-title {{ font-size: 14px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
     .today-card span {{ color: #FEF08A !important; font-size: 18px !important; font-weight: 900 !important; text-decoration: underline; }}
 
@@ -706,11 +704,11 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 오늘 07시부터 다음날 07시까지의 근무 범위를 직관적으로 표시
+        # 파란 박스: 시간 범위 제거 후 오늘 날짜만 표출
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
-                <div class="today-title">오늘 근무 안내 ({duty_start_date.strftime("%m/%d 07:00")} ~ {duty_end_date.strftime("%m/%d 07:00")})</div>
+                <div class="today-title">오늘 근무 안내 ({today.strftime("%Y년 %m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
             </div>
             """,

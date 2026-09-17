@@ -542,20 +542,21 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
+            # 1. 현재 접속된 개별 세션(session_state)에만 즉시 반영
             st.session_state.update({
-                "auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False
+                "auto_view_type": new_view, 
+                "app_theme": new_th, 
+                "show_settings_dialog": False
             })
-            save_local_config("auto_view_type", new_view)
-            save_local_config("app_theme", new_th)
+            
+            # 2. 서버 파일(local_config.json) 공유 및 URL 쿼리 파라미터 수정을 중단하고,
+            #    현재 브라우저의 LocalStorage에만 전용 저장 후 새로고침 처리
             components.html(
                 f"""
                 <script>
                     localStorage.setItem('local_auto_view_type', '{new_view}');
                     localStorage.setItem('local_app_theme', '{new_th}');
-                    const urlParams = new URLSearchParams(window.parent.location.search);
-                    urlParams.set('local_view', '{new_view}');
-                    urlParams.set('local_theme', '{new_th}');
-                    window.parent.location.search = urlParams.toString();
+                    window.parent.location.reload();
                 </script>
                 """,
                 height=0,

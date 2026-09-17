@@ -41,6 +41,7 @@ os.makedirs("data", exist_ok=True)
 PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
 CONFIG_PATH = os.path.join("DATA", "local_config.json")
 WORKERS_DB_FILE = Path("data/workers_db.json")
+DEFAULT_EXCEL_PATH = os.path.join("data", "숙직근무표.xlsx")
 
 # ---------------------------------------------------------
 # 매 rerun 실행 시점마다 07시 교대 기준 적용하여 오늘 날짜 정확히 계산
@@ -69,7 +70,9 @@ def load_local_config():
         "batch_i1": 3,
         "batch_w1_names": ["", "", ""],
         "batch_i2": 3,
-        "batch_w2_names": ["", "", ""]
+        "batch_w2_names": ["", "", ""],
+        "auto_view_type": "🗓️ 가로형 Grid",
+        "app_theme": "☀️ 화이트 테마"
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -94,7 +97,8 @@ local_cfg = load_local_config()
 # 세션 상태 기본값 설정
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
-    ("auto_view_type", "🗓️ 가로형 Grid"), ("app_theme", "☀️ 화이트 테마"),
+    ("auto_view_type", local_cfg.get("auto_view_type", "🗓️ 가로형 Grid")),
+    ("app_theme", local_cfg.get("app_theme", "☀️ 화이트 테마")),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
@@ -109,8 +113,10 @@ display_theme_param = st.query_params.get("local_theme")
 
 if display_view_param and display_view_param != st.session_state.auto_view_type:
     st.session_state.auto_view_type = display_view_param
+    save_local_config("auto_view_type", display_view_param)
 if display_theme_param and display_theme_param != st.session_state.app_theme:
     st.session_state.app_theme = display_theme_param
+    save_local_config("app_theme", display_theme_param)
 
 # 쿼리 파라미터 처리 (오늘 근무 카드 클릭 시 -> 일자별 수정 탭 이동)
 if st.query_params.get("open_today") == "1":
@@ -335,9 +341,11 @@ def get_solapi_auth_headers(api_key, api_secret):
 # ---------------------------------------------------------
 def get_initial_excel_file():
     os.makedirs("data", exist_ok=True)
+    if os.path.exists(DEFAULT_EXCEL_PATH):
+        return DEFAULT_EXCEL_PATH
     candidates = glob.glob(os.path.join("data", "*.xlsx")) + glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob("*.xlsx")
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
-    return valid_files[0] if valid_files else os.path.join("data", "숙직근무표.xlsx")
+    return valid_files[0] if valid_files else DEFAULT_EXCEL_PATH
 
 def update_excel_download_bytes(df):
     try:
@@ -393,8 +401,12 @@ def save_app_state(df, sheet_name, memos):
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         
-        target_file_path = st.session_state.get("file_path", os.path.join("data", "숙직근무표.xlsx"))
+        target_file_path = st.session_state.get("file_path", DEFAULT_EXCEL_PATH)
         save_to_excel_file(df, target_file_path, sheet_name)
+        
+        # data 폴더 내 기본 파일에도 항상 동일하게 동기화 저장
+        if target_file_path != DEFAULT_EXCEL_PATH:
+            save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name="숙직근무자")
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
@@ -533,6 +545,8 @@ def settings_dialog():
             st.session_state.update({
                 "auto_view_type": new_view, "app_theme": new_th, "show_settings_dialog": False
             })
+            save_local_config("auto_view_type", new_view)
+            save_local_config("app_theme", new_th)
             components.html(
                 f"""
                 <script>
@@ -630,7 +644,7 @@ def settings_dialog():
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바
+# 사이드바 (엑셀 파일 업로드 및 data 폴더 내 저장 처리)
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
@@ -639,17 +653,28 @@ with st.sidebar:
     up_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"], key=f"file_uploader_{st.session_state.uploader_key}")
     if up_file:
         f_bytes = up_file.getvalue()
-        os.makedirs("data", exist_ok=True)
-        save_p = os.path.join("data", up_file.name)
-        with open(save_p, "wb") as f: f.write(f_bytes)
         
+        # 1. uploaded 파싱
         parsed_df, used_s, s_names, r_df, _, holiday_map, memo_dict = load_excel_smart(f_bytes, "숙직근무자")
+        
+        # 2. data/숙직근무표.xlsx 파일로 물리적 덮어쓰기 저장
+        save_to_excel_file(parsed_df, DEFAULT_EXCEL_PATH, sheet_name="숙직근무자")
+        
+        # 3. 세션 정보 업데이트
         st.session_state.update({
-            "file_path": save_p, "file_bytes": f_bytes, "file_name": up_file.name,
-            "df": parsed_df, "selected_sheet": used_s, "sheet_names": s_names, "raw_df": r_df, "holiday_map": holiday_map, "memos": memo_dict,
-            "upload_success_msg": "✅ 파일 업로드 및 data 폴더 내 숙직근무자 시트 덮어쓰기 완료!"
+            "file_path": DEFAULT_EXCEL_PATH,
+            "file_bytes": f_bytes,
+            "file_name": up_file.name,
+            "df": parsed_df,
+            "selected_sheet": "숙직근무자",
+            "sheet_names": s_names,
+            "raw_df": r_df,
+            "holiday_map": holiday_map,
+            "memos": memo_dict,
+            "upload_success_msg": "✅ 파일 업로드 완료! data 폴더 내 숙직근무자 시트에 성공적으로 덮어쓰고 저장되었습니다."
         })
-        save_app_state(parsed_df, used_s, st.session_state.memos)
+        
+        save_app_state(parsed_df, "숙직근무자", st.session_state.memos)
         st.session_state.uploader_key += 1
         st.rerun()
 
@@ -704,7 +729,6 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
-        # 파란 박스: 시간 범위 제거 후 오늘 날짜만 표출
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
@@ -718,7 +742,6 @@ with tab1:
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
-    # URL 쿼리 파라미터 체크 및 오늘 날짜 우선 초기화 로직
     query_month = st.query_params.get("month")
     
     if "selected_month" not in st.session_state:

@@ -43,6 +43,14 @@ CONFIG_PATH = os.path.join("DATA", "local_config.json")
 WORKERS_DB_FILE = Path("data/workers_db.json")
 
 # ---------------------------------------------------------
+# 매 rerun 실행 시점마다 07시 교대 기준 적용하여 날짜 계산
+# ---------------------------------------------------------
+now = datetime.datetime.now()
+duty_start_date = (now - datetime.timedelta(days=1)).date() if now.hour < 7 else now.date()
+duty_end_date = duty_start_date + datetime.timedelta(days=1)
+today = duty_start_date  # 기준 'Today' 날짜
+
+# ---------------------------------------------------------
 # 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
@@ -57,7 +65,7 @@ def load_local_config():
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
-        "batch_start_date": str(datetime.date.today()),
+        "batch_start_date": str(today),
         "batch_infinite": False,
         "batch_days_c": 30,
         "batch_i1": 3,
@@ -549,9 +557,9 @@ def settings_dialog():
         
         cfg = load_local_config()
         try:
-            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
+            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(today)), "%Y-%m-%d").date()
         except:
-            default_start_date = datetime.date.today()
+            default_start_date = today
 
         start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
         infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
@@ -668,15 +676,6 @@ elif st.session_state.show_settings_dialog:
     settings_dialog()
 
 df = st.session_state.df
-
-# ---------------------------------------------------------
-# 매 rerun 실행 시점마다 07시 교대 기준 적용하여 날짜 계산
-# ---------------------------------------------------------
-now = datetime.datetime.now()
-# 오전 07시 미만일 경우, 현재 '근무 주기'의 시작일은 어제 날짜가 됨
-duty_start_date = (now - datetime.timedelta(days=1)).date() if now.hour < 7 else now.date()
-duty_end_date = duty_start_date + datetime.timedelta(days=1)
-today = duty_start_date  # 기존 로직 및 캘린더 'Today' 스타일 표시 연동
 
 # ---------------------------------------------------------
 # 메인 화면

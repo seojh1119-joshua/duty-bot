@@ -52,23 +52,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------
-# [FIX] 오전 7시 교대 기준 실시간 오늘 날짜 최상단 동적 계산
-# ---------------------------------------------------------
-now = datetime.datetime.now()
-if now.hour < 7:
-    today = (now - datetime.timedelta(days=1)).date()
-else:
-    today = now.date()
-
-cur_ym = today.strftime("%Y-%m")
-
 def load_local_config():
     default_config = {
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
-        "batch_start_date": str(today),
+        "batch_start_date": str(datetime.date.today()),
         "batch_infinite": False,
         "batch_days_c": 30,
         "batch_i1": 3,
@@ -103,8 +92,7 @@ for k, v in [
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
-    ("uploader_key", 0), ("upload_success_msg", ""),
-    ("active_main_tab", 0)
+    ("uploader_key", 0), ("upload_success_msg", "")
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -123,7 +111,6 @@ if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_settings_dialog": False,
         "show_exit_dialog": False,
-        "selected_edit_date_str": str(today),
         "active_main_tab": 1
     })
     if "open_today" in st.query_params:
@@ -562,9 +549,9 @@ def settings_dialog():
         
         cfg = load_local_config()
         try:
-            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(today)), "%Y-%m-%d").date()
+            default_start_date = datetime.datetime.strptime(cfg.get("batch_start_date", str(datetime.date.today())), "%Y-%m-%d").date()
         except:
-            default_start_date = today
+            default_start_date = datetime.date.today()
 
         start_d = st.date_input("시작 날짜", value=default_start_date, key="batch_start_date_input")
         infinite_repeat = st.checkbox("무한 순환", value=cfg.get("batch_infinite", False), key="batch_infinite_input")
@@ -683,6 +670,15 @@ elif st.session_state.show_settings_dialog:
 df = st.session_state.df
 
 # ---------------------------------------------------------
+# 매 rerun 실행 시점마다 07시 교대 기준 적용하여 날짜 계산
+# ---------------------------------------------------------
+now = datetime.datetime.now()
+# 오전 07시 미만일 경우, 현재 '근무 주기'의 시작일은 어제 날짜가 됨
+duty_start_date = (now - datetime.timedelta(days=1)).date() if now.hour < 7 else now.date()
+duty_end_date = duty_start_date + datetime.timedelta(days=1)
+today = duty_start_date  # 기존 로직 및 캘린더 'Today' 스타일 표시 연동
+
+# ---------------------------------------------------------
 # 메인 화면
 # ---------------------------------------------------------
 st.title("광주교도소 의료과 숙직근무")
@@ -694,9 +690,8 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-# [FIX] 세션 상태를 연동한 안정적인 탭 이동 구조 구현
-tab_list = ["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"]
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(tab_list)
+# 탭 구성
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
 # ---------------------------------------------------------
 # [탭 1] 달력 뷰
@@ -712,26 +707,33 @@ with tab1:
         p2 = f"{tr['실제근무2']}(대)" if sub2_t and sub2_t not in ["nan", "None", ""] else tr["실제근무2"]
         memo_txt = f" | 📌 {st.session_state.memos.get(today.strftime('%Y-%m-%d'), '')}" if st.session_state.memos.get(today.strftime('%Y-%m-%d')) else ""
         
+        # 오늘 07시부터 다음날 07시까지의 근무 범위를 직관적으로 표시
         st.markdown(
             f"""
             <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
-                <div class="today-title">오늘 근무 안내 ({today.strftime("%m월 %d일")})</div>
+                <div class="today-title">오늘 근무 안내 ({duty_start_date.strftime("%m/%d 07:00")} ~ {duty_end_date.strftime("%m/%d 07:00")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    avail_months = sorted(df["년월"].dropna().unique()) or [cur_ym]
+    avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
+    cur_ym = today.strftime("%Y-%m")
     
-    # [FIX] 오늘 날짜 월이 항상 기본값으로 안전하게 매핑되도록 보장
+    # URL 쿼리 파라미터 체크 및 오늘 날짜 우선 초기화 로직
     query_month = st.query_params.get("month")
-    if query_month and query_month in avail_months:
-        st.session_state.selected_month = query_month
-    elif "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
-        st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
+    
+    if "selected_month" not in st.session_state:
+        if query_month and query_month in avail_months:
+            st.session_state.selected_month = query_month
+        else:
+            st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
     sel_month = st.session_state.selected_month
+    if sel_month not in avail_months:
+        sel_month = cur_ym if cur_ym in avail_months else avail_months[0]
+        st.session_state.selected_month = sel_month
 
     def on_month_change():
         st.session_state.selected_month = st.session_state.month_selectbox_widget

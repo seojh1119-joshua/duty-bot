@@ -107,14 +107,14 @@ for k, v in [
         st.session_state[k] = v
 
 # ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화
+# LocalStorage 및 Query Params 동기화 (개선된 동기화 로직)
 # ---------------------------------------------------------
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
 
-if display_view_param and display_view_param != st.session_state.auto_view_type:
+if display_view_param:
     st.session_state.auto_view_type = display_view_param
-if display_theme_param and display_theme_param != st.session_state.app_theme:
+if display_theme_param:
     st.session_state.app_theme = display_theme_param
 
 # 초기 접속 시 기기 LocalStorage의 테마 및 뷰 설정을 읽어와 URL 파라미터 및 세션 동기화
@@ -127,11 +127,11 @@ if not display_theme_param or not display_view_param:
             const urlParams = new URLSearchParams(window.parent.location.search);
             let updateNeeded = false;
             
-            if (urlParams.get('local_view') !== localView) {
+            if (!urlParams.get('local_view')) {
                 urlParams.set('local_view', localView);
                 updateNeeded = true;
             }
-            if (urlParams.get('local_theme') !== localTheme) {
+            if (!urlParams.get('local_theme')) {
                 urlParams.set('local_theme', localTheme);
                 updateNeeded = true;
             }
@@ -369,7 +369,6 @@ responsive_css = f"""
                 const currentTime = new Date().getTime();
                 const clickInterval = currentTime - lastClickTime;
                 if (clickInterval < 1000 && clickInterval > 0) {{
-                    // 두 번 연속 클릭 시 가상키보드가 나타나도록 focus 처리
                     selectEl.focus();
                     if (typeof selectEl.click === 'function') selectEl.click();
                 }}
@@ -780,7 +779,7 @@ with tab1:
         
         st.markdown(
             f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1';" title="클릭하여 일자별 수정 화면 열기">
+            <div class="today-card" onclick="window.location.href='?open_today=1&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}';" title="클릭하여 일자별 수정 화면 열기">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%Y년 %m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
             </div>
@@ -807,6 +806,8 @@ with tab1:
     def on_month_change():
         st.session_state.selected_month = st.session_state.month_selectbox_widget
         st.query_params["month"] = st.session_state.month_selectbox_widget
+        st.query_params["local_view"] = st.session_state.auto_view_type
+        st.query_params["local_theme"] = st.session_state.app_theme
 
     selected_index = avail_months.index(sel_month) if sel_month in avail_months else 0
 
@@ -853,7 +854,7 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
@@ -885,7 +886,7 @@ with tab1:
                         w2 = duty_info["p2"]
                         memo = st.session_state.memos.get(d_str, "")
                         
-                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}\';" title="{d_str} 일자별 수정 열기">'
+                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}\';" title="{d_str} 일자별 수정 열기">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
                         if holiday_name:
@@ -909,6 +910,10 @@ with tab1:
         
         left_dis = "disabled" if cur_idx <= 0 else ""
         right_dis = "disabled" if cur_idx >= len(avail_months) - 1 else ""
+
+        # 테마 및 뷰 설정을 URL 파라미터로 함께 바인딩하여 이동 시 테마가 변경되는 오류 수정
+        prev_url = f"?month={prev_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
+        next_url = f"?month={next_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
 
         st.markdown(f"""
         <style>
@@ -947,8 +952,8 @@ with tab1:
                 pointer-events: none;
             }}
         </style>
-        <a href="?month={prev_m}" target="_self" class="floating-cal-btn left {left_dis}" title="이전달 ({prev_m})">◀</a>
-        <a href="?month={next_m}" target="_self" class="floating-cal-btn right {right_dis}" title="다음달 ({next_m})">▶</a>
+        <a href="{prev_url}" target="_self" class="floating-cal-btn left {left_dis}" title="이전달 ({prev_m})">◀</a>
+        <a href="{next_url}" target="_self" class="floating-cal-btn right {right_dis}" title="다음달 ({next_m})">▶</a>
         """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------

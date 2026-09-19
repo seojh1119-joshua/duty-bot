@@ -71,9 +71,7 @@ def load_local_config():
         "batch_i1": 3,
         "batch_w1_names": ["", "", ""],
         "batch_i2": 3,
-        "batch_w2_names": ["", "", ""],
-        "auto_view_type": "🗓️ 가로형 Grid",
-        "app_theme": "☀️ 화이트 테마"
+        "batch_w2_names": ["", "", ""]
     }
     if os.path.exists(CONFIG_PATH):
         try:
@@ -98,8 +96,8 @@ local_cfg = load_local_config()
 # 세션 상태 기본값 설정
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
-    ("auto_view_type", local_cfg.get("auto_view_type", "🗓️ 가로형 Grid")),
-    ("app_theme", local_cfg.get("app_theme", "☀️ 화이트 테마")),
+    ("auto_view_type", "🗓️ 가로형 Grid"),
+    ("app_theme", "☀️ 화이트 테마"),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
@@ -109,7 +107,7 @@ for k, v in [
         st.session_state[k] = v
 
 # ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화 (오류 수정 반영)
+# LocalStorage 및 Query Params 동기화 (개별 기기 독립화 핵심)
 # ---------------------------------------------------------
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
@@ -119,21 +117,21 @@ if display_view_param and display_view_param != st.session_state.auto_view_type:
 if display_theme_param and display_theme_param != st.session_state.app_theme:
     st.session_state.app_theme = display_theme_param
 
-# 초기 접속 시 LocalStorage 값을 읽어와 URL 파라미터 동기화
+# 초기 접속 시 기기 LocalStorage의 테마 및 뷰 설정을 읽어와 URL 파라미터 및 세션 동기화
 if not display_theme_param or not display_view_param:
     components.html(
         """
         <script>
-            const localView = localStorage.getItem('local_auto_view_type');
-            const localTheme = localStorage.getItem('local_app_theme');
+            const localView = localStorage.getItem('local_auto_view_type') || '🗓️ 가로형 Grid';
+            const localTheme = localStorage.getItem('local_app_theme') || '☀️ 화이트 테마';
             const urlParams = new URLSearchParams(window.parent.location.search);
             let updateNeeded = false;
             
-            if (localView && urlParams.get('local_view') !== localView) {
+            if (urlParams.get('local_view') !== localView) {
                 urlParams.set('local_view', localView);
                 updateNeeded = true;
             }
-            if (localTheme && urlParams.get('local_theme') !== localTheme) {
+            if (urlParams.get('local_theme') !== localTheme) {
                 urlParams.set('local_theme', localTheme);
                 updateNeeded = true;
             }
@@ -569,16 +567,12 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
-            # 1. 로컬 설정 저장
-            save_local_config("auto_view_type", new_view)
-            save_local_config("app_theme", new_th)
-            
-            # 2. 세션 상태 업데이트
+            # 1. 세션 상태 업데이트
             st.session_state.auto_view_type = new_view
             st.session_state.app_theme = new_th
             st.session_state.show_settings_dialog = False
 
-            # 3. Query Parameter 및 LocalStorage 즉시 동기화
+            # 2. Query Parameter 및 현재 기기의 LocalStorage 즉시 동기화 (서버 파일엔 저장 안 함)
             st.query_params["local_view"] = new_view
             st.query_params["local_theme"] = new_th
 

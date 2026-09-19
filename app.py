@@ -107,7 +107,7 @@ for k, v in [
         st.session_state[k] = v
 
 # ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화 (개별 기기 독립화 핵심)
+# LocalStorage 및 Query Params 동기화
 # ---------------------------------------------------------
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
@@ -331,6 +331,7 @@ responsive_css = f"""
         flex: 1 1 auto !important; padding: 6px 4px !important; font-size: 12px !important; font-weight: 800 !important; text-align: center !important; border-radius: 8px !important; justify-content: center !important;
     }}
 
+    /* 근무자별 상세 통계표 스타일 (1열: 번호, 2열: 근무자 고정 적용) */
     .table-container {{
         width: 100%; max-height: 480px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
@@ -341,13 +342,42 @@ responsive_css = f"""
         padding: 8px 10px; border-bottom: 1px solid {border_color}; border-right: 1px solid {border_color};
     }}
     .sticky-table th {{
-        background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 3;
+        background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 6;
     }}
+    
+    /* 1번째 열 (번호) 고정 */
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
-        position: sticky; left: 0; z-index: 2; background-color: {box_bg}; width: 85px; min-width: 85px;
+        position: sticky; left: 0; z-index: 5; background-color: {box_bg}; min-width: 55px; width: 55px;
     }}
-    .sticky-table th:nth-child(1) {{ z-index: 4; background-color: {table_header_bg}; }}
+    /* 2번째 열 (근무자) 고정 */
+    .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
+        position: sticky; left: 55px; z-index: 5; background-color: {box_bg}; min-width: 90px; width: 90px; border-right: 2px solid {primary_blue};
+    }}
+    
+    /* 헤더 스크롤 교차 지점 z-index 우선순위 보장 */
+    .sticky-table th:nth-child(1) {{ z-index: 7; background-color: {table_header_bg}; }}
+    .sticky-table th:nth-child(2) {{ z-index: 7; background-color: {table_header_bg}; }}
 </style>
+
+<!-- 모바일 드롭다운 메뉴 원클릭 선택 & 연속 두번 클릭 시 가상키보드 호출 스크립트 -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {{
+        let lastClickTime = 0;
+        document.addEventListener('touchstart', (e) => {{
+            const selectEl = e.target.closest('select, [data-baseweb="select"]');
+            if (selectEl) {{
+                const currentTime = new Date().getTime();
+                const clickInterval = currentTime - lastClickTime;
+                if (clickInterval < 1000 && clickInterval > 0) {{
+                    // 두 번 연속 클릭 시 가상키보드가 나타나도록 focus 처리
+                    selectEl.focus();
+                    if (typeof selectEl.click === 'function') selectEl.click();
+                }}
+                lastClickTime = currentTime;
+            }}
+        }}, {{ passive: true }});
+    }});
+</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -567,12 +597,10 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
-            # 1. 세션 상태 업데이트
             st.session_state.auto_view_type = new_view
             st.session_state.app_theme = new_th
             st.session_state.show_settings_dialog = False
 
-            # 2. Query Parameter 및 현재 기기의 LocalStorage 즉시 동기화 (서버 파일엔 저장 안 함)
             st.query_params["local_view"] = new_view
             st.query_params["local_theme"] = new_th
 
@@ -669,7 +697,7 @@ def settings_dialog():
             st.rerun()
 
 # ---------------------------------------------------------
-# 사이드바 (엑셀 파일 업로드 및 data 폴더 내 저장 처리)
+# 사이드바
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("📂 파일 관리")
@@ -1154,6 +1182,7 @@ with tab4:
         summary_table.index = range(1, len(summary_table) + 1)
         summary_table.insert(0, "번호", summary_table.index)
         
+        # 1열(번호)과 2열(근무자) 고정이 적용된 테이블 생성
         html_table = f"""
         <div class="table-container">
             <table class="sticky-table">

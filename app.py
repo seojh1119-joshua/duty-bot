@@ -26,6 +26,17 @@ except ImportError:
     kr_holidays = {}
 
 # ---------------------------------------------------------
+# 디렉토리 생성 및 데이터 경로 정의
+# ---------------------------------------------------------
+os.makedirs("DATA", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
+PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
+CONFIG_PATH = os.path.join("DATA", "local_config.json")
+WORKERS_DB_FILE = Path("data/workers_db.json")
+DEFAULT_EXCEL_PATH = os.path.join("data", "숙직근무표.xlsx")
+
+# ---------------------------------------------------------
 # 자동 메모리 및 로그 정제 함수
 # ---------------------------------------------------------
 def cleanup_memory_and_logs():
@@ -34,14 +45,6 @@ def cleanup_memory_and_logs():
     gc.collect()
 
 cleanup_memory_and_logs()
-
-os.makedirs("DATA", exist_ok=True)
-os.makedirs("data", exist_ok=True)
-
-PERSISTENCE_STATE_PATH = os.path.join("DATA", "edited_duty_schedule.json")
-CONFIG_PATH = os.path.join("DATA", "local_config.json")
-WORKERS_DB_FILE = Path("data/workers_db.json")
-DEFAULT_EXCEL_PATH = os.path.join("data", "숙직근무표.xlsx")
 
 # ---------------------------------------------------------
 # 정확한 한국 시간(KST, UTC+9) 기준 오늘 날짜 계산
@@ -107,7 +110,7 @@ for k, v in [
         st.session_state[k] = v
 
 # ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화 (개선된 동기화 로직)
+# LocalStorage 및 Query Params 동기화
 # ---------------------------------------------------------
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
@@ -117,7 +120,6 @@ if display_view_param:
 if display_theme_param:
     st.session_state.app_theme = display_theme_param
 
-# 초기 접속 시 기기 LocalStorage의 테마 및 뷰 설정을 읽어와 URL 파라미터 및 세션 동기화
 if not display_theme_param or not display_view_param:
     components.html(
         """
@@ -144,7 +146,6 @@ if not display_theme_param or not display_view_param:
         width=0
     )
 
-# 쿼리 파라미터 처리 (오늘 근무 카드 클릭 시 -> 일자별 수정 탭 이동)
 if st.query_params.get("open_today") == "1":
     st.session_state.update({
         "show_settings_dialog": False,
@@ -155,7 +156,6 @@ if st.query_params.get("open_today") == "1":
         del st.query_params["open_today"]
     st.rerun()
 
-# 달력 일자 클릭 시 쿼리 파라미터 처리
 click_date_param = st.query_params.get("click_date")
 if click_date_param:
     st.session_state.update({
@@ -331,7 +331,6 @@ responsive_css = f"""
         flex: 1 1 auto !important; padding: 6px 4px !important; font-size: 12px !important; font-weight: 800 !important; text-align: center !important; border-radius: 8px !important; justify-content: center !important;
     }}
 
-    /* 근무자별 상세 통계표 스타일 (1열: 번호, 2열: 근무자 고정 적용) */
     .table-container {{
         width: 100%; max-height: 480px; overflow-x: auto; overflow-y: auto; border: 1px solid {border_color}; border-radius: 12px; background-color: {box_bg}; margin-top: 10px;
     }}
@@ -345,21 +344,17 @@ responsive_css = f"""
         background-color: {table_header_bg}; font-weight: 800; position: sticky; top: 0; z-index: 6;
     }}
     
-    /* 1번째 열 (번호) 고정 */
     .sticky-table th:nth-child(1), .sticky-table td:nth-child(1) {{
         position: sticky; left: 0; z-index: 5; background-color: {box_bg}; min-width: 55px; width: 55px;
     }}
-    /* 2번째 열 (근무자) 고정 */
     .sticky-table th:nth-child(2), .sticky-table td:nth-child(2) {{
         position: sticky; left: 55px; z-index: 5; background-color: {box_bg}; min-width: 90px; width: 90px; border-right: 2px solid {primary_blue};
     }}
     
-    /* 헤더 스크롤 교차 지점 z-index 우선순위 보장 */
     .sticky-table th:nth-child(1) {{ z-index: 7; background-color: {table_header_bg}; }}
     .sticky-table th:nth-child(2) {{ z-index: 7; background-color: {table_header_bg}; }}
 </style>
 
-<!-- 모바일 드롭다운 메뉴 원클릭 선택 & 연속 두번 클릭 시 가상키보드 호출 스크립트 -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {{
         let lastClickTime = 0;
@@ -392,13 +387,13 @@ def get_solapi_auth_headers(api_key, api_secret):
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 파일 유틸 및 스마트 로더 함수
+# 파일 유틸 및 스마트 로더 함수 (수정됨)
 # ---------------------------------------------------------
 def get_initial_excel_file():
-    os.makedirs("data", exist_ok=True)
+    """우선순위: data/숙직근무표.xlsx -> DATA/ -> 기타 .xlsx"""
     if os.path.exists(DEFAULT_EXCEL_PATH):
         return DEFAULT_EXCEL_PATH
-    candidates = glob.glob(os.path.join("data", "*.xlsx")) + glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob("*.xlsx")
+    candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
     valid_files = [f for f in candidates if not os.path.basename(f).startswith("~$")]
     return valid_files[0] if valid_files else DEFAULT_EXCEL_PATH
 
@@ -433,12 +428,8 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         
-        if os.path.exists(file_path):
-            with pd.ExcelWriter(file_path, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-                save_df.to_excel(writer, index=False, sheet_name=sheet_name)
-        else:
-            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-                save_df.to_excel(writer, index=False, sheet_name=sheet_name)
+        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+            save_df.to_excel(writer, index=False, sheet_name=sheet_name)
                 
         update_excel_download_bytes(df)
         return True
@@ -447,22 +438,44 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         return False
 
 def save_app_state(df, sheet_name, memos):
+    """수정된 데이터프레임과 메모를 JSON 및 기본 엑셀에 영구 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
-        state_data = {"selected_sheet": sheet_name, "memos": memos, "df_dict": save_df.to_dict(orient="records")}
+        state_data = {
+            "selected_sheet": sheet_name, 
+            "memos": memos, 
+            "df_dict": save_df.to_dict(orient="records")
+        }
         os.makedirs("DATA", exist_ok=True)
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         
-        target_file_path = st.session_state.get("file_path", DEFAULT_EXCEL_PATH)
-        save_to_excel_file(df, target_file_path, sheet_name)
-        
-        if target_file_path != DEFAULT_EXCEL_PATH:
-            save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name="숙직근무자")
+        # 항상 data/숙직근무표.xlsx 에 덮어쓰기 저장하여 영구 보존
+        save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name)
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
+
+def load_saved_app_state():
+    """영구 저장된 JSON 데이터 복원 함수"""
+    if os.path.exists(PERSISTENCE_STATE_PATH):
+        try:
+            with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
+                state_data = json.load(f)
+            df_dict = state_data.get("df_dict", [])
+            memos = state_data.get("memos", {})
+            sheet_name = state_data.get("selected_sheet", "숙직근무자")
+            
+            if df_dict:
+                df = pd.DataFrame(df_dict)
+                if "날짜" in df.columns:
+                    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
+                    df["년월"] = df["날짜"].dt.strftime("%Y-%m")
+                return df, sheet_name, memos
+        except Exception as e:
+            st.sidebar.warning(f"⚠️ 저장된 상태 로드 실패: {e}")
+    return None, None, None
 
 def load_excel_smart(file_input, selected_sheet=None):
     file_bytes = file_input if isinstance(file_input, bytes) else (file_input.read() if hasattr(file_input, "read") else open(file_input, "rb").read())
@@ -539,15 +552,46 @@ def load_excel_smart(file_input, selected_sheet=None):
     
     return df[ordered_cols], target_sheet, sheet_names, df_raw, file_bytes, holiday_map, memo_dict
 
+# ---------------------------------------------------------
+# 앱 세션 및 초기 데이터 상태 복원 (리셋 문제 해결의 핵심)
+# ---------------------------------------------------------
 initial_file = get_initial_excel_file()
-if "file_path" not in st.session_state: st.session_state.file_path = initial_file
+if "file_path" not in st.session_state: 
+    st.session_state.file_path = initial_file
+
 if "file_bytes" not in st.session_state and os.path.exists(initial_file):
-    with open(initial_file, "rb") as f: st.session_state.file_bytes = f.read()
+    with open(initial_file, "rb") as f: 
+        st.session_state.file_bytes = f.read()
     st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
-    parsed_df, used_sheet, sheet_names, raw_df, _, holiday_map, memo_dict = load_excel_smart(st.session_state.file_bytes)
-    st.session_state.update({"df": parsed_df, "selected_sheet": used_sheet, "sheet_names": sheet_names, "raw_df": raw_df, "memos": memo_dict, "holiday_map": holiday_map})
+    # 1. 영구 저장된 JSON 데이터가 있는지 최우선 확인
+    saved_df, saved_sheet, saved_memos = load_saved_app_state()
+    
+    # 엑셀 파일 기본 정보 로드 (휴일 정보 등 포함)
+    parsed_df, used_sheet, sheet_names, raw_df, file_b, holiday_map, memo_dict = load_excel_smart(st.session_state.file_bytes)
+    
+    if saved_df is not None:
+        # JSON 저장 데이터 복원
+        st.session_state.update({
+            "df": saved_df,
+            "selected_sheet": saved_sheet or used_sheet,
+            "sheet_names": sheet_names,
+            "raw_df": raw_df,
+            "memos": saved_memos if saved_memos is not None else memo_dict,
+            "holiday_map": holiday_map
+        })
+    else:
+        # 최초 실행 시 엑셀에서 로드 후 바로 JSON 및 data/숙직근무표.xlsx 동기화 저장
+        st.session_state.update({
+            "df": parsed_df,
+            "selected_sheet": used_sheet,
+            "sheet_names": sheet_names,
+            "raw_df": raw_df,
+            "memos": memo_dict,
+            "holiday_map": holiday_map
+        })
+        save_app_state(parsed_df, used_sheet, memo_dict)
 else:
     if "holiday_map" not in st.session_state:
         _, _, _, _, _, holiday_map, memo_dict = load_excel_smart(st.session_state.file_bytes)
@@ -707,7 +751,6 @@ with st.sidebar:
         f_bytes = up_file.getvalue()
         
         parsed_df, used_s, s_names, r_df, _, holiday_map, memo_dict = load_excel_smart(f_bytes, "숙직근무자")
-        save_to_excel_file(parsed_df, DEFAULT_EXCEL_PATH, sheet_name="숙직근무자")
         
         st.session_state.update({
             "file_path": DEFAULT_EXCEL_PATH,
@@ -722,6 +765,7 @@ with st.sidebar:
             "upload_success_msg": "✅ 파일 업로드 완료! data 폴더 내 숙직근무자 시트에 성공적으로 덮어쓰고 저장되었습니다."
         })
         
+        # 파일 업로드 시에도 JSON 및 data/숙직근무표.xlsx에 동기화 저장
         save_app_state(parsed_df, "숙직근무자", st.session_state.memos)
         st.session_state.uploader_key += 1
         st.rerun()
@@ -911,7 +955,6 @@ with tab1:
         left_dis = "disabled" if cur_idx <= 0 else ""
         right_dis = "disabled" if cur_idx >= len(avail_months) - 1 else ""
 
-        # 테마 및 뷰 설정을 URL 파라미터로 함께 바인딩하여 이동 시 테마가 변경되는 오류 수정
         prev_url = f"?month={prev_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
         next_url = f"?month={next_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
 
@@ -1187,7 +1230,6 @@ with tab4:
         summary_table.index = range(1, len(summary_table) + 1)
         summary_table.insert(0, "번호", summary_table.index)
         
-        # 1열(번호)과 2열(근무자) 고정이 적용된 테이블 생성
         html_table = f"""
         <div class="table-container">
             <table class="sticky-table">

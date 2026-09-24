@@ -387,7 +387,7 @@ def get_solapi_auth_headers(api_key, api_secret):
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
 
 # ---------------------------------------------------------
-# 파일 유틸 및 스마트 로더 함수 (수정됨)
+# 파일 유틸 및 스마트 로더 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
     """우선순위: data/숙직근무표.xlsx -> DATA/ -> 기타 .xlsx"""
@@ -403,10 +403,8 @@ def update_excel_download_bytes(df):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
-        if "메모" in save_df.columns:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), save_df.loc[save_df['날짜'] == d, '메모'].values[0] if '메모' in save_df.columns else ""))
-        else:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -421,10 +419,8 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         if "날짜" in save_df.columns:
             save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
-        if "메모" in save_df.columns:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
-        else:
-            save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
         
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         
@@ -452,7 +448,6 @@ def save_app_state(df, sheet_name, memos):
         with open(PERSISTENCE_STATE_PATH, "w", encoding="utf-8") as f:
             json.dump(state_data, f, ensure_ascii=False, indent=2)
         
-        # 항상 data/숙직근무표.xlsx 에 덮어쓰기 저장하여 영구 보존
         save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name)
     except Exception as e:
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
@@ -547,13 +542,13 @@ def load_excel_smart(file_input, selected_sheet=None):
     df["실제근무2"] = df["대직2"].fillna("").astype(str).str.strip().replace(["", "nan", "None"], None).combine_first(df["근무자2"]).fillna("미지정")
     
     base_cols = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
-    other_cols = [c for c in df.columns if c not in base_cols and c != "년월"]
+    other_cols = [c for c in df.columns if c not in base_cols and c != "년월" and c != "메모"]
     ordered_cols = base_cols + other_cols + ["년월"]
     
     return df[ordered_cols], target_sheet, sheet_names, df_raw, file_bytes, holiday_map, memo_dict
 
 # ---------------------------------------------------------
-# 앱 세션 및 초기 데이터 상태 복원 (리셋 문제 해결의 핵심)
+# 앱 세션 및 초기 데이터 상태 복원
 # ---------------------------------------------------------
 initial_file = get_initial_excel_file()
 if "file_path" not in st.session_state: 
@@ -565,14 +560,10 @@ if "file_bytes" not in st.session_state and os.path.exists(initial_file):
     st.session_state.file_name = os.path.basename(initial_file)
 
 if "df" not in st.session_state:
-    # 1. 영구 저장된 JSON 데이터가 있는지 최우선 확인
     saved_df, saved_sheet, saved_memos = load_saved_app_state()
-    
-    # 엑셀 파일 기본 정보 로드 (휴일 정보 등 포함)
     parsed_df, used_sheet, sheet_names, raw_df, file_b, holiday_map, memo_dict = load_excel_smart(st.session_state.file_bytes)
     
     if saved_df is not None:
-        # JSON 저장 데이터 복원
         st.session_state.update({
             "df": saved_df,
             "selected_sheet": saved_sheet or used_sheet,
@@ -582,7 +573,6 @@ if "df" not in st.session_state:
             "holiday_map": holiday_map
         })
     else:
-        # 최초 실행 시 엑셀에서 로드 후 바로 JSON 및 data/숙직근무표.xlsx 동기화 저장
         st.session_state.update({
             "df": parsed_df,
             "selected_sheet": used_sheet,
@@ -765,7 +755,6 @@ with st.sidebar:
             "upload_success_msg": "✅ 파일 업로드 완료! data 폴더 내 숙직근무자 시트에 성공적으로 덮어쓰고 저장되었습니다."
         })
         
-        # 파일 업로드 시에도 JSON 및 data/숙직근무표.xlsx에 동기화 저장
         save_app_state(parsed_df, "숙직근무자", st.session_state.memos)
         st.session_state.uploader_key += 1
         st.rerun()
@@ -1099,7 +1088,7 @@ with tab2:
         st.info("등록된 날짜 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 3] 전체 수정 뷰
+# [탭 3] 전체 수정 뷰 (수정 완료)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("전체 근무표 에디터 수정")
@@ -1111,25 +1100,53 @@ with tab3:
     preferred_order = ["날짜", "근무자1", "대직1", "근무자2", "대직2", "실제근무1", "실제근무2"]
     display_cols = [c for c in preferred_order if c in df.columns]
     for c in valid_cols:
-        if c not in display_cols and c != "년월":
+        if c not in display_cols and c != "년월" and c != "메모":
             display_cols.append(c)
 
+    # 1. target_df 준비 및 '메모' 컬럼 동기화
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
+    
+    # 세션에 저장된 memos를 '메모' 컬럼에 매핑
+    target_df["메모"] = target_df["날짜"].dt.strftime("%Y-%m-%d").map(lambda d: st.session_state.memos.get(d, ""))
 
+    # 2. 한글 에디터 오류 방지를 위한 TextColumn 명시적 지정
     column_config = {
-        "날짜": st.column_config.DateColumn("날짜", format="YYYY-MM-DD", pinned=True, disabled=False)
+        "날짜": st.column_config.DateColumn("날짜", format="YYYY-MM-DD", pinned=True, disabled=False),
+        "메모": st.column_config.TextColumn("메모", help="해당 일자의 메모를 입력하세요 (한글 지원)", default="")
     }
 
-    edited_df = st.data_editor(target_df, num_rows="dynamic", key="editor_main", use_container_width=True, column_config=column_config)
+    edited_df = st.data_editor(
+        target_df, 
+        num_rows="dynamic", 
+        key="editor_main", 
+        use_container_width=True, 
+        column_config=column_config
+    )
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
+        # 메모 열 업데이트 처리
+        if "메모" in edited_df.columns:
+            for _, r in edited_df.iterrows():
+                if pd.notnull(r["날짜"]):
+                    d_str = pd.to_datetime(r["날짜"]).strftime("%Y-%m-%d")
+                    m_val = str(r["메모"]).strip() if pd.notnull(r["메모"]) else ""
+                    if m_val and m_val.lower() not in ["nan", "none"]:
+                        st.session_state.memos[d_str] = m_val
+                    else:
+                        st.session_state.memos.pop(d_str, None)
+            
+            # 저장 데이터 프레임에서는 '메모' 열 제거하여 구조 통일
+            edited_df_clean = edited_df.drop(columns=["메모"], errors="ignore")
+        else:
+            edited_df_clean = edited_df.copy()
+
         m_df = st.session_state.df.copy()
         
         if sel_ed_m == "전체 기간":
-            m_df = edited_df.copy()
+            m_df = edited_df_clean.copy()
         else:
             other_df = m_df[m_df["년월"] != sel_ed_m]
-            m_df = pd.concat([other_df, edited_df], ignore_index=True)
+            m_df = pd.concat([other_df, edited_df_clean], ignore_index=True)
             
         if "날짜" in m_df.columns:
             m_df["날짜"] = pd.to_datetime(m_df["날짜"], errors="coerce")
@@ -1146,7 +1163,7 @@ with tab3:
         
         st.session_state.df = m_df
         save_app_state(m_df, st.session_state.selected_sheet, st.session_state.memos)
-        st.success("✅ 변경사항이 저장되었습니다.")
+        st.success("✅ 메모 및 변경사항이 성공적으로 저장되었습니다.")
         st.rerun()
 
 # ---------------------------------------------------------

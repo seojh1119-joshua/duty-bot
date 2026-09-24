@@ -1088,12 +1088,23 @@ with tab2:
         st.info("등록된 날짜 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 3] 전체 수정 뷰 (수정 완료)
+# [탭 3] 전체 수정 뷰 (팝업 오류 수정 완료)
 # ---------------------------------------------------------
 with tab3:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
-    sel_ed_m = st.selectbox("월 선택", edit_ms, index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0)
+    
+    # 팝업 간섭 방지용 콜백 함수
+    def on_tab3_month_change():
+        st.session_state.show_settings_dialog = False
+
+    sel_ed_m = st.selectbox(
+        "월 선택", 
+        edit_ms, 
+        index=edit_ms.index(cur_ym) if cur_ym in edit_ms else 0,
+        key="tab3_month_selectbox",
+        on_change=on_tab3_month_change
+    )
     
     valid_cols = [c for c in df.columns if c and not str(c).startswith("열_") and not str(c).startswith("Unnamed")]
     
@@ -1115,10 +1126,11 @@ with tab3:
         "메모": st.column_config.TextColumn("메모", help="해당 일자의 메모를 입력하세요 (한글 지원)", default="")
     }
 
+    # dynamic key를 부여하여 월 변경 시 이전 데이터 충돌을 완전히 예방
     edited_df = st.data_editor(
         target_df, 
         num_rows="dynamic", 
-        key="editor_main", 
+        key=f"editor_main_{sel_ed_m}", 
         use_container_width=True, 
         column_config=column_config
     )

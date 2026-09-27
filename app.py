@@ -104,68 +104,11 @@ for k, v in [
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
-    ("uploader_key", 0), ("upload_success_msg", "")
+    ("uploader_key", 0), ("upload_success_msg", ""),
+    ("active_main_tab", 0)
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
-
-# ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화
-# ---------------------------------------------------------
-display_view_param = st.query_params.get("local_view")
-display_theme_param = st.query_params.get("local_theme")
-
-if display_view_param:
-    st.session_state.auto_view_type = display_view_param
-if display_theme_param:
-    st.session_state.app_theme = display_theme_param
-
-if not display_theme_param or not display_view_param:
-    components.html(
-        """
-        <script>
-            const localView = localStorage.getItem('local_auto_view_type') || '🗓️ 가로형 Grid';
-            const localTheme = localStorage.getItem('local_app_theme') || '☀️ 화이트 테마';
-            const urlParams = new URLSearchParams(window.parent.location.search);
-            let updateNeeded = false;
-            
-            if (!urlParams.get('local_view')) {
-                urlParams.set('local_view', localView);
-                updateNeeded = true;
-            }
-            if (!urlParams.get('local_theme')) {
-                urlParams.set('local_theme', localTheme);
-                updateNeeded = true;
-            }
-            if (updateNeeded) {
-                window.parent.location.search = urlParams.toString();
-            }
-        </script>
-        """,
-        height=0,
-        width=0
-    )
-
-if st.query_params.get("open_today") == "1":
-    st.session_state.update({
-        "show_settings_dialog": False,
-        "show_exit_dialog": False,
-        "active_main_tab": 1
-    })
-    if "open_today" in st.query_params:
-        del st.query_params["open_today"]
-    st.rerun()
-
-click_date_param = st.query_params.get("click_date")
-if click_date_param:
-    st.session_state.update({
-        "selected_edit_date_str": click_date_param,
-        "tab2_date_input_key": click_date_param,
-        "active_main_tab": 1
-    })
-    if "click_date" in st.query_params:
-        del st.query_params["click_date"]
-    st.rerun()
 
 if st.session_state.is_app_closed:
     st.title("👋 앱이 종료되었습니다.")
@@ -244,12 +187,6 @@ responsive_css = f"""
         width: 100% !important;
         box-sizing: border-box !important;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
-        cursor: pointer !important;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }}
-    .today-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
     }}
     .today-card .today-title {{ font-size: 14px !important; font-weight: 800 !important; margin-bottom: 4px !important; color: #E0E7FF !important; text-transform: uppercase; letter-spacing: 0.5px; }}
     .today-card .today-content {{ font-size: 17px !important; font-weight: 800 !important; line-height: 1.4 !important; color: #FFFFFF !important; }}
@@ -277,11 +214,6 @@ responsive_css = f"""
         display: flex; flex-direction: column; position: relative;
         background-color: {box_bg};
         word-break: break-all;
-        cursor: pointer !important;
-        transition: background-color 0.1s ease;
-    }}
-    .cal-day-cell:hover {{
-        background-color: {'#2A2A2A' if is_dark else '#F8FAFC'} !important;
     }}
     .cal-day-cell:last-child {{ border-right: none; }}
     
@@ -354,24 +286,6 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 7; background-color: {table_header_bg}; }}
     .sticky-table th:nth-child(2) {{ z-index: 7; background-color: {table_header_bg}; }}
 </style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {{
-        let lastClickTime = 0;
-        document.addEventListener('touchstart', (e) => {{
-            const selectEl = e.target.closest('select, [data-baseweb="select"]');
-            if (selectEl) {{
-                const currentTime = new Date().getTime();
-                const clickInterval = currentTime - lastClickTime;
-                if (clickInterval < 1000 && clickInterval > 0) {{
-                    selectEl.focus();
-                    if (typeof selectEl.click === 'function') selectEl.click();
-                }}
-                lastClickTime = currentTime;
-            }}
-        }}, {{ passive: true }});
-    }});
-</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -629,24 +543,10 @@ def settings_dialog():
         new_th = st.radio("대시보드 테마", ["☀️ 화이트 테마", "🌙 블랙 테마"], index=0 if st.session_state.app_theme == "☀️ 화이트 테마" else 1)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
+        if st.button("화면 설정 적용", use_container_width=True, type="primary"):
             st.session_state.auto_view_type = new_view
             st.session_state.app_theme = new_th
             st.session_state.show_settings_dialog = False
-
-            st.query_params["local_view"] = new_view
-            st.query_params["local_theme"] = new_th
-
-            components.html(
-                f"""
-                <script>
-                    localStorage.setItem('local_auto_view_type', '{new_view}');
-                    localStorage.setItem('local_app_theme', '{new_th}');
-                </script>
-                """,
-                height=0,
-                width=0
-            )
             st.rerun()
 
     with tab_s2:
@@ -793,12 +693,15 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
-# 탭 구성
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
+# 탭 선택 인터페이스 (안전한 세션 상태 처리)
+tab_names = ["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"]
+selected_tab_idx = st.session_state.get("active_main_tab", 0)
 
 # ---------------------------------------------------------
 # [탭 1] 달력 뷰
 # ---------------------------------------------------------
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(tab_names)
+
 with tab1:
     today_df = df[df["날짜"].dt.date == today]
     if not today_df.empty:
@@ -812,47 +715,50 @@ with tab1:
         
         st.markdown(
             f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}';" title="클릭하여 일자별 수정 화면 열기">
+            <div class="today-card">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%Y년 %m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
             </div>
             """,
             unsafe_allow_html=True
         )
+        if st.button("✏️ 오늘 근무 정보 수정하러 가기", key="go_edit_today", use_container_width=True):
+            st.session_state.selected_edit_date_str = today.strftime("%Y-%m-%d")
+            st.session_state.active_main_tab = 1
+            st.rerun()
 
     avail_months = sorted(df["년월"].dropna().unique()) or [today.strftime("%Y-%m")]
     cur_ym = today.strftime("%Y-%m")
     
-    query_month = st.query_params.get("month")
-    
-    if "selected_month" not in st.session_state:
-        if query_month and query_month in avail_months:
-            st.session_state.selected_month = query_month
-        else:
-            st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
+    if "selected_month" not in st.session_state or st.session_state.selected_month not in avail_months:
+        st.session_state.selected_month = cur_ym if cur_ym in avail_months else avail_months[0]
 
     sel_month = st.session_state.selected_month
-    if sel_month not in avail_months:
-        sel_month = cur_ym if cur_ym in avail_months else avail_months[0]
-        st.session_state.selected_month = sel_month
-
-    def on_month_change():
-        st.session_state.selected_month = st.session_state.month_selectbox_widget
-        st.query_params["month"] = st.session_state.month_selectbox_widget
-        st.query_params["local_view"] = st.session_state.auto_view_type
-        st.query_params["local_theme"] = st.session_state.app_theme
-
     selected_index = avail_months.index(sel_month) if sel_month in avail_months else 0
 
-    sel_month = st.selectbox(
-        "조회 월 선택", 
-        avail_months, 
-        index=selected_index,
-        key="month_selectbox_widget",
-        on_change=on_month_change,
-        label_visibility="collapsed"
-    )
+    col_m1, col_m2, col_m3 = st.columns([1, 4, 1])
+    with col_m1:
+        if st.button("◀ 이전달", use_container_width=True, disabled=(selected_index <= 0)):
+            st.session_state.selected_month = avail_months[selected_index - 1]
+            st.rerun()
+    with col_m2:
+        def on_month_select():
+            st.session_state.selected_month = st.session_state.month_selectbox_widget
 
+        st.selectbox(
+            "조회 월 선택", 
+            avail_months, 
+            index=selected_index,
+            key="month_selectbox_widget",
+            on_change=on_month_select,
+            label_visibility="collapsed"
+        )
+    with col_m3:
+        if st.button("다음달 ▶", use_container_width=True, disabled=(selected_index >= len(avail_months) - 1)):
+            st.session_state.selected_month = avail_months[selected_index + 1]
+            st.rerun()
+
+    sel_month = st.session_state.selected_month
     if sel_month in avail_months:
         y, m = map(int, sel_month.split("-"))
         st.markdown(f'<div class="month-header-card"><h2>📅 {y}년 {m}월 근무표</h2></div>', unsafe_allow_html=True)
@@ -887,7 +793,14 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                c_list1, c_list2 = st.columns([4, 1])
+                with c_list1:
+                    st.markdown(f"<div style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; font-size:13px;'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                with c_list2:
+                    if st.button("수정", key=f"btn_list_edit_{d_str}", use_container_width=True):
+                        st.session_state.selected_edit_date_str = d_str
+                        st.session_state.active_main_tab = 1
+                        st.rerun()
         else:
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
@@ -919,7 +832,7 @@ with tab1:
                         w2 = duty_info["p2"]
                         memo = st.session_state.memos.get(d_str, "")
                         
-                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}\';" title="{d_str} 일자별 수정 열기">'
+                        html_content += f'<div class="cal-day-cell {day_class}">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
                         if holiday_name:
@@ -936,57 +849,6 @@ with tab1:
             html_content += '</div>'
             
             st.markdown(html_content, unsafe_allow_html=True)
-
-        cur_idx = avail_months.index(sel_month) if sel_month in avail_months else 0
-        prev_m = avail_months[cur_idx - 1] if cur_idx > 0 else ""
-        next_m = avail_months[cur_idx + 1] if cur_idx < len(avail_months) - 1 else ""
-        
-        left_dis = "disabled" if cur_idx <= 0 else ""
-        right_dis = "disabled" if cur_idx >= len(avail_months) - 1 else ""
-
-        prev_url = f"?month={prev_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
-        next_url = f"?month={next_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
-
-        st.markdown(f"""
-        <style>
-            .floating-cal-btn {{
-                position: fixed;
-                bottom: 16.67vh;
-                z-index: 999999;
-                width: 46px;
-                height: 46px;
-                border-radius: 50%;
-                background: {'#1E293B' if is_dark else '#FFFFFF'};
-                color: {'#3B82F6' if is_dark else '#2563EB'};
-                border: 2px solid #3B82F6;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 18px;
-                font-weight: 900;
-                cursor: pointer;
-                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
-                backdrop-filter: blur(4px);
-                user-select: none;
-                transition: all 0.2s ease-in-out;
-                text-decoration: none !important;
-            }}
-            .floating-cal-btn:hover {{
-                background: #3B82F6;
-                color: #FFFFFF;
-                transform: scale(1.12);
-            }}
-            .floating-cal-btn.left {{ left: 12px; }}
-            .floating-cal-btn.right {{ right: 12px; }}
-            .floating-cal-btn.disabled {{
-                opacity: 0.2;
-                cursor: not-allowed;
-                pointer-events: none;
-            }}
-        </style>
-        <a href="{prev_url}" target="_self" class="floating-cal-btn left {left_dis}" title="이전달 ({prev_m})">◀</a>
-        <a href="{next_url}" target="_self" class="floating-cal-btn right {right_dis}" title="다음달 ({next_m})">▶</a>
-        """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # [탭 2] 일자별 근무자 및 메모 수정 탭
@@ -1088,13 +950,12 @@ with tab2:
         st.info("등록된 날짜 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 3] 전체 수정 뷰 (팝업 오류 수정 완료)
+# [탭 3] 전체 수정 뷰
 # ---------------------------------------------------------
 with tab3:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     
-    # 팝업 간섭 방지용 콜백 함수
     def on_tab3_month_change():
         st.session_state.show_settings_dialog = False
 
@@ -1114,19 +975,15 @@ with tab3:
         if c not in display_cols and c != "년월" and c != "메모":
             display_cols.append(c)
 
-    # 1. target_df 준비 및 '메모' 컬럼 동기화
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
     
-    # 세션에 저장된 memos를 '메모' 컬럼에 매핑
     target_df["메모"] = target_df["날짜"].dt.strftime("%Y-%m-%d").map(lambda d: st.session_state.memos.get(d, ""))
 
-    # 2. 한글 에디터 오류 방지를 위한 TextColumn 명시적 지정
     column_config = {
         "날짜": st.column_config.DateColumn("날짜", format="YYYY-MM-DD", pinned=True, disabled=False),
         "메모": st.column_config.TextColumn("메모", help="해당 일자의 메모를 입력하세요 (한글 지원)", default="")
     }
 
-    # dynamic key를 부여하여 월 변경 시 이전 데이터 충돌을 완전히 예방
     edited_df = st.data_editor(
         target_df, 
         num_rows="dynamic", 
@@ -1136,7 +993,6 @@ with tab3:
     )
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
-        # 메모 열 업데이트 처리
         if "메모" in edited_df.columns:
             for _, r in edited_df.iterrows():
                 if pd.notnull(r["날짜"]):
@@ -1147,7 +1003,6 @@ with tab3:
                     else:
                         st.session_state.memos.pop(d_str, None)
             
-            # 저장 데이터 프레임에서는 '메모' 열 제거하여 구조 통일
             edited_df_clean = edited_df.drop(columns=["메모"], errors="ignore")
         else:
             edited_df_clean = edited_df.copy()

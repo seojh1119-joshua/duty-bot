@@ -402,10 +402,10 @@ def update_excel_download_bytes(df):
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"], errors="coerce").dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
         
-        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), "") if pd.notnull(d) else "")
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -418,10 +418,10 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"], errors="coerce").dt.strftime("%Y-%m-%d")
         memos = st.session_state.get("memos", {})
         
-        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(pd.to_datetime(d).strftime('%Y-%m-%d')), ""))
+        save_df["메모"] = save_df["날짜"].map(lambda d: memos.get(str(d), "") if pd.notnull(d) else "")
         
         os.makedirs(os.path.dirname(os.path.abspath(file_path)), exist_ok=True)
         
@@ -439,7 +439,7 @@ def save_app_state(df, sheet_name, memos):
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
-            save_df["날짜"] = pd.to_datetime(save_df["날짜"]).dt.strftime("%Y-%m-%d")
+            save_df["날짜"] = pd.to_datetime(save_df["날짜"], errors="coerce").dt.strftime("%Y-%m-%d")
         state_data = {
             "selected_sheet": sheet_name, 
             "memos": memos, 
@@ -1089,13 +1089,12 @@ with tab2:
         st.info("등록된 날짜 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 3] 전체 수정 뷰 (팝업 오류 수정 완료)
+# [탭 3] 전체 수정 뷰
 # ---------------------------------------------------------
 with tab3:
     st.subheader("전체 근무표 에디터 수정")
     edit_ms = ["전체 기간"] + sorted(df["년월"].dropna().unique())
     
-    # 팝업 간섭 방지용 콜백 함수
     def on_tab3_month_change():
         st.session_state.show_settings_dialog = False
 
@@ -1115,19 +1114,17 @@ with tab3:
         if c not in display_cols and c != "년월" and c != "메모":
             display_cols.append(c)
 
-    # 1. target_df 준비 및 '메모' 컬럼 동기화
     target_df = df[display_cols].copy() if sel_ed_m == "전체 기간" else df[df["년월"] == sel_ed_m][display_cols].copy()
     
-    # 세션에 저장된 memos를 '메모' 컬럼에 매핑
-    target_df["메모"] = target_df["날짜"].dt.strftime("%Y-%m-%d").map(lambda d: st.session_state.memos.get(d, ""))
+    target_df["메모"] = pd.to_datetime(target_df["날짜"], errors="coerce").dt.strftime("%Y-%m-%d").map(
+        lambda d: st.session_state.memos.get(str(d), "") if pd.notnull(d) else ""
+    )
 
-    # 2. 한글 에디터 오류 방지를 위한 TextColumn 명시적 지정
     column_config = {
         "날짜": st.column_config.DateColumn("날짜", format="YYYY-MM-DD", pinned=True, disabled=False),
         "메모": st.column_config.TextColumn("메모", help="해당 일자의 메모를 입력하세요 (한글 지원)", default="")
     }
 
-    # dynamic key를 부여하여 월 변경 시 이전 데이터 충돌을 완전히 예방
     edited_df = st.data_editor(
         target_df, 
         num_rows="dynamic", 
@@ -1137,18 +1134,18 @@ with tab3:
     )
 
     if st.button("변경사항 일괄 저장", use_container_width=True, type="primary"):
-        # 메모 열 업데이트 처리
         if "메모" in edited_df.columns:
             for _, r in edited_df.iterrows():
                 if pd.notnull(r["날짜"]):
-                    d_str = pd.to_datetime(r["날짜"]).strftime("%Y-%m-%d")
-                    m_val = str(r["메모"]).strip() if pd.notnull(r["메모"]) else ""
-                    if m_val and m_val.lower() not in ["nan", "none"]:
-                        st.session_state.memos[d_str] = m_val
-                    else:
-                        st.session_state.memos.pop(d_str, None)
+                    d_dt = pd.to_datetime(r["날짜"], errors="coerce")
+                    if pd.notnull(d_dt):
+                        d_str = d_dt.strftime("%Y-%m-%d")
+                        m_val = str(r["메모"]).strip() if pd.notnull(r["메모"]) else ""
+                        if m_val and m_val.lower() not in ["nan", "none"]:
+                            st.session_state.memos[d_str] = m_val
+                        else:
+                            st.session_state.memos.pop(d_str, None)
             
-            # 저장 데이터 프레임에서는 '메모' 열 제거하여 구조 통일
             edited_df_clean = edited_df.drop(columns=["메모"], errors="ignore")
         else:
             edited_df_clean = edited_df.copy()
@@ -1383,7 +1380,10 @@ with tab5:
                         }
                         try:
                             resp = requests.post(url, headers=headers, json=payload, timeout=10)
-                            res_data = resp.json()
+                            try:
+                                res_data = resp.json()
+                            except Exception:
+                                res_data = resp.text
                             if resp.status_code in [200, 201]:
                                 success_count += 1
                                 st.success(f"✅ [{t_info['name']}] 님에게 전송 성공!")
@@ -1433,7 +1433,10 @@ with tab5:
                             }
                             try:
                                 resp = requests.post(url, headers=headers, json=payload, timeout=10)
-                                res_data = resp.json()
+                                try:
+                                    res_data = resp.json()
+                                except Exception:
+                                    res_data = resp.text
                                 if resp.status_code in [200, 201]:
                                     st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
                                 else:

@@ -66,6 +66,8 @@ st.set_page_config(
 
 def load_local_config():
     default_config = {
+        "auto_view_type": "🗓️ 가로형 Grid",
+        "app_theme": "☀️ 화이트 테마",
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
@@ -97,11 +99,26 @@ def save_local_config(key, value):
 
 local_cfg = load_local_config()
 
+# ---------------------------------------------------------
+# LocalStorage 및 Query Params 동기화 매핑
+# ---------------------------------------------------------
+VIEW_MAP_REV = {"grid": "🗓️ 가로형 Grid", "list": "📄 세로형 리스트"}
+VIEW_MAP_FWD = {"🗓️ 가로형 Grid": "grid", "📄 세로형 리스트": "list"}
+THEME_MAP_REV = {"white": "☀️ 화이트 테마", "black": "🌙 블랙 테마"}
+THEME_MAP_FWD = {"☀️ 화이트 테마": "white", "🌙 블랙 테마": "black"}
+
+# URL 파라미터 확인 및 최신화
+display_view_param = st.query_params.get("local_view")
+display_theme_param = st.query_params.get("local_theme")
+
+init_view = VIEW_MAP_REV.get(display_view_param, local_cfg.get("auto_view_type", "🗓️ 가로형 Grid"))
+init_theme = THEME_MAP_REV.get(display_theme_param, local_cfg.get("app_theme", "☀️ 화이트 테마"))
+
 # 세션 상태 기본값 설정
 for k, v in [
     ("is_app_closed", False), ("show_settings_dialog", False), ("show_exit_dialog", False), ("show_today_dialog", False),
-    ("auto_view_type", "🗓️ 가로형 Grid"),
-    ("app_theme", "☀️ 화이트 테마"),
+    ("auto_view_type", init_view),
+    ("app_theme", init_theme),
     ("sms_api_key", local_cfg.get("sms_api_key", "")),
     ("sms_api_secret", local_cfg.get("sms_api_secret", "")),
     ("sms_sender_phone", local_cfg.get("sms_sender_phone", "")),
@@ -109,48 +126,6 @@ for k, v in [
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
-
-# ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화 유틸리티 (400 에러 방지)
-# ---------------------------------------------------------
-VIEW_MAP_REV = {"grid": "🗓️ 가로형 Grid", "list": "📄 세로형 리스트"}
-VIEW_MAP_FWD = {"🗓️ 가로형 Grid": "grid", "📄 세로형 리스트": "list"}
-THEME_MAP_REV = {"white": "☀️ 화이트 테마", "black": "🌙 블랙 테마"}
-THEME_MAP_FWD = {"☀️ 화이트 테마": "white", "🌙 블랙 테마": "black"}
-
-display_view_param = st.query_params.get("local_view")
-display_theme_param = st.query_params.get("local_theme")
-
-if display_view_param in VIEW_MAP_REV:
-    st.session_state.auto_view_type = VIEW_MAP_REV[display_view_param]
-if display_theme_param in THEME_MAP_REV:
-    st.session_state.app_theme = THEME_MAP_REV[display_theme_param]
-
-if not display_theme_param or not display_view_param:
-    components.html(
-        """
-        <script>
-            const localView = localStorage.getItem('local_auto_view_type') || 'grid';
-            const localTheme = localStorage.getItem('local_app_theme') || 'white';
-            const urlParams = new URLSearchParams(window.parent.location.search);
-            let updateNeeded = false;
-            
-            if (!urlParams.get('local_view')) {
-                urlParams.set('local_view', localView);
-                updateNeeded = true;
-            }
-            if (!urlParams.get('local_theme')) {
-                urlParams.set('local_theme', localTheme);
-                updateNeeded = true;
-            }
-            if (updateNeeded) {
-                window.parent.location.search = urlParams.toString();
-            }
-        </script>
-        """,
-        height=0,
-        width=0
-    )
 
 if st.query_params.get("open_today") == "1":
     st.session_state.update({
@@ -360,24 +335,6 @@ responsive_css = f"""
     .sticky-table th:nth-child(1) {{ z-index: 7; background-color: {table_header_bg}; }}
     .sticky-table th:nth-child(2) {{ z-index: 7; background-color: {table_header_bg}; }}
 </style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {{
-        let lastClickTime = 0;
-        document.addEventListener('touchstart', (e) => {{
-            const selectEl = e.target.closest('select, [data-baseweb="select"]');
-            if (selectEl) {{
-                const currentTime = new Date().getTime();
-                const clickInterval = currentTime - lastClickTime;
-                if (clickInterval < 1000 && clickInterval > 0) {{
-                    selectEl.focus();
-                    if (typeof selectEl.click === 'function') selectEl.click();
-                }}
-                lastClickTime = currentTime;
-            }}
-        }}, {{ passive: true }});
-    }});
-</script>
 """
 st.markdown(responsive_css, unsafe_allow_html=True)
 
@@ -633,27 +590,23 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
+            # 1. 세션 저장
             st.session_state.auto_view_type = new_view
             st.session_state.app_theme = new_th
             st.session_state.show_settings_dialog = False
 
+            # 2. 로컬 JSON 설정 파일 저장
+            save_local_config("auto_view_type", new_view)
+            save_local_config("app_theme", new_th)
+
+            # 3. URL Query Parameter 업데이트
             v_code = VIEW_MAP_FWD.get(new_view, "grid")
             t_code = THEME_MAP_FWD.get(new_th, "white")
+            st.query_params["local_view"] = v_code
+            st.query_params["local_theme"] = t_code
 
-            components.html(
-                f"""
-                <script>
-                    localStorage.setItem('local_auto_view_type', '{v_code}');
-                    localStorage.setItem('local_app_theme', '{t_code}');
-                    const urlParams = new URLSearchParams(window.parent.location.search);
-                    urlParams.set('local_view', '{v_code}');
-                    urlParams.set('local_theme', '{t_code}');
-                    window.parent.location.search = urlParams.toString();
-                </script>
-                """,
-                height=0,
-                width=0
-            )
+            # 4. 즉시 재실행
+            st.rerun()
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)

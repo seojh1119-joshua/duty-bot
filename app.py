@@ -111,22 +111,27 @@ for k, v in [
         st.session_state[k] = v
 
 # ---------------------------------------------------------
-# LocalStorage 및 Query Params 동기화
+# LocalStorage 및 Query Params 동기화 유틸리티 (400 에러 방지)
 # ---------------------------------------------------------
+VIEW_MAP_REV = {"grid": "🗓️ 가로형 Grid", "list": "📄 세로형 리스트"}
+VIEW_MAP_FWD = {"🗓️ 가로형 Grid": "grid", "📄 세로형 리스트": "list"}
+THEME_MAP_REV = {"white": "☀️ 화이트 테마", "black": "🌙 블랙 테마"}
+THEME_MAP_FWD = {"☀️ 화이트 테마": "white", "🌙 블랙 테마": "black"}
+
 display_view_param = st.query_params.get("local_view")
 display_theme_param = st.query_params.get("local_theme")
 
-if display_view_param:
-    st.session_state.auto_view_type = display_view_param
-if display_theme_param:
-    st.session_state.app_theme = display_theme_param
+if display_view_param in VIEW_MAP_REV:
+    st.session_state.auto_view_type = VIEW_MAP_REV[display_view_param]
+if display_theme_param in THEME_MAP_REV:
+    st.session_state.app_theme = THEME_MAP_REV[display_theme_param]
 
 if not display_theme_param or not display_view_param:
     components.html(
         """
         <script>
-            const localView = localStorage.getItem('local_auto_view_type') || '🗓️ 가로형 Grid';
-            const localTheme = localStorage.getItem('local_app_theme') || '☀️ 화이트 테마';
+            const localView = localStorage.getItem('local_auto_view_type') || 'grid';
+            const localTheme = localStorage.getItem('local_app_theme') || 'white';
             const urlParams = new URLSearchParams(window.parent.location.search);
             let updateNeeded = false;
             
@@ -391,7 +396,6 @@ def get_solapi_auth_headers(api_key, api_secret):
 # 파일 유틸 및 스마트 로더 함수
 # ---------------------------------------------------------
 def get_initial_excel_file():
-    """우선순위: data/숙직근무표.xlsx -> DATA/ -> 기타 .xlsx"""
     if os.path.exists(DEFAULT_EXCEL_PATH):
         return DEFAULT_EXCEL_PATH
     candidates = glob.glob(os.path.join("DATA", "*.xlsx")) + glob.glob(os.path.join("data", "*.xlsx")) + glob.glob("*.xlsx")
@@ -435,7 +439,6 @@ def save_to_excel_file(df, file_path, sheet_name="숙직근무자"):
         return False
 
 def save_app_state(df, sheet_name, memos):
-    """수정된 데이터프레임과 메모를 JSON 및 기본 엑셀에 영구 저장"""
     try:
         save_df = df.copy()
         if "날짜" in save_df.columns:
@@ -454,7 +457,6 @@ def save_app_state(df, sheet_name, memos):
         st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
 
 def load_saved_app_state():
-    """영구 저장된 JSON 데이터 복원 함수"""
     if os.path.exists(PERSISTENCE_STATE_PATH):
         try:
             with open(PERSISTENCE_STATE_PATH, "r", encoding="utf-8") as f:
@@ -635,20 +637,23 @@ def settings_dialog():
             st.session_state.app_theme = new_th
             st.session_state.show_settings_dialog = False
 
-            st.query_params["local_view"] = new_view
-            st.query_params["local_theme"] = new_th
+            v_code = VIEW_MAP_FWD.get(new_view, "grid")
+            t_code = THEME_MAP_FWD.get(new_th, "white")
 
             components.html(
                 f"""
                 <script>
-                    localStorage.setItem('local_auto_view_type', '{new_view}');
-                    localStorage.setItem('local_app_theme', '{new_th}');
+                    localStorage.setItem('local_auto_view_type', '{v_code}');
+                    localStorage.setItem('local_app_theme', '{t_code}');
+                    const urlParams = new URLSearchParams(window.parent.location.search);
+                    urlParams.set('local_view', '{v_code}');
+                    urlParams.set('local_theme', '{t_code}');
+                    window.parent.location.search = urlParams.toString();
                 </script>
                 """,
                 height=0,
                 width=0
             )
-            st.rerun()
 
     with tab_s2:
         st.markdown('<div class="setting-box">', unsafe_allow_html=True)
@@ -794,6 +799,10 @@ if st.button("⚙️ 화면 및 설정 관리 열기", use_container_width=True)
     })
     st.rerun()
 
+# URL 인코딩 안전 파라미터 생성
+curr_v_code = VIEW_MAP_FWD.get(st.session_state.auto_view_type, "grid")
+curr_t_code = THEME_MAP_FWD.get(st.session_state.app_theme, "white")
+
 # 탭 구성
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📅 달력", "✏️ 일자별 수정", "📋 전체 수정", "📊 통계", "💬 문자통보", "🔍 원본"])
 
@@ -813,7 +822,7 @@ with tab1:
         
         st.markdown(
             f"""
-            <div class="today-card" onclick="window.location.href='?open_today=1&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}';" title="클릭하여 일자별 수정 화면 열기">
+            <div class="today-card" onclick="window.location.href='?open_today=1&local_view={curr_v_code}&local_theme={curr_t_code}';" title="클릭하여 일자별 수정 화면 열기">
                 <div class="today-title">오늘 근무 안내 ({today.strftime("%Y년 %m월 %d일")})</div>
                 <div class="today-content">1: <span>{p1}</span> | 2: <span>{p2}</span>{memo_txt}</div>
             </div>
@@ -840,8 +849,8 @@ with tab1:
     def on_month_change():
         st.session_state.selected_month = st.session_state.month_selectbox_widget
         st.query_params["month"] = st.session_state.month_selectbox_widget
-        st.query_params["local_view"] = st.session_state.auto_view_type
-        st.query_params["local_theme"] = st.session_state.app_theme
+        st.query_params["local_view"] = curr_v_code
+        st.query_params["local_theme"] = curr_t_code
 
     selected_index = avail_months.index(sel_month) if sel_month in avail_months else 0
 
@@ -888,7 +897,7 @@ with tab1:
                 hol_tag = f"[{holiday_name}] " if holiday_name else ""
                 memo_s = f" | 📌 {st.session_state.memos.get(d_str, '')}" if st.session_state.memos.get(d_str) else ""
                 
-                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div onclick=\"window.location.href='?click_date={d_str}&local_view={curr_v_code}&local_theme={curr_t_code}';\" style='background:{box_bg}; border:1px solid {border_color}; border-radius:10px; padding:8px 12px; margin-bottom:6px; font-size:13px; cursor:pointer;' title='클릭하여 일자별 수정'><b>{hol_tag}{d:02d}일({weekday_str})</b> | {info['p1']} / {info['p2']}{memo_s}</div>", unsafe_allow_html=True)
         else:
             html_content = '<div class="cal-container">'
             weekdays = [("일", "text-sun"), ("월", ""), ("화", ""), ("수", ""), ("목", ""), ("금", ""), ("토", "text-sat")]
@@ -920,7 +929,7 @@ with tab1:
                         w2 = duty_info["p2"]
                         memo = st.session_state.memos.get(d_str, "")
                         
-                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}\';" title="{d_str} 일자별 수정 열기">'
+                        html_content += f'<div class="cal-day-cell {day_class}" onclick="window.location.href=\'?click_date={d_str}&local_view={curr_v_code}&local_theme={curr_t_code}\';" title="{d_str} 일자별 수정 열기">'
                         html_content += f'<span class="cal-day-number {text_color_class}">{day}</span>'
                         
                         if holiday_name:
@@ -945,8 +954,8 @@ with tab1:
         left_dis = "disabled" if cur_idx <= 0 else ""
         right_dis = "disabled" if cur_idx >= len(avail_months) - 1 else ""
 
-        prev_url = f"?month={prev_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
-        next_url = f"?month={next_m}&local_view={st.session_state.auto_view_type}&local_theme={st.session_state.app_theme}"
+        prev_url = f"?month={prev_m}&local_view={curr_v_code}&local_theme={curr_t_code}"
+        next_url = f"?month={next_m}&local_view={curr_v_code}&local_theme={curr_t_code}"
 
         st.markdown(f"""
         <style>

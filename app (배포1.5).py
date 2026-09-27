@@ -8,6 +8,7 @@ import json
 import hmac
 import hashlib
 import uuid
+import re
 import requests
 import pandas as pd
 import streamlit as st
@@ -379,7 +380,7 @@ st.markdown(responsive_css, unsafe_allow_html=True)
 # Solapi 인증 헤더 생성 유틸 함수
 # ---------------------------------------------------------
 def get_solapi_auth_headers(api_key, api_secret):
-    date = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    date = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     salt = uuid.uuid4().hex
     data = date + salt
     signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
@@ -1350,7 +1351,7 @@ with tab5:
         if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
             api_key = st.session_state.get("sms_api_key", "").strip()
             api_secret = st.session_state.get("sms_api_secret", "").strip()
-            sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
+            sender_ph = re.sub(r'[^0-9]', '', st.session_state.get("sms_sender_phone", ""))
 
             if not api_key or not api_secret or not sender_ph:
                 st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
@@ -1368,7 +1369,11 @@ with tab5:
                         if opt == "내 근무에만 받기" and t_info["name"] not in [m_p1, m_p2]:
                             continue
                             
-                        dest_phone = t_info["phone"].replace("-", "").strip()
+                        dest_phone = re.sub(r'[^0-9]', '', str(t_info["phone"]))
+                        if not dest_phone:
+                            st.warning(f"⚠️ [{t_info.get('name')}] 님의 휴대전화번호 형식이 바르지 않습니다.")
+                            continue
+
                         payload = {
                             "message": {
                                 "to": dest_phone,
@@ -1408,30 +1413,33 @@ with tab5:
                     target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
                     api_key = st.session_state.get("sms_api_key", "").strip()
                     api_secret = st.session_state.get("sms_api_secret", "").strip()
-                    sender_ph = st.session_state.get("sms_sender_phone", "").replace("-", "").strip()
+                    sender_ph = re.sub(r'[^0-9]', '', st.session_state.get("sms_sender_phone", ""))
 
                     if not api_key or not api_secret or not sender_ph:
                         st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키와 발신번호를 설정해주세요.")
                     elif target_w_obj and target_w_obj.get("phone"):
-                        dest_phone = target_w_obj["phone"].replace("-", "").strip()
-                        url = "https://api.solapi.com/messages/v4/send"
-                        headers = get_solapi_auth_headers(api_key, api_secret)
-                        payload = {
-                            "message": {
-                                "to": dest_phone,
-                                "from": sender_ph,
-                                "text": direct_msg_input
+                        dest_phone = re.sub(r'[^0-9]', '', str(target_w_obj["phone"]))
+                        if not dest_phone:
+                            st.warning("⚠️ 선택한 근무자의 유효한 전화번호 형식을 찾을 수 없습니다.")
+                        else:
+                            url = "https://api.solapi.com/messages/v4/send"
+                            headers = get_solapi_auth_headers(api_key, api_secret)
+                            payload = {
+                                "message": {
+                                    "to": dest_phone,
+                                    "from": sender_ph,
+                                    "text": direct_msg_input
+                                }
                             }
-                        }
-                        try:
-                            resp = requests.post(url, headers=headers, json=payload, timeout=10)
-                            res_data = resp.json()
-                            if resp.status_code in [200, 201]:
-                                st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
-                            else:
-                                st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {res_data}")
-                        except Exception as ex:
-                            st.error(f"전송 실패: {ex}")
+                            try:
+                                resp = requests.post(url, headers=headers, json=payload, timeout=10)
+                                res_data = resp.json()
+                                if resp.status_code in [200, 201]:
+                                    st.success(f"✅ [{selected_direct_worker}] 님에게 즉시 메시지 전송이 완료되었습니다! (전화번호: {dest_phone})")
+                                else:
+                                    st.error(f"❌ 전송 실패 (코드 {resp.status_code}): {res_data}")
+                            except Exception as ex:
+                                st.error(f"전송 실패: {ex}")
                     else:
                         st.warning("⚠️ 선택한 근무자의 유효한 전화번호를 찾을 수 없습니다.")
 
@@ -1468,7 +1476,7 @@ with tab5:
         st.markdown("#### 📄 등록된 근무자 연락처 리스트")
         if workers_db:
             def mask_phone(phone_str):
-                p_clean = phone_str.replace("-", "").strip()
+                p_clean = re.sub(r'[^0-9]', '', str(phone_str))
                 if len(p_clean) >= 10:
                     return f"{p_clean[:3]}-****-{p_clean[7:]}"
                 return "***-****-***"

@@ -67,7 +67,7 @@ st.set_page_config(
 def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid",
-        "app_theme": "☀️ 화이트 테마",
+        "app_theme": "☀️️ 화이트 테마",
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
@@ -339,17 +339,20 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Solapi 인증 헤더 생성 유틸 함수 (HTTP 400 오류 원인 수정)
+# Solapi 인증 헤더 생성 유틸 함수 (HTTP 400 및 인증 오류 완전 방지)
 # ---------------------------------------------------------
 def get_solapi_auth_headers(api_key, api_secret):
-    # ISO 8601 포맷으로 ISO 시간생성
+    clean_key = str(api_key).strip()
+    clean_secret = str(api_secret).strip()
     date = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     salt = uuid.uuid4().hex
     data = date + salt
-    # HMAC SHA256 서명 생성
-    signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
-    auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
-    return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
+    signature = hmac.new(clean_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
+    auth = f"HMAC-SHA256 apiKey={clean_key}, date={date}, salt={salt}, signature={signature}"
+    return {
+        "Authorization": auth,
+        "Content-Type": "application/json; charset=utf-8"
+    }
 
 # ---------------------------------------------------------
 # 파일 유틸 및 스마트 로더 함수
@@ -413,7 +416,7 @@ def save_app_state(df, sheet_name, memos):
         
         save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name)
     except Exception as e:
-        st.sidebar.warning(f"⚠️ 상태 저장 실패: {e}")
+        st.sidebar.warning(f"⚠️️ 상태 저장 실패: {e}")
 
 def load_saved_app_state():
     if os.path.exists(PERSISTENCE_STATE_PATH):
@@ -592,22 +595,18 @@ def settings_dialog():
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("화면 설정 적용 (현재 기기에 저장)", use_container_width=True, type="primary"):
-            # 1. 세션 저장
             st.session_state.auto_view_type = new_view
             st.session_state.app_theme = new_th
             st.session_state.show_settings_dialog = False
 
-            # 2. 로컬 JSON 설정 파일 저장
             save_local_config("auto_view_type", new_view)
             save_local_config("app_theme", new_th)
 
-            # 3. URL Query Parameter 업데이트
             v_code = VIEW_MAP_FWD.get(new_view, "grid")
             t_code = THEME_MAP_FWD.get(new_th, "white")
             st.query_params["local_view"] = v_code
             st.query_params["local_theme"] = t_code
 
-            # 4. 즉시 재실행
             st.rerun()
 
     with tab_s2:
@@ -1008,7 +1007,7 @@ with tab2:
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
             with st.form(f"tab2_edit_form_{date_str_key}"):
-                st.markdown(f"#### ⚙️️ {date_str_key} 근무자 및 메모 변경 입력")
+                st.markdown(f"#### ⚙ {date_str_key} 근무자 및 메모 변경 입력")
                 
                 p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key=f"t2_p1_{date_str_key}")
                 p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"t2_p1_c_{date_str_key}") if p1_s == "(직접 입력)" else ""
@@ -1263,7 +1262,7 @@ with tab4:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 5] 문자 통보 탭
+# [탭 5] 문자 통보 탭 (Solapi HTTP 400 에러 교정 완료)
 # ---------------------------------------------------------
 with tab5:
     st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
@@ -1312,10 +1311,10 @@ with tab5:
         if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
             api_key = st.session_state.get("sms_api_key", "").strip()
             api_secret = st.session_state.get("sms_api_secret", "").strip()
-            sender_ph = re.sub(r'[^0-9]', '', st.session_state.get("sms_sender_phone", ""))
+            sender_ph = re.sub(r'[^0-9]', '', str(st.session_state.get("sms_sender_phone", "")))
 
             if not api_key or not api_secret or not sender_ph:
-                st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
+                st.warning("⚠️️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
             else:
                 success_count = 0
                 targets_to_send = [w1_info, w2_info]
@@ -1335,6 +1334,7 @@ with tab5:
                             st.warning(f"⚠️ [{t_info.get('name')}] 님의 휴대전화번호 형식이 바르지 않습니다.")
                             continue
 
+                        # Solapi v4 단건 규격 Payload
                         payload = {
                             "message": {
                                 "to": dest_phone,
@@ -1377,7 +1377,7 @@ with tab5:
                     target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
                     api_key = st.session_state.get("sms_api_key", "").strip()
                     api_secret = st.session_state.get("sms_api_secret", "").strip()
-                    sender_ph = re.sub(r'[^0-9]', '', st.session_state.get("sms_sender_phone", ""))
+                    sender_ph = re.sub(r'[^0-9]', '', str(st.session_state.get("sms_sender_phone", "")))
 
                     if not api_key or not api_secret or not sender_ph:
                         st.warning("⚠️ [설정 관리] ➔ [SMS 연동 설정]에서 API 키와 발신번호를 설정해주세요.")

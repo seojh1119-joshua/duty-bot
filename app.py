@@ -339,12 +339,14 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Solapi 인증 헤더 생성 유틸 함수
+# Solapi 인증 헤더 생성 유틸 함수 (HTTP 400 오류 원인 수정)
 # ---------------------------------------------------------
 def get_solapi_auth_headers(api_key, api_secret):
+    # ISO 8601 포맷으로 ISO 시간생성
     date = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     salt = uuid.uuid4().hex
     data = date + salt
+    # HMAC SHA256 서명 생성
     signature = hmac.new(api_secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
     auth = f"HMAC-SHA256 apiKey={api_key}, date={date}, salt={salt}, signature={signature}"
     return {"Authorization": auth, "Content-Type": "application/json; charset=utf-8"}
@@ -1006,7 +1008,7 @@ with tab2:
                 return worker_options.index(val_str) if val_str in worker_options else len(worker_options) - 1
 
             with st.form(f"tab2_edit_form_{date_str_key}"):
-                st.markdown(f"#### ⚙️ {date_str_key} 근무자 및 메모 변경 입력")
+                st.markdown(f"#### ⚙️️ {date_str_key} 근무자 및 메모 변경 입력")
                 
                 p1_s = st.selectbox(f"근무자1 (현재: {disp_p1})", worker_options, index=get_idx(curr_p1), key=f"t2_p1_{date_str_key}")
                 p1_c = st.text_input("직접입력1", value=curr_p1 if p1_s == "(직접 입력)" else "", key=f"t2_p1_c_{date_str_key}") if p1_s == "(직접 입력)" else ""

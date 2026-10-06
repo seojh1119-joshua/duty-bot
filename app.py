@@ -67,7 +67,7 @@ st.set_page_config(
 def load_local_config():
     default_config = {
         "auto_view_type": "🗓️ 가로형 Grid",
-        "app_theme": "☀️️ 화이트 테마",
+        "app_theme": "☀ 화이트 테마",
         "sms_api_key": "",
         "sms_api_secret": "",
         "sms_sender_phone": "",
@@ -105,7 +105,7 @@ local_cfg = load_local_config()
 VIEW_MAP_REV = {"grid": "🗓️ 가로형 Grid", "list": "📄 세로형 리스트"}
 VIEW_MAP_FWD = {"🗓️ 가로형 Grid": "grid", "📄 세로형 리스트": "list"}
 THEME_MAP_REV = {"white": "☀️ 화이트 테마", "black": "🌙 블랙 테마"}
-THEME_MAP_FWD = {"☀️ 화이트 테마": "white", "🌙 블랙 테마": "black"}
+THEME_MAP_FWD = {"☀️️ 화이트 테마": "white", "🌙 블랙 테마": "black"}
 
 # URL 파라미터 확인 및 최신화
 display_view_param = st.query_params.get("local_view")
@@ -339,11 +339,12 @@ responsive_css = f"""
 st.markdown(responsive_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Solapi 인증 헤더 생성 유틸 함수 (HTTP 400 및 인증 오류 완전 방지)
+# Solapi 인증 헤더 생성 유틸 함수 (HTTP 400 완전 방지)
 # ---------------------------------------------------------
 def get_solapi_auth_headers(api_key, api_secret):
     clean_key = str(api_key).strip()
     clean_secret = str(api_secret).strip()
+    # Solapi API v4 규격: ISO 8601 포맷 (UTC 기준)
     date = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     salt = uuid.uuid4().hex
     data = date + salt
@@ -416,7 +417,7 @@ def save_app_state(df, sheet_name, memos):
         
         save_to_excel_file(df, DEFAULT_EXCEL_PATH, sheet_name)
     except Exception as e:
-        st.sidebar.warning(f"⚠️️ 상태 저장 실패: {e}")
+        st.sidebar.warning(f"⚠ 상태 저장 실패: {e}")
 
 def load_saved_app_state():
     if os.path.exists(PERSISTENCE_STATE_PATH):
@@ -1262,12 +1263,12 @@ with tab4:
         st.info("통계 데이터가 없습니다.")
 
 # ---------------------------------------------------------
-# [탭 5] 문자 통보 탭 (Solapi HTTP 400 에러 교정 완료)
+# [탭 5] 문자 통보 탭 (HTTP 400 완전 방지 보완 완료)
 # ---------------------------------------------------------
 with tab5:
     st.subheader("💬 실제 근무자 문자(SMS) 자동 통보 시스템")
     st.markdown("""
-    > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi/CoolSMS API를 통해 근무자에게 SMS를 발송합니다.
+    > 💡 **안내**: 등록된 연락처 DB를 기반으로 Solapi API를 통해 근무자에게 SMS를 발송합니다.
     """)
 
     workers_db = load_workers_db()
@@ -1311,15 +1312,17 @@ with tab5:
         if st.button("📤 실제 근무자들에게 문자(SMS) 일괄 통보 전송", type="primary", use_container_width=True):
             api_key = st.session_state.get("sms_api_key", "").strip()
             api_secret = st.session_state.get("sms_api_secret", "").strip()
+            # 전화번호 하이픈/공백 완전 제거 (Solapi 400 방지)
             sender_ph = re.sub(r'[^0-9]', '', str(st.session_state.get("sms_sender_phone", "")))
 
             if not api_key or not api_secret or not sender_ph:
-                st.warning("⚠️️ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
+                st.warning("⚠ [설정 관리] ➔ [SMS 연동 설정] 탭에서 SMS API 키, 시크릿, 발신자 번호를 모두 입력해주세요.")
+            elif not custom_sms_msg.strip():
+                st.warning("⚠️ 발송할 문자 내용을 입력해주세요.")
             else:
                 success_count = 0
                 targets_to_send = [w1_info, w2_info]
                 url = "https://api.solapi.com/messages/v4/send"
-                headers = get_solapi_auth_headers(api_key, api_secret)
                 
                 for t_info in targets_to_send:
                     if t_info and t_info.get("phone") and t_info.get("consent_agreed", True):
@@ -1334,12 +1337,15 @@ with tab5:
                             st.warning(f"⚠️ [{t_info.get('name')}] 님의 휴대전화번호 형식이 바르지 않습니다.")
                             continue
 
+                        # 최신 헤더 동적 생성 (매 요청시 timestamp 갱신)
+                        headers = get_solapi_auth_headers(api_key, api_secret)
+                        
                         # Solapi v4 단건 규격 Payload
                         payload = {
                             "message": {
                                 "to": dest_phone,
                                 "from": sender_ph,
-                                "text": custom_sms_msg
+                                "text": custom_sms_msg.strip()
                             }
                         }
                         try:
@@ -1371,8 +1377,10 @@ with tab5:
             
             submitted_direct = st.form_submit_button("🚀 즉시 발송 전송하기", type="primary", use_container_width=True)
             if submitted_direct:
-                if not consent_workers:
+                if not consent_workers or selected_direct_worker == "등록된 동의 근무자 없음":
                     st.warning("⚠️ 수신 동의된 근무자가 존재하지 않습니다.")
+                elif not direct_msg_input.strip():
+                    st.warning("⚠️ 발송할 메시지 내용을 입력해주세요.")
                 else:
                     target_w_obj = next((w for w in workers_db if w["name"] == selected_direct_worker), None)
                     api_key = st.session_state.get("sms_api_key", "").strip()
@@ -1392,7 +1400,7 @@ with tab5:
                                 "message": {
                                     "to": dest_phone,
                                     "from": sender_ph,
-                                    "text": direct_msg_input
+                                    "text": direct_msg_input.strip()
                                 }
                             }
                             try:
